@@ -1,8 +1,8 @@
-/** Địa chỉ API Gateway: mọi request của frontend đi qua đây, không gọi thẳng service. */
+/** Địa chỉ backend TrustSign.Api: frontend chỉ gọi một địa chỉ này. */
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
 
-/** Lỗi theo Problem Details (RFC 9457) mà gateway và các service trả về. */
+/** Lỗi theo Problem Details (RFC 9457) mà backend trả về. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -17,12 +17,48 @@ export class ApiError extends Error {
 
 // Access token chỉ giữ trong bộ nhớ (BR10): tải lại trang là mất, phải gọi /api/auth/refresh để lấy lại.
 let accessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+async function requestRefreshToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        setAccessToken(null);
+        return null;
+      }
+
+      const data = (await response.json()) as { accessToken?: string };
+      const newToken = data.accessToken ?? null;
+      setAccessToken(newToken);
+      return newToken;
+    } catch {
+      setAccessToken(null);
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCount = 0): Promise<T> {
   const headers = new Headers(init.headers);
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -37,6 +73,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     // Gửi kèm cookie refresh token (HttpOnly) cho các endpoint /api/auth.
     credentials: "include",
   });
+
+  // Khi API trả 401, gọi POST /api/auth/refresh một lần rồi thử lại; vẫn 401 thì đưa về trang đăng nhập
+  if (response.status === 401 && retryCount === 0 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/refresh")) {
+    const newToken = await requestRefreshToken();
+    if (newToken) {
+      return apiFetch<T>(path, init, 1);
+    } else {
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+    }
+  }
 
   if (!response.ok) {
     const problem = await response.json().catch(() => null);

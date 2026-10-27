@@ -6,18 +6,17 @@ import { API_URL } from "@/lib/api";
 type Status = "checking" | "up" | "down";
 
 const LABELS: Record<Status, string> = {
-  checking: "Đang kiểm tra gateway…",
-  up: "Gateway đang chạy",
-  down: "Không kết nối được gateway",
+  checking: "Đang kiểm tra backend…",
+  up: "Backend đang chạy",
+  down: "Không kết nối được backend",
 };
 
 const DOT_COLORS: Record<Status, string> = {
-  checking: "bg-zinc-400",
-  up: "bg-emerald-500",
-  down: "bg-red-500",
+  checking: "bg-muted",
+  up: "bg-success",
+  down: "bg-danger",
 };
 
-/** Trang tạm để biết frontend đã gọi được gateway. Thay bằng trang đăng nhập khi làm F01. */
 export function GatewayStatus() {
   const [status, setStatus] = useState<Status>("checking");
 
@@ -34,8 +33,8 @@ export function GatewayStatus() {
   }, []);
 
   return (
-    <p className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-      <span className={`size-2 rounded-full ${DOT_COLORS[status]}`} />
+    <p className="flex items-center gap-2 text-xs text-muted">
+      <span className={`w-2 h-2 rounded-full ${DOT_COLORS[status]}`} />
       {LABELS[status]}
       <code className="font-mono text-xs">{API_URL}</code>
     </p>

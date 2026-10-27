@@ -1,29 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin", "vietnamese"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin", "vietnamese"],
-});
-
 export const metadata: Metadata = {
-  title: "Chữ Tín – Ký kết hợp đồng điện tử",
-  description: "Hệ thống ký kết hợp đồng điện tử Chữ Tín (TrustSign)",
+  title: "Chữ Tín – Quản lý và ký hợp đồng điện tử",
+  description: "Nền tảng quản lý và ký kết hợp đồng điện tử Chữ Tín (TrustSign)",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html
-      lang="vi"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="vi" className="h-full">
+      <body className="min-h-full flex flex-col bg-page text-fg">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }
