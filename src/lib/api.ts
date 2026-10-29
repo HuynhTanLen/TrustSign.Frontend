@@ -58,6 +58,15 @@ async function requestRefreshToken(): Promise<string | null> {
   return refreshPromise;
 }
 
+function shouldRedirectOnUnauthorized(pathname: string): boolean {
+  return (
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/register") &&
+    !pathname.startsWith("/verify-email") &&
+    !pathname.startsWith("/invitations/")
+  );
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCount = 0): Promise<T> {
   const headers = new Headers(init.headers);
   if (accessToken) {
@@ -75,23 +84,30 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCou
   });
 
   // Khi API trả 401, gọi POST /api/auth/refresh một lần rồi thử lại; vẫn 401 thì đưa về trang đăng nhập
-  if (response.status === 401 && retryCount === 0 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/refresh")) {
+  if (
+    response.status === 401 &&
+    retryCount === 0 &&
+    !path.startsWith("/api/auth/login") &&
+    !path.startsWith("/api/auth/refresh")
+  ) {
     const newToken = await requestRefreshToken();
     if (newToken) {
       return apiFetch<T>(path, init, 1);
-    } else {
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-      }
+    } else if (typeof window !== "undefined" && shouldRedirectOnUnauthorized(window.location.pathname)) {
+      const target = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/login?redirect=${encodeURIComponent(target)}`);
     }
   }
 
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
+    const correlationId =
+      response.headers.get("X-Correlation-ID") ??
+      (typeof problem?.correlationId === "string" ? problem.correlationId : null);
     throw new ApiError(
       response.status,
       problem?.code,
-      response.headers.get("X-Correlation-ID"),
+      correlationId,
       problem?.detail ?? problem?.title ?? `Yêu cầu thất bại (${response.status})`,
     );
   }

@@ -1,331 +1,241 @@
 "use client";
 
 import * as React from "react";
-import { Suspense } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Award, Ban, CircleCheck, CircleX, Download, FileText, History, Users } from "lucide-react";
+import { contractsApi, type ContractSigner } from "@/lib/api/contracts";
+import { ROOT_CA_URL } from "@/lib/api/admin";
+import { API_URL } from "@/lib/api";
+import { USE_MOCK } from "@/lib/mock";
+import { useApi } from "@/lib/use-api";
+import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import {
-  ArrowLeft,
-  Download,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  FileSignature,
-  XCircle,
-  Award,
-  Link2,
-} from "lucide-react";
 
-function ContractDetailContent() {
-  const params = useParams();
+const SIGNER_STATUS: Record<ContractSigner["status"], { label: string; className: string }> = {
+  Signed: { label: "Đã ký", className: "bg-badge-completed-bg text-badge-completed-fg" },
+  Current: { label: "Đang chờ ký", className: "bg-badge-signing-bg text-badge-signing-fg" },
+  Waiting: { label: "Chưa tới lượt", className: "bg-badge-draft-bg text-badge-draft-fg" },
+  Declined: { label: "Từ chối", className: "bg-badge-declined-bg text-badge-declined-fg" },
+};
+
+export default function ContractDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const contractId = (params?.id as string) || "TS-SAAS-2026-01";
+  const { data: contract, error, isLoading, reload, mutate } = useApi(`contract:${id}`, () => contractsApi.get(id));
+  const [confirmCancel, setConfirmCancel] = React.useState(false);
+  const [isCancelling, setIsCancelling] = React.useState(false);
 
-  const [status, setStatus] = React.useState<"Completed" | "Signing" | "Cancelled">("Completed");
-
-  const handleDownloadSigned = () => {
-    toast(`Đang tải xuống bản PDF đã đóng dấu số (${contractId}-signed.pdf)`, "success");
-  };
-
-  const handleDownloadRootCa = () => {
-    toast("Đang tải chứng thư gốc TrustSign-Root-CA.cer để tin cậy trên Adobe Reader", "info");
-  };
-
-  const handleCancelContract = () => {
-    if (confirm("Bạn có chắc chắn muốn hủy hợp đồng này?")) {
-      setStatus("Cancelled");
-      toast("Đã hủy hợp đồng thành công", "info");
+  const handleCancel = async () => {
+    setIsCancelling(true);
+    try {
+      await contractsApi.cancel(id);
+      mutate((c) => ({ ...c, status: "Cancelled" }));
+      setConfirmCancel(false);
+      toast("Đã hủy hợp đồng.", "success");
+    } catch {
+      toast("Không hủy được hợp đồng.", "error");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Top Breadcrumb & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/app/contracts"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại danh sách hợp đồng</span>
-          </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">
-              Hợp đồng Dịch vụ Phần mềm SaaS
-            </h1>
-            <Badge contractStatus={status} />
-          </div>
-          <p className="text-sm text-muted">
-            Mã hợp đồng: <strong className="font-mono text-slate-800">{contractId}</strong> • Người tạo:{" "}
-            <strong>Nguyễn Văn An</strong> • Hạn ký: <strong>30/10/2026 17:00</strong>
-          </p>
-        </div>
+  const handleDownload = () => {
+    if (USE_MOCK) {
+      toast("Dữ liệu mẫu không có file PDF.", "info");
+      return;
+    }
+    window.open(`${API_URL}/api/contracts/${encodeURIComponent(id)}/signed-document`, "_blank");
+  };
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href={`/sign/${contractId}`}>
-            <Button variant="secondary" size="md">
-              <FileSignature className="w-4 h-4" />
-              <span>Mở cổng ký công khai</span>
-            </Button>
-          </Link>
-          {status !== "Cancelled" && (
-            <Button variant="danger" size="md" onClick={handleCancelContract}>
-              <XCircle className="w-4 h-4" />
-              <span>Hủy hợp đồng</span>
-            </Button>
+  if (error) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Chi tiết hợp đồng" back={{ href: "/app/contracts", label: "Danh sách hợp đồng" }} />
+        <ErrorState error={error} onRetry={reload} />
+      </div>
+    );
+  }
+
+  if (isLoading || !contract) {
+    return (
+      <div className="flex flex-col gap-6" aria-busy="true" aria-label="Đang tải">
+        <Skeleton className="h-14 w-2/3" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <Skeleton className="h-96 lg:col-span-7" />
+          <Skeleton className="h-96 lg:col-span-5" />
+        </div>
+      </div>
+    );
+  }
+
+  const canCancel = contract.status === "Pending" || contract.status === "Signing";
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        back={{ href: "/app/contracts", label: "Danh sách hợp đồng" }}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-3">
+            {contract.title}
+            <Badge contractStatus={contract.status} />
+          </span>
+        }
+        description={
+          <>
+            Mã <span className="font-mono">{contract.code}</span> · Người tạo {contract.creatorName} · Hạn ký{" "}
+            {formatDateTime(contract.dueAt)}
+          </>
+        }
+        actions={
+          <>
+            {canCancel && (
+              <Button variant="danger" onClick={() => setConfirmCancel(true)}>
+                <Ban className="w-4 h-4" aria-hidden="true" />
+                Hủy hợp đồng
+              </Button>
+            )}
+            {contract.status === "Completed" && (
+              <Button variant="primary" onClick={handleDownload}>
+                <Download className="w-4 h-4" aria-hidden="true" />
+                Tải bản đã ký
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-7 flex flex-col gap-4">
+          <Card title="Tài liệu" icon={FileText} bodyClassName="p-0">
+            {contract.documentUrl ? (
+              <iframe src={contract.documentUrl} title={`Tài liệu ${contract.code}`} className="w-full h-[640px]" />
+            ) : (
+              <div className="h-64 flex flex-col items-center justify-center gap-1 bg-page text-center px-4">
+                <FileText className="w-6 h-6 text-muted" aria-hidden="true" />
+                <p className="text-sm font-semibold text-fg">Chưa có bản xem trước</p>
+                <p className="text-sm text-muted">File PDF hiển thị ở đây khi máy chủ trả về đường dẫn tài liệu.</p>
+              </div>
+            )}
+          </Card>
+
+          {contract.signatures.length > 0 && (
+            <Card
+              title="Chữ ký số"
+              icon={Award}
+              actions={
+                <a href={ROOT_CA_URL} className="text-primary underline underline-offset-2">
+                  Tải Root CA
+                </a>
+              }
+              bodyClassName="p-0"
+            >
+              <ul className="divide-y divide-line">
+                {contract.signatures.map((s) => (
+                  <li key={s.serial} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-fg">
+                        {s.signerName} <span className="font-normal text-muted">({s.signerEmail})</span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Cấp bởi {s.issuer} · Serial <span className="font-mono">{s.serial}</span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Ký lúc {formatDateTime(s.signedAt)}
+                        {s.timestampAuthority && ` · Dấu thời gian ${s.timestampAuthority}`}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 h-[22px] px-2 rounded-sm text-xs font-semibold shrink-0 ${
+                        s.valid ? "bg-badge-completed-bg text-badge-completed-fg" : "bg-badge-declined-bg text-badge-declined-fg"
+                      }`}
+                    >
+                      {s.valid ? <CircleCheck className="w-3.5 h-3.5" /> : <CircleX className="w-3.5 h-3.5" />}
+                      {s.valid ? "Hợp lệ" : "Không hợp lệ"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="px-4 py-3 border-t border-line bg-page text-xs text-muted">
+                Để Adobe Reader hiện &quot;chữ ký hợp lệ&quot;, tải Root CA của hệ thống và thêm vào danh sách tin cậy.
+              </p>
+            </Card>
           )}
-          <Button variant="primary" size="md" onClick={handleDownloadSigned}>
-            <Download className="w-4 h-4" />
-            <span>Tải bản đã ký (PDF)</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Two-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: PDF Document Viewer & X.509 Signatures (FE-07) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* PDF Preview Card */}
-          <div className="bg-surface border border-line rounded-2xl p-6 shadow-xs">
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-line">
-              <span className="text-sm font-bold text-slate-900">
-                Xem trước tài liệu hợp đồng (Trang 1 / 2)
-              </span>
-              <span className="text-xs font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full font-semibold">
-                PAdES-B-T Signed PDF
-              </span>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl p-8 bg-white text-sm leading-relaxed space-y-4 shadow-2xs">
-              <div className="text-center pb-4 border-b border-line">
-                <p className="font-bold uppercase text-sm text-slate-900">
-                  CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-                </p>
-                <p className="text-xs italic text-slate-600">Độc lập - Tự do - Hạnh phúc</p>
-                <h2 className="font-bold text-lg uppercase text-slate-900 mt-4">
-                  HỢP ĐỒNG DỊCH VỤ PHẦN MỀM ĐIỆN TỬ
-                </h2>
-                <p className="text-xs font-mono text-slate-500 mt-1">Số: {contractId}/HĐDV-TS</p>
-              </div>
-
-              <p>
-                Hôm nay, ngày <strong>23 tháng 10 năm 2026</strong>, tại Văn phòng Công ty Cổ phần Giải pháp Chữ Tín,
-                chúng tôi gồm có:
-              </p>
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-line space-y-1">
-                <p>
-                  <strong>BÊN CUNG CẤP (BÊN A):</strong> CÔNG TY CỔ PHẦN GIẢI PHÁP CHỮ TÍN
-                </p>
-                <p className="text-xs text-slate-600">
-                  Mã số thuế: 0109827364 • Đại diện: Ông Nguyễn Văn An (Giám đốc)
-                </p>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-line space-y-1">
-                <p>
-                  <strong>BÊN SỬ DỤNG (BÊN B):</strong> CÔNG TY TNHH CÔNG NGHỆ ABC
-                </p>
-                <p className="text-xs text-slate-600">
-                  Mã số thuế: 0314567890 • Đại diện: Ông Trần Bình Minh (Tổng Giám đốc)
-                </p>
-              </div>
-
-              <p>
-                Hai bên thống nhất ký kết hợp đồng cung cấp bản quyền sử dụng nền tảng ký hợp đồng điện tử Chữ Tín
-                (Gói Doanh nghiệp Pro) với thời hạn 12 tháng kể từ ngày ký.
-              </p>
-
-              {/* Signature Boxes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-6 border-t border-line mt-6">
-                <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 text-center">
-                  <p className="text-xs font-bold uppercase text-slate-700">ĐẠI DIỆN BÊN A</p>
-                  <p className="font-serif italic text-xl text-primary font-bold my-2">
-                    Nguyễn Văn An
-                  </p>
-                  <p className="text-xs text-emerald-700 font-semibold">
-                    ✓ Đã ký số X.509 • 23/10/2026 09:15
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 text-center">
-                  <p className="text-xs font-bold uppercase text-slate-700">ĐẠI DIỆN BÊN B</p>
-                  <p className="font-serif italic text-xl text-primary font-bold my-2">
-                    Trần Bình Minh
-                  </p>
-                  <p className="text-xs text-emerald-700 font-semibold">
-                    ✓ Đã ký số X.509 • 23/10/2026 10:42
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Khung Chữ ký số X.509 (FE-07) */}
-          <div className="bg-surface border border-line rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Award className="w-5 h-5 text-primary" />
-                <h2 className="text-base font-bold text-slate-900">
-                  Chứng thư số PAdES & Dấu thời gian TSA (FE-07)
-                </h2>
-              </div>
-              <button
-                onClick={handleDownloadRootCa}
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                Tải Root CA (.cer) cho Adobe Reader →
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-4 rounded-xl border border-line bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">
-                    1. Nguyễn Văn An (an.nguyen@trustsign.vn)
-                  </p>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    Cấp bởi: <strong>TrustSign Issuing CA v1</strong> • Serial:{" "}
-                    <code className="font-mono">5F:2A:90:E4:11:B2</code>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Thời điểm ký: 23/10/2026 09:15:10 • Dấu thời gian: FreeTSA RFC 3161
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                  <ShieldCheck className="w-4 h-4" /> Hợp lệ
-                </span>
-              </div>
-
-              <div className="p-4 rounded-xl border border-line bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">
-                    2. Trần Bình Minh (minh.tb@congngheabc.com)
-                  </p>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    Cấp bởi: <strong>TrustSign Issuing CA v1</strong> • Serial:{" "}
-                    <code className="font-mono">8C:41:03:D9:77:A0</code>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Thời điểm ký: 23/10/2026 10:42:05 • Đóng dấu toàn vẹn hệ thống (System Seal)
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                  <ShieldCheck className="w-4 h-4" /> Hợp lệ
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Right: Signer List & Event Timeline */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Danh sách người ký theo thứ tự */}
-          <div className="bg-surface border border-line rounded-2xl p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-slate-900">
-              Danh sách người ký theo thứ tự
-            </h2>
-
-            <div className="space-y-3">
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
-                    1
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          <Card title="Người ký theo thứ tự" icon={Users} bodyClassName="p-0">
+            <ol className="divide-y divide-line">
+              {contract.signers.map((s) => (
+                <li key={s.order} className="p-4 flex items-start gap-3">
+                  <span
+                    className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold shrink-0 ${
+                      s.status === "Signed" ? "bg-success text-white" : s.status === "Current" ? "bg-primary text-white" : "bg-page text-muted border border-line"
+                    }`}
+                  >
+                    {s.order}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-fg">{s.fullName}</p>
+                    <p className="text-xs text-muted truncate">{s.email}</p>
+                    {s.signedAt && <p className="mt-0.5 text-xs text-muted">Ký lúc {formatDateTime(s.signedAt)}</p>}
+                    {s.declineReason && <p className="mt-0.5 text-xs text-danger">Lý do: {s.declineReason}</p>}
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">Nguyễn Văn An</p>
-                    <p className="text-xs text-slate-600">an.nguyen@trustsign.vn</p>
-                    <p className="text-xs text-emerald-700 font-semibold mt-0.5">
-                      Đã ký lúc 23/10/2026 09:15
-                    </p>
-                  </div>
-                </div>
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              </div>
-
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
-                    2
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">Trần Bình Minh</p>
-                    <p className="text-xs text-slate-600">minh.tb@congngheabc.com</p>
-                    <p className="text-xs text-emerald-700 font-semibold mt-0.5">
-                      Đã ký lúc 23/10/2026 10:42
-                    </p>
-                  </div>
-                </div>
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* Dòng thời gian sự kiện Hash-Chain */}
-          <div className="bg-surface border border-line rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Link2 className="w-5 h-5 text-primary" />
-                <h2 className="text-base font-bold text-slate-900">
-                  Dòng thời gian sự kiện (Hash-Chain)
-                </h2>
-              </div>
-              <Link href="/verify" className="text-xs font-semibold text-primary hover:underline">
-                Xác minh độc lập →
-              </Link>
-            </div>
-
-            <div className="space-y-4 relative before:absolute before:top-3 before:bottom-3 before:left-3.5 before:w-0.5 before:bg-slate-200">
-              {[
-                {
-                  time: "23/10/2026 10:42",
-                  title: "Hoàn tất hợp đồng & Đóng dấu số hệ thống",
-                  desc: "Tất cả các bên đã ký. Đóng dấu PAdES-B-T.",
-                  hash: "9a3f2b...d567",
-                },
-                {
-                  time: "23/10/2026 10:41",
-                  title: "Trần Bình Minh xác thực OTP & ký số",
-                  desc: "Xác thực OTP email (IP: 113.190.23.14)",
-                  hash: "e14c99...88aa",
-                },
-                {
-                  time: "23/10/2026 09:15",
-                  title: "Nguyễn Văn An ký số lượt 1",
-                  desc: "Sử dụng chữ ký mặc định & chứng thư X.509",
-                  hash: "7b201c...4f91",
-                },
-                {
-                  time: "23/10/2026 09:10",
-                  title: "Khởi tạo hợp đồng & Gửi lời mời ký",
-                  desc: "Tạo từ mẫu Hợp đồng Dịch vụ SaaS",
-                  hash: "3381ab...fc19",
-                },
-              ].map((ev, idx) => (
-                <div key={idx} className="relative pl-9">
-                  <div className="w-3.5 h-3.5 rounded-full bg-primary border-2 border-white shadow-xs absolute left-2 top-1" />
-                  <p className="text-xs font-semibold text-slate-500">{ev.time}</p>
-                  <p className="text-sm font-bold text-slate-900 mt-0.5">{ev.title}</p>
-                  <p className="text-xs text-slate-600 mt-0.5">{ev.desc}</p>
-                  <p className="text-[11px] font-mono text-slate-400 mt-1">
-                    SHA-256: {ev.hash}
-                  </p>
-                </div>
+                  <span className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold shrink-0 ${SIGNER_STATUS[s.status].className}`}>
+                    {SIGNER_STATUS[s.status].label}
+                  </span>
+                </li>
               ))}
-            </div>
-          </div>
+            </ol>
+          </Card>
+
+          <Card title="Nhật ký thao tác" icon={History}>
+            <ol className="relative flex flex-col gap-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-line">
+              {contract.events.map((ev, i) => (
+                <li
+                  key={ev.hash}
+                  className="relative pl-6 motion-safe:animate-fade-up"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                >
+                  <span className="absolute left-0 top-1.5 w-[11px] h-[11px] rounded-full bg-surface border-2 border-primary" aria-hidden="true" />
+                  <p className="text-xs text-muted">{formatDateTime(ev.at)}</p>
+                  <p className="text-sm font-semibold text-fg">{ev.title}</p>
+                  <p className="text-xs text-muted">{ev.detail}</p>
+                  <p className="mt-0.5 font-mono text-xs text-muted truncate" title={ev.hash}>
+                    SHA-256 {ev.hash.slice(0, 16)}…
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </Card>
         </div>
       </div>
-    </div>
-  );
-}
 
-export default function ContractDetailPage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-sm text-muted">Đang tải chi tiết hợp đồng…</div>}>
-      <ContractDetailContent />
-    </Suspense>
+      <Dialog
+        open={confirmCancel}
+        onClose={() => setConfirmCancel(false)}
+        title="Hủy hợp đồng"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmCancel(false)} disabled={isCancelling}>
+              Không hủy
+            </Button>
+            <Button variant="danger" onClick={handleCancel} isLoading={isCancelling}>
+              Hủy hợp đồng
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">
+          Hợp đồng <span className="font-mono">{contract.code}</span> sẽ bị hủy. Người ký chưa ký sẽ không mở được link nữa.
+        </p>
+      </Dialog>
+    </div>
   );
 }

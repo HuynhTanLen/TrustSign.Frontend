@@ -1,374 +1,371 @@
 "use client";
 
 import * as React from "react";
-import { Suspense } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
+import { CircleCheck, CircleX, Clock, FileText, Lock, PenTool, Users } from "lucide-react";
+import { signingApi, type SigningSession, type SigningState } from "@/lib/api/signing";
+import { ApiError } from "@/lib/api";
+import { USE_MOCK } from "@/lib/mock";
+import { useApi } from "@/lib/use-api";
+import { formatDateTime } from "@/lib/format";
+import { PublicHeader, PublicFooter } from "@/components/public-header";
+import { ReasonDialog } from "@/components/reason-dialog";
+import { SignaturePad } from "@/components/signature-pad";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/error-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import {
-  FileSignature,
-  ShieldCheck,
-  Lock,
-  CheckCircle2,
-  XCircle,
-  PenTool,
-  RotateCcw,
-  ArrowLeft,
-} from "lucide-react";
 
-function SignTokenContent() {
-  const params = useParams();
-  const { toast } = useToast();
-  const token = (params?.token as string) || "TS-2026-092";
+const OTP_LENGTH = 6;
 
-  const [isOtpVerified, setIsOtpVerified] = React.useState(false);
-  const [otpDigits, setOtpDigits] = React.useState<string[]>(["8", "2", "9", "1", "4", "6"]);
-  const [isSigned, setIsSigned] = React.useState(false);
-  const [isCompleted, setIsCompleted] = React.useState(false);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  const [isDrawing, setIsDrawing] = React.useState(false);
-
-  const handleDigitChange = (idx: number, val: string) => {
-    const clean = val.replace(/\D/g, "").slice(-1);
-    setOtpDigits((prev) => prev.map((d, i) => (i === idx ? clean : d)));
-  };
-
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpDigits.join("").length === 6) {
-      setIsOtpVerified(true);
-      toast("Xác thực OTP thành công! Vui lòng kiểm tra văn bản và ký số.", "success");
-    } else {
-      toast("Vui lòng nhập đủ 6 chữ số OTP", "error");
-    }
-  };
-
+function useSecondsLeft(until: string | null) {
+  const [now, setNow] = React.useState(() => Date.now());
   React.useEffect(() => {
-    if (!modalOpen) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#4f46e5";
+    if (!until) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [until]);
+  return until ? Math.max(0, Math.floor((new Date(until).getTime() - now) / 1000)) : 0;
+}
 
-    const onDown = (e: MouseEvent) => {
-      setIsDrawing(true);
-      ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
-    };
-    const onMove = (e: MouseEvent) => {
-      if (!isDrawing) return;
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
-    };
-    const onUp = () => setIsDrawing(false);
+function OtpInput({ value, onChange, disabled }: { value: string[]; onChange: (v: string[]) => void; disabled?: boolean }) {
+  const refs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-    canvas.addEventListener("mousedown", onDown);
-    canvas.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-
-    return () => {
-      canvas.removeEventListener("mousedown", onDown);
-      canvas.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [modalOpen, isDrawing]);
-
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext("2d");
-      ctx?.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  };
-
-  const applySignature = () => {
-    setModalOpen(false);
-    setIsSigned(true);
-    toast("Đã chèn chữ ký điện tử vào ô ký của bạn", "success");
-  };
-
-  const handleFinalSign = () => {
-    setIsCompleted(true);
-    toast("Ký hợp đồng hoàn tất! Chứng thư số X.509 đã được đóng dấu.", "success");
-  };
-
-  const handleDecline = () => {
-    const reason = prompt(
-      "Nhập lý do từ chối ký (bắt buộc):",
-      "Cần điều chỉnh lại thời hạn thanh toán ở Điều 4"
-    );
-    if (reason) {
-      toast("Đã ghi nhận từ chối ký hợp đồng", "info");
-    }
+  // Writes digits from box `start` onward, so pasting, autofill and fast typing all land in order.
+  const fill = (start: number, digits: string[]) => {
+    const next = [...value];
+    digits.slice(0, OTP_LENGTH - start).forEach((d, k) => (next[start + k] = d));
+    onChange(next);
+    refs.current[Math.min(start + digits.length, OTP_LENGTH - 1)]?.focus();
   };
 
   return (
-    <div className="min-h-screen bg-page text-fg flex flex-col justify-between">
-      {/* Header */}
-      <header className="h-[72px] border-b border-line bg-surface px-6 lg:px-12 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-sm shadow-indigo-500/20">
-              <FileSignature className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold text-lg text-slate-900">
-                Chữ Tín <span className="text-primary font-semibold">TrustSign</span>
-              </span>
-              <span className="block text-[11px] text-muted font-medium">
-                Phòng ký hợp đồng điện tử công khai (FE-06)
-              </span>
-            </div>
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link href="/app">
-            <Button variant="secondary" size="sm">
-              <ArrowLeft className="w-4 h-4" />
-              <span>Về Bảng điều khiển</span>
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-[920px] w-full mx-auto px-6 py-10 flex-1">
-        {/* Thông tin hợp đồng */}
-        <div className="bg-surface border border-line rounded-2xl p-7 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-line">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  Hợp đồng Dịch vụ Phần mềm Cloud
-                </h1>
-                <Badge contractStatus={isCompleted ? "Completed" : "Signing"} />
-              </div>
-              <p className="text-sm text-muted mt-1">
-                Bên gửi: <strong className="text-slate-800">CTCP Giải pháp Chữ Tín</strong> • Người ký hiện tại:{" "}
-                <strong className="text-primary">Trần Bình Minh (mi***@congngheabc.com)</strong>
-              </p>
-            </div>
-            <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-              Phiên ký: {token}
-            </span>
-          </div>
-
-          {!isOtpVerified ? (
-            /* Màn hình xác thực OTP 6 ô */
-            <div className="max-w-md mx-auto py-6 text-center space-y-5">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center mx-auto">
-                <Lock className="w-7 h-7" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Xác thực mã OTP người ký
-                </h2>
-                <p className="text-sm text-muted mt-1.5 leading-relaxed">
-                  Mã xác thực 6 chữ số đã được gửi tới hộp thư <strong>mi***@congngheabc.com</strong>.
-                  Mã có hiệu lực trong vòng <strong>04:55</strong>.
-                </p>
-              </div>
-
-              <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <div className="flex items-center justify-center gap-2.5">
-                  {otpDigits.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleDigitChange(idx, e.target.value)}
-                      className="w-12 h-14 rounded-xl border-2 border-slate-300 focus:border-primary focus:ring-3 focus:ring-primary/15 text-center text-xl font-bold text-slate-900 bg-surface focus:outline-none"
-                    />
-                  ))}
-                </div>
-
-                <Button type="submit" variant="primary" size="lg" className="w-full">
-                  <ShieldCheck className="w-5 h-5" />
-                  <span>Xác nhận OTP & Mở tài liệu ký</span>
-                </Button>
-              </form>
-            </div>
-          ) : isCompleted ? (
-            /* Màn hình hoàn tất ký */
-            <div className="max-w-lg mx-auto py-8 text-center space-y-5">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-9 h-9" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Đã ký hợp đồng thành công!
-                </h2>
-                <p className="text-sm text-muted mt-2 leading-relaxed">
-                  Chữ ký điện tử của bạn và chứng thư số X.509 đã được nhúng vào tài liệu PDF theo chuẩn PAdES.
-                  Bản sao hợp đồng hoàn chỉnh đã được gửi tới email của tất cả các bên.
-                </p>
-              </div>
-              <div className="flex justify-center gap-3 pt-2">
-                <Link href="/verify">
-                  <Button variant="primary" size="md">
-                    Kiểm tra tính hợp lệ (/verify)
-                  </Button>
-                </Link>
-                <Link href="/app">
-                  <Button variant="secondary" size="md">
-                    Về Bảng điều khiển
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            /* Màn hình xem PDF và đặt chữ ký */
-            <div className="space-y-6">
-              <div className="border border-slate-200 rounded-2xl p-8 bg-white shadow-2xs text-sm leading-relaxed space-y-4">
-                <div className="text-center pb-4 border-b border-line">
-                  <p className="font-bold uppercase text-sm text-slate-900">
-                    CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-                  </p>
-                  <p className="italic text-xs text-slate-600">Độc lập - Tự do - Hạnh phúc</p>
-                  <h2 className="font-bold text-lg uppercase text-slate-900 mt-4">
-                    HỢP ĐỒNG CUNG CẤP DỊCH VỤ PHẦN MỀM CLOUD
-                  </h2>
-                </div>
-
-                <p>
-                  Hôm nay, ngày <strong>23 tháng 10 năm 2026</strong>, các bên thống nhất ký kết hợp đồng cung cấp dịch vụ với các điều khoản dưới đây:
-                </p>
-                <p>
-                  <strong>Bên A (Bên cung cấp):</strong> Công ty Cổ phần Giải pháp Chữ Tín (Đại diện: Ông Nguyễn Văn An)
-                </p>
-                <p>
-                  <strong>Bên B (Bên sử dụng):</strong> Công ty TNHH Công nghệ ABC (Đại diện: Ông Trần Bình Minh)
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-line mt-6">
-                  <div className="text-center p-5 border border-emerald-200 bg-emerald-50/50 rounded-xl">
-                    <p className="font-bold text-xs uppercase text-slate-700 mb-1">ĐẠI DIỆN BÊN A</p>
-                    <p className="font-serif italic text-2xl font-bold text-primary my-2">
-                      Nguyễn Văn An
-                    </p>
-                    <p className="text-xs text-emerald-700 font-semibold">
-                      ✓ Đã ký số X.509 • 23/10/2026 09:15
-                    </p>
-                  </div>
-
-                  <div
-                    onClick={() => setModalOpen(true)}
-                    className={`text-center p-5 border-2 rounded-xl cursor-pointer transition-all ${
-                      isSigned
-                        ? "border-emerald-500 bg-emerald-50/40"
-                        : "border-dashed border-amber-500 bg-amber-50/60 hover:bg-amber-50"
-                    }`}
-                  >
-                    <p className="font-bold text-xs uppercase text-slate-700 mb-1">
-                      ĐẠI DIỆN BÊN B (Ô KÝ CỦA BẠN)
-                    </p>
-                    {isSigned ? (
-                      <>
-                        <p className="font-serif italic text-2xl font-bold text-primary my-2">
-                          Trần Bình Minh
-                        </p>
-                        <p className="text-xs text-emerald-700 font-semibold">
-                          ✓ Đã chèn chữ ký (Bấm để ký lại)
-                        </p>
-                      </>
-                    ) : (
-                      <div className="py-3">
-                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-white text-xs font-bold shadow-xs">
-                          <PenTool className="w-3.5 h-3.5" /> Bấm vào đây để ký tên
-                        </span>
-                        <p className="text-xs text-slate-600 mt-2">Trần Bình Minh</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <Button variant="danger" size="lg" onClick={handleDecline}>
-                  <XCircle className="w-5 h-5" />
-                  <span>Từ chối ký hợp đồng</span>
-                </Button>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  disabled={!isSigned}
-                  onClick={handleFinalSign}
-                >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Hoàn tất & Ký hợp đồng</span>
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Modal vẽ chữ ký */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-line rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-line">
-              <h3 className="text-lg font-bold text-slate-900">Ký tên điện tử</h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="border-2 border-slate-300 rounded-xl transparent-checkerboard h-44 relative overflow-hidden">
-              <canvas
-                ref={canvasRef}
-                width={460}
-                height={176}
-                className="w-full h-full cursor-crosshair"
-              />
-            </div>
-
-            <div className="flex justify-between items-center text-sm text-muted">
-              <span>Vẽ chữ ký vào khung trên hoặc dùng chữ ký đã lưu</span>
-              <button
-                type="button"
-                onClick={clearCanvas}
-                className="text-primary hover:underline font-semibold inline-flex items-center gap-1"
-              >
-                <RotateCcw className="w-4 h-4" /> Xóa vẽ lại
-              </button>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-line">
-              <Button variant="secondary" size="md" onClick={() => setModalOpen(false)}>
-                Hủy
-              </Button>
-              <Button variant="primary" size="md" onClick={applySignature}>
-                Áp dụng chữ ký
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <footer className="h-[64px] border-t border-line bg-surface px-6 lg:px-12 flex items-center justify-between text-sm text-muted">
-        <span>© 2026 Chữ Tín (TrustSign)</span>
-        <span>Bảo mật bởi chứng thư số X.509 & Chuỗi băm SHA-256</span>
-      </footer>
+    <div className="flex justify-center gap-2" onPaste={(e) => {
+      const digits = e.clipboardData.getData("text").replace(/\D/g, "").split("");
+      if (digits.length) {
+        e.preventDefault();
+        fill(0, digits);
+      }
+    }}>
+      {value.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          inputMode="numeric"
+          autoComplete={i === 0 ? "one-time-code" : "off"}
+          maxLength={OTP_LENGTH}
+          value={d}
+          disabled={disabled}
+          aria-label={`Chữ số ${i + 1}`}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            const typed = e.target.value.replace(/\D/g, "");
+            if (!typed) {
+              const next = [...value];
+              next[i] = "";
+              onChange(next);
+              return;
+            }
+            // Focus selects the box's digit, so one keystroke replaces it; extra digits flow into the next boxes.
+            fill(i, typed.split(""));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" && !value[i]) refs.current[i - 1]?.focus();
+          }}
+          className="w-11 h-12 rounded-md border border-line-strong bg-surface text-center text-xl font-semibold text-fg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      ))}
     </div>
   );
 }
 
-export default function SignTokenPage() {
+function ResultScreen({ state, session }: { state: SigningState; session?: SigningSession }) {
+  const content: Record<string, { icon: React.ReactNode; title: string; text: string }> = {
+    Signed: {
+      icon: <CircleCheck className="w-10 h-10 text-success" />,
+      title: "Đã ký hợp đồng",
+      text: "Bản đã ký sẽ được gửi qua email khi tất cả các bên ký xong.",
+    },
+    Declined: {
+      icon: <CircleX className="w-10 h-10 text-danger" />,
+      title: "Đã từ chối ký",
+      text: "Bên gửi đã nhận được lý do từ chối.",
+    },
+    NotYourTurn: {
+      icon: <Clock className="w-10 h-10 text-warning" />,
+      title: "Chưa tới lượt ký",
+      text: "Link ký sẽ dùng được khi người ký trước đã ký xong. Hệ thống sẽ gửi email báo.",
+    },
+    Expired: {
+      icon: <Lock className="w-10 h-10 text-muted" />,
+      title: "Link ký không còn hiệu lực",
+      text: "Hợp đồng đã hết hạn ký hoặc đã bị hủy. Liên hệ bên gửi để nhận link mới.",
+    },
+  };
+  const c = content[state] ?? content.Expired;
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-page text-sm text-muted">Đang tải cổng ký hợp đồng…</div>}>
-      <SignTokenContent />
-    </Suspense>
+    <Card>
+      <div className="flex flex-col items-center text-center gap-2 py-8 motion-safe:animate-pop-in">
+        {c.icon}
+        <h1 className="text-xl font-semibold text-fg">{c.title}</h1>
+        {session && (
+          <p className="text-sm text-fg">
+            {session.contractTitle} <span className="font-mono text-muted">({session.contractCode})</span>
+          </p>
+        )}
+        <p className="text-sm text-muted max-w-md">{c.text}</p>
+      </div>
+    </Card>
+  );
+}
+
+function SignContent() {
+  const { token } = useParams<{ token: string }>();
+  const { toast } = useToast();
+  const { data: session, error, isLoading, reload } = useApi(`signing:${token}`, () => signingApi.get(token));
+
+  const [otpSentUntil, setOtpSentUntil] = React.useState<string | null>(null);
+  const [otp, setOtp] = React.useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [attemptsLeft, setAttemptsLeft] = React.useState<number | null>(null);
+  const [verified, setVerified] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [padOpen, setPadOpen] = React.useState(false);
+  const [drawn, setDrawn] = React.useState<string | null>(null);
+  const [signature, setSignature] = React.useState<string | null>(null);
+  const [declining, setDeclining] = React.useState(false);
+  const [finalState, setFinalState] = React.useState<SigningState | null>(null);
+  const idempotencyKey = React.useRef<string | null>(null);
+  const secondsLeft = useSecondsLeft(otpSentUntil);
+
+  const sendOtp = async () => {
+    setBusy(true);
+    try {
+      const { expiresAt } = await signingApi.requestOtp(token);
+      setOtpSentUntil(expiresAt);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      setAttemptsLeft(null);
+      toast("Đã gửi mã OTP tới email.", "success");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không gửi được mã OTP.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const result = await signingApi.verifyOtp(token, otp.join(""));
+      if (result.verified) setVerified(true);
+      else {
+        setAttemptsLeft(result.attemptsLeft);
+        setOtp(Array(OTP_LENGTH).fill(""));
+      }
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không xác thực được mã OTP.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sign = async () => {
+    if (!signature) return;
+    idempotencyKey.current ??= crypto.randomUUID();
+    setBusy(true);
+    try {
+      await signingApi.sign(token, signature, idempotencyKey.current);
+      setFinalState("Signed");
+    } catch (err) {
+      setBusy(false);
+      toast(err instanceof ApiError ? err.message : "Không ký được hợp đồng. Thử lại.", "error");
+    }
+  };
+
+  const otpLocked = attemptsLeft === 0;
+  const state = finalState ?? session?.state;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-page text-fg">
+      <PublicHeader />
+      <main className="flex-1 w-full max-w-[880px] mx-auto px-4 py-8 flex flex-col gap-4">
+        {error ? (
+          error instanceof ApiError && error.status === 404 ? (
+            <ResultScreen state="Expired" />
+          ) : (
+            <ErrorState error={error} onRetry={reload} />
+          )
+        ) : isLoading || !session ? (
+          <Skeleton className="h-64" />
+        ) : state && state !== "AwaitingOtp" && state !== "ReadyToSign" ? (
+          <ResultScreen state={state} session={session} />
+        ) : (
+          <>
+            <Card title="Hợp đồng cần ký" icon={FileText}>
+              <dl className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted">Hợp đồng</dt>
+                <dd className="font-semibold text-fg">
+                  {session.contractTitle} <span className="font-mono font-normal text-muted">({session.contractCode})</span>
+                </dd>
+                <dt className="text-muted">Bên gửi</dt>
+                <dd className="text-fg">{session.senderCompany}</dd>
+                <dt className="text-muted">Người ký</dt>
+                <dd className="text-fg">
+                  {session.signerName} ({session.signerEmailMasked}) · lượt {session.order}/{session.totalSigners}
+                </dd>
+                <dt className="text-muted">Hạn ký</dt>
+                <dd className="text-fg">{formatDateTime(session.dueAt)}</dd>
+              </dl>
+            </Card>
+
+            {!verified ? (
+              <Card title="Xác thực người ký" icon={Lock}>
+                {!otpSentUntil ? (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-sm text-fg">
+                      Hệ thống gửi mã 6 chữ số tới <span className="font-semibold">{session.signerEmailMasked}</span> để xác nhận đúng người ký.
+                    </p>
+                    <Button variant="primary" onClick={sendOtp} isLoading={busy}>
+                      Gửi mã OTP
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={verifyOtp} className="flex flex-col items-center gap-4 py-2 motion-safe:animate-fade-in">
+                    <p className="text-sm text-fg text-center">
+                      Nhập mã đã gửi tới <span className="font-semibold">{session.signerEmailMasked}</span>
+                    </p>
+                    <OtpInput value={otp} onChange={setOtp} disabled={otpLocked || secondsLeft === 0} />
+                    {attemptsLeft !== null && attemptsLeft > 0 && (
+                      <p className="text-sm text-danger" role="alert">Mã không đúng. Còn {attemptsLeft} lần thử.</p>
+                    )}
+                    {otpLocked && <p className="text-sm text-danger" role="alert">Đã nhập sai quá số lần cho phép. Yêu cầu mã mới.</p>}
+                    <p className="text-xs text-muted tabular-nums">
+                      {secondsLeft > 0
+                        ? `Mã hết hạn sau ${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`
+                        : "Mã đã hết hạn."}
+                    </p>
+                    {USE_MOCK && <p className="text-xs text-muted">Dữ liệu mẫu: mã đúng là 123456.</p>}
+                    <div className="flex gap-2">
+                      <Button type="button" variant="secondary" onClick={sendOtp} disabled={busy}>
+                        Gửi lại mã
+                      </Button>
+                      <Button type="submit" variant="primary" isLoading={busy} disabled={otp.join("").length < OTP_LENGTH || otpLocked || secondsLeft === 0}>
+                        Xác nhận
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </Card>
+            ) : (
+              <>
+                <Card title="Tài liệu" icon={FileText} bodyClassName="p-0">
+                  {session.documentUrl ? (
+                    <iframe src={session.documentUrl} title="Tài liệu hợp đồng" className="w-full h-[560px]" />
+                  ) : (
+                    <p className="p-6 text-sm text-muted text-center bg-page">File PDF hiển thị ở đây khi máy chủ trả về đường dẫn tài liệu.</p>
+                  )}
+                </Card>
+
+                <Card title="Ô ký" icon={Users}>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {session.fields.map((f) => (
+                      <li key={f.signerOrder}>
+                        {f.isMine ? (
+                          <button
+                            type="button"
+                            onClick={() => setPadOpen(true)}
+                            className={`w-full h-28 rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                              signature ? "border-primary bg-surface" : "border-primary bg-selected hover:bg-selected/70"
+                            }`}
+                          >
+                            {signature ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={signature} alt="Chữ ký của bạn" className="max-h-16" />
+                            ) : (
+                              <>
+                                <PenTool className="w-5 h-5 text-primary" aria-hidden="true" />
+                                <span className="text-sm font-semibold text-primary">Bấm để ký vào đây</span>
+                              </>
+                            )}
+                            <span className="text-xs text-muted">{f.signerName}</span>
+                          </button>
+                        ) : (
+                          <div className="h-28 rounded-md border border-line bg-page flex flex-col items-center justify-center gap-1">
+                            <span className={`text-sm font-semibold ${f.signed ? "text-success" : "text-muted"}`}>{f.signed ? "Đã ký" : "Chưa ký"}</span>
+                            <span className="text-xs text-muted">{f.signerName}</span>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setDeclining(true)} disabled={busy}>
+                    Từ chối ký
+                  </Button>
+                  <Button variant="primary" onClick={sign} disabled={!signature} isLoading={busy}>
+                    Ký hợp đồng
+                  </Button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </main>
+      <PublicFooter />
+
+      <Dialog
+        open={padOpen}
+        onClose={() => setPadOpen(false)}
+        title="Chữ ký của bạn"
+        className="max-w-[640px]"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPadOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!drawn}
+              onClick={() => {
+                setSignature(drawn);
+                setPadOpen(false);
+              }}
+            >
+              Dùng chữ ký này
+            </Button>
+          </>
+        }
+      >
+        <SignaturePad ink="#1b3a5c" onChange={setDrawn} />
+      </Dialog>
+
+      <ReasonDialog
+        open={declining}
+        title="Từ chối ký"
+        message="Bên gửi sẽ nhận được lý do và hợp đồng dừng ở trạng thái Từ chối."
+        reasonLabel="Lý do từ chối"
+        confirmLabel="Từ chối ký"
+        onClose={() => setDeclining(false)}
+        onConfirm={async (reason) => {
+          await signingApi.decline(token, reason);
+          setDeclining(false);
+          setFinalState("Declined");
+        }}
+      />
+    </div>
+  );
+}
+
+export default function SignPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-page" />}>
+      <SignContent />
+    </React.Suspense>
   );
 }

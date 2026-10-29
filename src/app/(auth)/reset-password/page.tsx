@@ -8,8 +8,11 @@ import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { CheckCircle2, CircleAlert, KeyRound, Lock } from "lucide-react";
 
+// Planned endpoint (IDN-06, Tuần 5): POST /api/auth/reset-password.
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,17 +30,17 @@ function ResetPasswordContent() {
     setErrorMessage(null);
 
     if (!token) {
-      setErrorMessage("Thiếu mã xác nhận đặt lại mật khẩu");
+      setErrorMessage("Thiếu mã xác nhận đặt lại mật khẩu.");
       return;
     }
 
     if (newPassword.length < 8) {
-      setErrorMessage("Mật khẩu mới tối thiểu 8 ký tự");
+      setErrorMessage("Mật khẩu mới tối thiểu 8 ký tự.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setErrorMessage("Mật khẩu nhập lại không khớp");
+      setErrorMessage("Mật khẩu nhập lại không khớp.");
       return;
     }
 
@@ -45,15 +48,15 @@ function ResetPasswordContent() {
     try {
       await authApi.resetPassword({ token, newPassword });
       setIsSuccess(true);
-      toast("Đã đổi mật khẩu thành công", "success");
+      toast("Đã đặt lại mật khẩu", "success");
       setTimeout(() => {
         router.push("/login");
       }, 2000);
     } catch (err) {
       if (err instanceof ApiError) {
-        setErrorMessage(err.message || "Liên kết đã hết hạn hoặc không hợp lệ");
+        setErrorMessage(err.message || "Liên kết đã hết hạn hoặc không hợp lệ.");
       } else {
-        setErrorMessage("Lỗi hệ thống khi đặt lại mật khẩu");
+        setErrorMessage("Không kết nối được máy chủ API.");
       }
     } finally {
       setIsLoading(false);
@@ -62,81 +65,107 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="text-center py-4">
-        <h1 className="text-base font-semibold text-fg mb-2">Liên kết không hợp lệ</h1>
-        <p className="text-xs text-muted mb-4">
-          Không tìm thấy mã xác thực để đặt lại mật khẩu.
-        </p>
-        <Link href="/forgot-password" className="text-xs text-primary hover:underline font-medium">
-          Yêu cầu gửi lại liên kết mới
-        </Link>
+      <div>
+        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
+          <CircleAlert className="w-4 h-4 text-danger shrink-0" aria-hidden="true" />
+          <h1 className="text-base font-semibold text-fg">Liên kết không hợp lệ</h1>
+        </header>
+        <div className="p-6 flex flex-col gap-4">
+          <p className="text-sm text-muted">Không tìm thấy mã xác thực để đặt lại mật khẩu.</p>
+          <Link
+            href="/login"
+            className="text-sm text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+          >
+            Quay về trang đăng nhập
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (isSuccess) {
     return (
-      <div className="text-center py-2">
-        <h1 className="text-base font-semibold text-fg mb-2">Đặt lại mật khẩu thành công</h1>
-        <p className="text-xs text-muted mb-4">
-          Mật khẩu đã được cập nhật. Hệ thống đang chuyển hướng về trang đăng nhập…
-        </p>
-        <Link href="/login" className="text-xs text-primary hover:underline font-medium">
-          Đăng nhập ngay
-        </Link>
+      <div>
+        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+          <h1 className="text-base font-semibold text-fg">Đặt lại mật khẩu thành công</h1>
+        </header>
+        <div className="p-6 flex flex-col gap-4">
+          <p className="text-sm text-muted">
+            Mật khẩu đã được cập nhật. Hệ thống đang chuyển về trang đăng nhập…
+          </p>
+          <Link
+            href="/login"
+            className="text-sm text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+          >
+            Đăng nhập ngay
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-fg mb-2">Đặt lại mật khẩu</h1>
-      <p className="text-xs text-muted mb-4">
-        Nhập mật khẩu mới (tối thiểu 8 ký tự).
-      </p>
+      <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
+        <KeyRound className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+        <h1 className="text-base font-semibold text-fg">Đặt lại mật khẩu</h1>
+      </header>
 
-      {errorMessage && (
-        <div className="mb-4 p-2.5 rounded-[4px] border border-danger bg-[#fdf2f2] text-xs text-danger">
-          {errorMessage}
-        </div>
-      )}
+      <div className="p-6">
+        <p className="text-sm text-muted mb-5">Nhập mật khẩu mới tối thiểu 8 ký tự.</p>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Input
-          label="Mật khẩu mới"
-          type="password"
-          required
-          placeholder="Mật khẩu mới"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
+        {errorMessage && (
+          <div
+            role="alert"
+            className="mb-4 p-3 rounded-md border border-line bg-badge-declined-bg text-sm text-danger flex items-start gap-2"
+          >
+            <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
-        <Input
-          label="Nhập lại mật khẩu"
-          type="password"
-          required
-          placeholder="Nhập lại mật khẩu mới"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input
+            label="Mật khẩu mới"
+            type="password"
+            required
+            placeholder="Tối thiểu 8 ký tự"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+          />
 
-        <Button
-          type="submit"
-          variant="primary"
-          className="w-full mt-2"
-          isLoading={isLoading}
-          disabled={isLoading}
-        >
-          Lưu mật khẩu
-        </Button>
-      </form>
+          <Input
+            label="Nhập lại mật khẩu"
+            type="password"
+            required
+            placeholder="Nhập lại mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+          />
+
+          <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
+            Lưu mật khẩu
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="py-6 text-center text-xs text-muted">Đang tải…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 flex flex-col gap-3">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

@@ -1,341 +1,347 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, Check, CircleCheck, Clock, Copy, CreditCard, Download, Package, Receipt } from "lucide-react";
+import { subscriptionApi, type Checkout, type Invoice, type Plan } from "@/lib/api/subscription";
+import { ApiError } from "@/lib/api";
+import { USE_MOCK } from "@/lib/mock";
+import { useApi } from "@/lib/use-api";
+import { daysUntil, formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/chart";
+import { Dialog } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/error-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { CreditCard, Check, Download, Copy, Clock, AlertTriangle } from "lucide-react";
 
-const INVOICES = [
-  {
-    code: "INV-2026-1089",
-    plan: "Gói Cơ bản (30 ngày)",
-    amount: "299.000 ₫",
-    status: "Paid",
-    createdAt: "28/09/2026 10:15",
-  },
-  {
-    code: "INV-2026-0912",
-    plan: "Gói Cơ bản (30 ngày)",
-    amount: "299.000 ₫",
-    status: "Paid",
-    createdAt: "28/08/2026 09:30",
-  },
-  {
-    code: "INV-2026-0801",
-    plan: "Gói Dùng thử (14 ngày)",
-    amount: "0 ₫",
-    status: "Paid",
-    createdAt: "14/08/2026 14:20",
-  },
-];
+const INVOICE_STATUS: Record<Invoice["status"], { label: string; className: string }> = {
+  Paid: { label: "Đã thanh toán", className: "bg-badge-completed-bg text-badge-completed-fg" },
+  Pending: { label: "Chờ thanh toán", className: "bg-badge-pending-bg text-badge-pending-fg" },
+  Expired: { label: "Hết hạn", className: "bg-badge-draft-bg text-badge-draft-fg" },
+};
+
+function useCountdown(expiresAt: string | null) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (!expiresAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+  if (!expiresAt) return "";
+  const left = Math.max(0, Math.floor((new Date(expiresAt).getTime() - now) / 1000));
+  return `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+}
 
 export default function BillingPage() {
   const { toast } = useToast();
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [selectedPlan, setSelectedPlan] = React.useState("Gói Cơ bản");
-  const [selectedPrice, setSelectedPrice] = React.useState(299000);
+  const current = useApi("subscription", subscriptionApi.current);
+  const plans = useApi("plans", subscriptionApi.plans);
+  const invoices = useApi("invoices", subscriptionApi.invoices);
 
-  const openCheckout = (name: string, price: number) => {
-    setSelectedPlan(name);
-    setSelectedPrice(price);
-    setModalOpen(true);
+  const [checkoutPlan, setCheckoutPlan] = React.useState<Plan | null>(null);
+  const [checkout, setCheckout] = React.useState<Checkout | null>(null);
+  const [paid, setPaid] = React.useState(false);
+  const countdown = useCountdown(checkout?.expiresAt ?? null);
+
+  const openCheckout = async (plan: Plan) => {
+    setCheckoutPlan(plan);
+    setCheckout(null);
+    setPaid(false);
+    try {
+      setCheckout(await subscriptionApi.createInvoice(plan.id));
+    } catch (err) {
+      setCheckoutPlan(null);
+      toast(err instanceof ApiError ? err.message : "Không tạo được hóa đơn.", "error");
+    }
   };
 
-  const handleSimulatePayment = () => {
-    setModalOpen(false);
-    toast("SePay Webhook: Xác nhận thanh toán thành công! Đã cộng hạn mức thuê bao.", "success");
+  // Ask for the invoice status every 5 seconds until it is paid (FE-03).
+  React.useEffect(() => {
+    if (!checkout || paid) return;
+    const t = setInterval(async () => {
+      const { status } = await subscriptionApi.invoiceStatus(checkout.invoiceCode);
+      if (status === "Paid") setPaid(true);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [checkout, paid]);
+
+  const closeCheckout = () => {
+    if (paid) {
+      current.reload();
+      invoices.reload();
+    }
+    setCheckoutPlan(null);
+    setCheckout(null);
   };
 
-  const copyText = (value: string, label: string) => {
+  const copy = (value: string, label: string) => {
     navigator.clipboard?.writeText(value);
-    toast(`Đã sao chép ${label}: ${value}`, "info");
+    toast(`Đã sao chép ${label}.`, "info");
   };
+
+  const handleDownloadPdf = async (code: string) => {
+    if (USE_MOCK) {
+      toast("Dữ liệu mẫu không có file PDF.", "info");
+      return;
+    }
+    toast("Đang tải hóa đơn...", "info");
+    try {
+      const blob = await subscriptionApi.downloadInvoicePdf(code);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `TrustSign-Invoice-${code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast("Tải hóa đơn thành công.", "success");
+    } catch {
+      toast("Không thể tải file PDF hóa đơn.", "error");
+    }
+  };
+
+  const sub = current.data;
+  const daysLeft = sub ? daysUntil(sub.expiresAt) : 0;
+  const quotaRatio = sub ? sub.quotaUsed / Math.max(1, sub.quotaLimit) : 0;
 
   return (
-    <div className="space-y-7">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-          Gói Dịch Vụ & Thanh Toán SePay (FE-03)
-        </h1>
-        <p className="text-sm text-muted mt-1">
-          Quản lý hạn mức hợp đồng hàng tháng và thanh toán tự động qua mã VietQR SePay
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Gói và thanh toán" description="Hạn mức hợp đồng hằng tháng và thanh toán bằng chuyển khoản VietQR" />
 
-      {/* Thẻ Gói của tôi */}
-      <div className="bg-surface border border-line rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-line">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center font-bold">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-bold text-lg text-slate-900">
-                  Gói Cơ Bản (Doanh Nghiệp Vừa & Nhỏ)
-                </span>
-                <Badge subscriptionStatus="Active" />
+      {current.error ? (
+        <ErrorState error={current.error} onRetry={current.reload} />
+      ) : (
+        <Card title="Gói đang dùng" icon={CreditCard}>
+          {!sub ? (
+            <Skeleton className="h-28" />
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg">
+                    Gói {sub.planName} <Badge subscriptionStatus={sub.status} />
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    Hết hạn {formatDate(sub.expiresAt)} ({daysLeft > 0 ? `còn ${daysLeft} ngày` : "đã hết hạn"}) ·{" "}
+                    {formatMoney(sub.price)} / {sub.durationDays} ngày
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    const plan = plans.data?.find((p) => p.id === sub.planId);
+                    if (plan) openCheckout(plan);
+                  }}
+                  disabled={!plans.data}
+                >
+                  Gia hạn
+                </Button>
               </div>
-              <p className="text-sm text-muted mt-1">
-                Ngày hết hạn: <strong className="text-slate-900">28/10/2026</strong> (Còn 5 ngày)
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-xs text-slate-500">Cước phí định kỳ</span>
-              <p className="text-2xl font-bold text-slate-900">
-                299.000 ₫ <span className="text-sm font-normal text-slate-500">/ 30 ngày</span>
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => openCheckout("Gói Cơ bản", 299000)}
-            >
-              Gia hạn ngay
-            </Button>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-sm text-slate-700 flex justify-between mb-2 font-semibold">
-            <span>Hạn mức hợp đồng gửi ký trong tháng 10/2026:</span>
-            <span className="text-slate-900">Đã dùng 18 / 20 hợp đồng (90%)</span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-3">
-            <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: "90%" }} />
-          </div>
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3 text-sm text-amber-900">
-            <div className="flex items-center gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-              <span>
-                Thuê bao còn dưới 7 ngày và chỉ còn <strong>2 lượt gửi ký</strong>. Vui lòng gia hạn hoặc nâng cấp gói.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bảng giá 3 gói */}
-      <div>
-        <h2 className="text-lg font-bold text-slate-900 mb-4">Các gói dịch vụ nâng cấp</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-surface border border-line rounded-2xl p-6 flex flex-col justify-between shadow-xs">
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">Gói Dùng thử</h3>
-              <p className="text-sm text-muted mt-1">Dành cho trải nghiệm khởi tạo</p>
-              <div className="text-3xl font-bold text-slate-900 my-5">
-                0 ₫ <span className="text-sm text-slate-500 font-normal">/ 14 ngày</span>
-              </div>
-              <ul className="text-sm text-slate-700 space-y-3">
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>5 hợp đồng gửi ký</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>Ký số PAdES chuẩn X.509</span>
-                </li>
-              </ul>
-            </div>
-            <Button variant="secondary" size="md" className="w-full mt-6" disabled>
-              Đã sử dụng
-            </Button>
-          </div>
-
-          <div className="bg-surface border-2 border-primary rounded-2xl p-6 flex flex-col justify-between shadow-md relative">
-            <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-xs font-semibold bg-primary text-white shadow-xs">
-              Đang sử dụng
-            </span>
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">Gói Cơ bản</h3>
-              <p className="text-sm text-muted mt-1">Hộ kinh doanh và doanh nghiệp nhỏ</p>
-              <div className="text-3xl font-bold text-slate-900 my-5">
-                299.000 ₫ <span className="text-sm text-slate-500 font-normal">/ 30 ngày</span>
-              </div>
-              <ul className="text-sm text-slate-700 space-y-3">
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span><strong>20 hợp đồng gửi ký</strong> / tháng</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>Tối đa 5 người ký tuần tự</span>
-                </li>
-              </ul>
-            </div>
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full mt-6"
-              onClick={() => openCheckout("Gói Cơ bản", 299000)}
-            >
-              Gia hạn gói này (VietQR)
-            </Button>
-          </div>
-
-          <div className="bg-surface border border-line rounded-2xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition">
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">Gói Doanh nghiệp Pro</h3>
-              <p className="text-sm text-muted mt-1">Doanh nghiệp có nhu cầu ký kết lớn</p>
-              <div className="text-3xl font-bold text-primary my-5">
-                699.000 ₫ <span className="text-sm text-slate-500 font-normal">/ 30 ngày</span>
-              </div>
-              <ul className="text-sm text-slate-700 space-y-3">
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span><strong>100 hợp đồng gửi ký</strong> / tháng</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>Không giới hạn số lượng thành viên</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>Dấu thời gian TSA FreeTSA</span>
-                </li>
-              </ul>
-            </div>
-            <Button
-              variant="primary"
-              size="md"
-              className="w-full mt-6 bg-slate-900 hover:bg-slate-800 border-slate-900"
-              onClick={() => openCheckout("Gói Doanh nghiệp Pro", 699000)}
-            >
-              Nâng cấp lên Pro
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Bảng lịch sử hóa đơn */}
-      <div className="bg-surface border border-line rounded-2xl shadow-xs overflow-hidden">
-        <div className="px-6 py-5 border-b border-line">
-          <h2 className="text-lg font-bold text-slate-900">Lịch sử hóa đơn thanh toán</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-line text-xs uppercase tracking-wider font-semibold text-slate-500 h-12">
-                <th className="px-6">Mã hóa đơn</th>
-                <th className="px-6">Gói dịch vụ</th>
-                <th className="px-6">Số tiền</th>
-                <th className="px-6">Trạng thái</th>
-                <th className="px-6">Ngày thanh toán</th>
-                <th className="px-6 text-right">Hóa đơn PDF</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line text-sm">
-              {INVOICES.map((inv) => (
-                <tr key={inv.code} className="h-[60px] hover:bg-slate-50/80 transition">
-                  <td className="px-6 font-mono font-semibold text-slate-700">{inv.code}</td>
-                  <td className="px-6 font-medium text-slate-900">{inv.plan}</td>
-                  <td className="px-6 font-bold text-slate-900">{inv.amount}</td>
-                  <td className="px-6">
-                    <Badge subscriptionStatus="Active">Đã thanh toán</Badge>
-                  </td>
-                  <td className="px-6 text-slate-600">{inv.createdAt}</td>
-                  <td className="px-6 text-right">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => toast(`Đang tải hóa đơn ${inv.code}.pdf`, "info")}
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Tải PDF</span>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modal thanh toán SePay VietQR */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-line rounded-2xl max-w-md w-full p-6 shadow-xl text-sm space-y-5">
-            <div className="flex justify-between items-center pb-3 border-b border-line">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Thanh toán VietQR SePay</h3>
-                <p className="text-sm text-primary font-semibold mt-0.5">{selectedPlan}</p>
-              </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="text-center">
-              <div className="w-44 h-44 mx-auto border border-line rounded-2xl p-3 flex flex-col items-center justify-center bg-slate-50 shadow-2xs">
-                <svg className="w-32 h-32" viewBox="0 0 100 100" fill="#0f172a">
-                  <path d="M0 0h30v30H0zM40 0h10v10H40zM60 0h10v10H60zM70 0h30v30H70zM10 10h10v10H10zM80 10h10v10H80zM0 40h10v10H0zM20 40h20v20H20zM50 40h10v10H50zM70 40h20v10H70zM0 70h30v30H0zM10 80h10v10H10zM40 70h10v20H40zM60 70h10v10H60zM80 70h10v30H80zM90 90h10v10H90z" />
-                </svg>
-                <span className="text-xs font-mono font-semibold text-slate-600 mt-1">
-                  SePay Auto-Webhook QR
-                </span>
-              </div>
-              <p className="text-xs text-muted mt-2 flex items-center justify-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Đang tự động kiểm tra trạng thái mỗi 5 giây (Còn 14:52)</span>
-              </p>
-            </div>
-
-            <div className="space-y-2.5 p-4 rounded-xl border border-line bg-slate-50">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Ngân hàng:</span>
-                <span className="font-bold text-slate-900">VietinBank (NH Công Thương)</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Số tài khoản:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-slate-900">102874910283</span>
-                  <button
-                    onClick={() => copyText("102874910283", "số tài khoản")}
-                    className="text-primary hover:underline text-xs font-semibold inline-flex items-center gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Chép
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Số tiền:</span>
-                <span className="font-bold text-emerald-600 text-base">
-                  {selectedPrice.toLocaleString("vi-VN")} ₫
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Nội dung bắt buộc:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                    TS98214
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-fg">Hợp đồng đã gửi trong tháng</span>
+                  <span className="font-semibold text-fg tabular-nums">
+                    {sub.quotaUsed} / {sub.quotaLimit}
                   </span>
-                  <button
-                    onClick={() => copyText("TS98214", "mã hóa đơn")}
-                    className="text-primary hover:underline text-xs font-semibold inline-flex items-center gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Chép
-                  </button>
                 </div>
+                <Progress value={sub.quotaUsed} max={sub.quotaLimit} tone={quotaRatio >= 0.9 ? "warning" : "primary"} label="Hạn mức đã dùng" />
               </div>
+              {(daysLeft < 7 || quotaRatio >= 0.9) && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-badge-pending-bg text-sm text-badge-pending-fg motion-safe:animate-fade-in">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {daysLeft < 7 && `Gói còn ${Math.max(0, daysLeft)} ngày. `}
+                    {quotaRatio >= 0.9 && `Còn ${Math.max(0, sub.quotaLimit - sub.quotaUsed)} lượt gửi ký trong tháng. `}
+                    Gia hạn hoặc nâng gói để không bị gián đoạn.
+                  </span>
+                </div>
+              )}
             </div>
-
-            <Button
-              variant="primary"
-              size="lg"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
-              onClick={handleSimulatePayment}
-            >
-              Mô phỏng SePay Webhook: Đã thanh toán
-            </Button>
-          </div>
-        </div>
+          )}
+        </Card>
       )}
+
+      <Card title="Các gói dịch vụ" icon={Package}>
+        {plans.error ? (
+          <ErrorState error={plans.error} onRetry={plans.reload} />
+        ) : !plans.data ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-48" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {plans.data
+              .filter((p) => p.isActive)
+              .map((p) => {
+                const isCurrent = p.id === sub?.planId;
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-md border p-4 flex flex-col ${isCurrent ? "border-primary bg-selected/40" : "border-line"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold text-fg">Gói {p.name}</h3>
+                      {isCurrent && (
+                        <span className="inline-flex items-center h-[22px] px-2 rounded-sm bg-primary text-white text-xs font-semibold">
+                          Đang dùng
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2">
+                      <span className="text-xl font-semibold text-fg">{formatMoney(p.price)}</span>
+                      <span className="ml-1 text-sm text-muted">/ {p.durationDays} ngày</span>
+                    </p>
+                    <ul className="mt-3 flex-1 flex flex-col gap-1 text-sm">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+                        {p.monthlyQuota} hợp đồng gửi ký mỗi tháng
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+                        Tối đa 5 người ký mỗi hợp đồng
+                      </li>
+                    </ul>
+                    <Button
+                      className="mt-4 w-full"
+                      variant={isCurrent ? "primary" : "secondary"}
+                      disabled={p.isTrial}
+                      onClick={() => openCheckout(p)}
+                    >
+                      {p.isTrial ? "Chỉ dùng khi mới đăng ký" : isCurrent ? "Gia hạn gói này" : `Chuyển sang gói ${p.name}`}
+                    </Button>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </Card>
+
+      <Card title="Lịch sử hóa đơn" icon={Receipt} bodyClassName="p-0">
+        {invoices.error ? (
+          <div className="p-4">
+            <ErrorState error={invoices.error} onRetry={invoices.reload} />
+          </div>
+        ) : (
+          <Table
+            bare
+            loading={invoices.isLoading}
+            rows={invoices.data ?? []}
+            getRowKey={(i) => i.code}
+            empty={<p className="p-4 text-sm text-muted">Chưa có hóa đơn nào.</p>}
+            columns={[
+              { key: "code", header: "Mã hóa đơn", primary: true, render: (i) => <span className="font-mono">{i.code}</span> },
+              { key: "plan", header: "Gói", render: (i) => `Gói ${i.planName}` },
+              { key: "amount", header: "Số tiền", align: "right", render: (i) => formatMoney(i.amount) },
+              {
+                key: "status",
+                header: "Trạng thái",
+                render: (i) => (
+                  <span className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold ${INVOICE_STATUS[i.status].className}`}>
+                    {INVOICE_STATUS[i.status].label}
+                  </span>
+                ),
+              },
+              { key: "date", header: "Ngày tạo", render: (i) => formatDateTime(i.createdAt) },
+              {
+                key: "pdf",
+                header: "",
+                align: "right",
+                render: (i) =>
+                  i.status === "Paid" ? (
+                    <Button variant="ghost" onClick={() => handleDownloadPdf(i.code)}>
+                      <Download className="w-4 h-4" aria-hidden="true" />
+                      Tải PDF
+                    </Button>
+                  ) : null,
+              },
+            ]}
+          />
+        )}
+      </Card>
+
+      <Dialog
+        open={checkoutPlan !== null}
+        onClose={closeCheckout}
+        title={paid ? "Đã nhận thanh toán" : `Thanh toán gói ${checkoutPlan?.name ?? ""}`}
+        footer={
+          paid ? (
+            <Button variant="primary" onClick={closeCheckout}>
+              Đóng
+            </Button>
+          ) : (
+            <>
+              {USE_MOCK && checkout && (
+                <Button variant="secondary" onClick={() => setPaid(true)}>
+                  Giả lập đã thanh toán
+                </Button>
+              )}
+              <Button variant="secondary" onClick={closeCheckout}>
+                Để sau
+              </Button>
+            </>
+          )
+        }
+      >
+        {paid ? (
+          <div className="flex flex-col items-center text-center gap-2 py-4 motion-safe:animate-pop-in">
+            <CircleCheck className="w-10 h-10 text-success" aria-hidden="true" />
+            <p className="text-base font-semibold text-fg">Gói {checkoutPlan?.name} đã được kích hoạt</p>
+            <p className="text-sm text-muted">Hóa đơn {checkout?.invoiceCode} đã thanh toán.</p>
+          </div>
+        ) : !checkout ? (
+          <Skeleton className="h-64" />
+        ) : (
+          <div className="flex flex-col gap-4 text-sm">
+            <div className="mx-auto w-44 h-44 rounded-md border border-line bg-page flex items-center justify-center overflow-hidden">
+              {checkout.qrImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={checkout.qrImageUrl} alt={`Mã VietQR cho hóa đơn ${checkout.invoiceCode}`} className="w-full h-full object-contain" />
+              ) : (
+                <span className="px-4 text-center text-xs text-muted">Mã QR hiện ở đây khi máy chủ trả về ảnh VietQR</span>
+              )}
+            </div>
+            <p className="flex items-center justify-center gap-1 text-xs text-muted">
+              <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+              Đang chờ thanh toán · còn {countdown}
+            </p>
+            <dl className="rounded-md border border-line divide-y divide-line">
+              {[
+                { label: "Ngân hàng", value: checkout.bankName },
+                { label: "Số tài khoản", value: checkout.bankAccount, copy: "số tài khoản", mono: true },
+                { label: "Số tiền", value: formatMoney(checkout.amount), copy: "số tiền", raw: String(checkout.amount) },
+                { label: "Nội dung chuyển khoản", value: checkout.invoiceCode, copy: "nội dung", mono: true },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between gap-3 px-3 h-row">
+                  <dt className="text-muted">{row.label}</dt>
+                  <dd className="flex items-center gap-2">
+                    <span className={`font-semibold text-fg ${row.mono ? "font-mono" : ""}`}>{row.value}</span>
+                    {row.copy && (
+                      <button
+                        type="button"
+                        onClick={() => copy(row.raw ?? row.value, row.copy!)}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-muted hover:bg-page hover:text-fg"
+                        aria-label={`Sao chép ${row.copy}`}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className="text-xs text-muted">
+              Nội dung chuyển khoản phải đúng mã hóa đơn để hệ thống tự kích hoạt gói.
+            </p>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

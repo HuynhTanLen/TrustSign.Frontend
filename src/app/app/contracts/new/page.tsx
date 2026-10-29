@@ -2,366 +2,388 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, FilePenLine, FileText, Plus, Send, Trash2, Upload, Users } from "lucide-react";
+import { contractsApi, type NewSigner } from "@/lib/api/contracts";
+import { templatesApi } from "@/lib/api/templates";
+import { ApiError } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
+import { formatDateTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/error-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import {
-  ArrowLeft,
-  ArrowRight,
-  FileText,
-  Upload,
-  Users,
-  Plus,
-  Trash2,
-  Send,
-  CheckCircle2,
-  PenTool,
-} from "lucide-react";
 
-interface SignerItem {
-  id: string;
-  name: string;
-  email: string;
-  color: string;
-  badgeClass: string;
+const MAX_SIGNERS = 5;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const SIGNER_COLORS = ["bg-primary", "bg-success", "bg-warning", "bg-badge-signing-fg", "bg-muted"];
+const STEPS = ["Nguồn hợp đồng", "Người ký", "Kiểm tra và gửi"];
+
+type Step = 0 | 1 | 2;
+
+function Stepper({ step }: { step: Step }) {
+  return (
+    <ol className="flex items-center gap-2 bg-surface border border-line rounded-md p-2">
+      {STEPS.map((label, i) => (
+        <li key={label} className="flex items-center gap-2 flex-1 min-w-0">
+          <span
+            className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold shrink-0 transition-colors duration-200 ${
+              i < step ? "bg-success text-white" : i === step ? "bg-primary text-white" : "bg-page text-muted border border-line"
+            }`}
+          >
+            {i < step ? <Check className="w-4 h-4" aria-hidden="true" /> : i + 1}
+          </span>
+          <span className={`text-sm truncate ${i === step ? "font-semibold text-fg" : "text-muted"}`}>{label}</span>
+          {i < STEPS.length - 1 && (
+            <span className="hidden sm:block flex-1 h-px bg-line overflow-hidden">
+              <span className={`block h-full bg-success origin-left transition-transform duration-300 ${i < step ? "scale-x-100" : "scale-x-0"}`} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
-export default function NewContractWizardPage() {
+export default function NewContractPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  const templates = useApi("templates", templatesApi.list);
 
-  const [step, setStep] = React.useState<1 | 2 | 3>(1);
-  const [sourceMode, setSourceMode] = React.useState<"template" | "upload">("template");
-  const [contractTitle, setContractTitle] = React.useState("Hợp đồng Cung cấp Dịch vụ Phần mềm Cloud 2026");
-  const [partnerCompany, setPartnerCompany] = React.useState("Công ty TNHH Thương mại & Công nghệ Sao Việt");
-  const [contractValue, setContractValue] = React.useState("45.000.000 ₫");
-  const [dueDate, setDueDate] = React.useState("2026-10-30T17:00");
+  const [step, setStep] = React.useState<Step>(0);
+  const [source, setSource] = React.useState<"template" | "upload">("template");
+  const [title, setTitle] = React.useState("");
+  const [templateId, setTemplateId] = React.useState(searchParams.get("templateId") ?? "");
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [file, setFile] = React.useState<File | null>(null);
+  const [signers, setSigners] = React.useState<NewSigner[]>([{ fullName: "", email: "" }]);
+  const [dueAt, setDueAt] = React.useState("");
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [isSending, setIsSending] = React.useState(false);
+  const [blocked, setBlocked] = React.useState<string | null>(null);
 
-  const [signers, setSigners] = React.useState<SignerItem[]>([
-    {
-      id: "s-1",
-      name: "Nguyễn Văn An (Đại diện Bên A)",
-      email: "an.nguyen@trustsign.vn",
-      color: "#4f46e5",
-      badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    },
-    {
-      id: "s-2",
-      name: "Trần Bình Minh (Đại diện Bên B)",
-      email: "minh.tb@saoviettech.vn",
-      color: "#059669",
-      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    },
-  ]);
+  const template = templates.data?.find((t) => t.id === templateId);
 
-  const handleAddSigner = () => {
-    if (signers.length >= 5) {
-      toast("Tối đa 5 người ký tuần tự cho mỗi hợp đồng", "error");
+  const pickFile = (f: File | undefined) => {
+    if (!f) return;
+    if (f.type !== "application/pdf") return toast("Chỉ nhận file PDF.", "error");
+    if (f.size > MAX_FILE_BYTES) return toast("File lớn hơn 10 MB.", "error");
+    setFile(f);
+    if (!title) setTitle(f.name.replace(/\.pdf$/i, ""));
+  };
+
+  const step1Valid =
+    title.trim() !== "" &&
+    (source === "upload" ? file !== null : !!template && template.variables.every((v) => (values[v] ?? "").trim() !== ""));
+  const step2Valid = signers.every((s) => s.fullName.trim() && /\S+@\S+\.\S+/.test(s.email)) && dueAt !== "";
+
+  const goToReview = () => {
+    if (new Date(dueAt).getTime() <= Date.now()) {
+      toast("Hạn ký phải sau thời điểm hiện tại.", "error");
       return;
     }
-    setSigners((prev) => [
-      ...prev,
-      {
-        id: `s-${Date.now()}`,
-        name: `Người ký thứ ${prev.length + 1}`,
-        email: `nguoiky${prev.length + 1}@doanhnghiep.vn`,
-        color: "#d97706",
-        badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-      },
-    ]);
+    setStep(2);
   };
 
-  const handleRemoveSigner = (id: string) => {
-    if (signers.length <= 1) return;
-    setSigners((prev) => prev.filter((s) => s.id !== id));
-  };
+  const updateSigner = (index: number, patch: Partial<NewSigner>) =>
+    setSigners((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
 
-  const handleSendContract = () => {
-    toast("Đã phát hành hợp đồng và gửi email mời ký tới người ký đầu tiên!", "success");
-    router.push("/app/contracts/TS-SAAS-2026-01");
+  const moveSigner = (index: number, dir: -1 | 1) =>
+    setSigners((prev) => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+
+  const handleSend = async () => {
+    setIsSending(true);
+    try {
+      const { contractId } =
+        source === "upload" && file
+          ? await contractsApi.upload(file, title.trim())
+          : await contractsApi.createFromTemplate(templateId, title.trim(), values);
+      await contractsApi.setSigners(contractId, signers);
+      await contractsApi.send(contractId, new Date(dueAt).toISOString());
+      toast("Đã gửi hợp đồng cho người ký đầu tiên.", "success");
+      router.push(`/app/contracts/${contractId}`);
+    } catch (err) {
+      setConfirmOpen(false);
+      if (err instanceof ApiError && (err.code === "Quota.Exceeded" || err.status === 403)) {
+        setBlocked(
+          err.code === "Quota.Exceeded"
+            ? "Doanh nghiệp đã dùng hết hạn mức gửi ký trong tháng. Hợp đồng được lưu ở trạng thái Nháp."
+            : "Gói dịch vụ đã hết hạn. Hợp đồng được lưu ở trạng thái Nháp.",
+        );
+      } else {
+        toast(err instanceof ApiError ? err.message : "Không gửi được hợp đồng.", "error");
+      }
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <Link
-            href="/app/contracts"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline mb-1"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại danh sách hợp đồng</span>
-          </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-            Soạn và phát hành hợp đồng mới
-          </h1>
-        </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Soạn hợp đồng" back={{ href: "/app/contracts", label: "Danh sách hợp đồng" }} />
+      <Stepper step={step} />
 
-        {/* Stepper Indicator */}
-        <div className="flex items-center gap-2 bg-surface border border-line rounded-2xl p-2 shadow-2xs">
-          {[
-            { num: 1, label: "1. Nguồn hợp đồng" },
-            { num: 2, label: "2. Người ký tuần tự" },
-            { num: 3, label: "3. Đặt ô ký & Gửi" },
-          ].map((s) => (
-            <button
-              key={s.num}
-              onClick={() => setStep(s.num as 1 | 2 | 3)}
-              className={`h-10 px-4 rounded-xl text-sm font-semibold transition-all ${
-                step === s.num
-                  ? "bg-primary text-white shadow-xs"
-                  : step > s.num
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+      <div key={step} className="motion-safe:animate-fade-up">
+        {step === 0 && (
+          <Card title="Nguồn hợp đồng" icon={FileText}>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Nguồn hợp đồng">
+                {[
+                  { id: "template" as const, icon: FilePenLine, title: "Từ mẫu hợp đồng", text: "Điền các trường của mẫu, hệ thống tạo file PDF." },
+                  { id: "upload" as const, icon: Upload, title: "Tải file PDF lên", text: "File PDF có sẵn, tối đa 10 MB." },
+                ].map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === o.id}
+                    onClick={() => setSource(o.id)}
+                    className={`flex items-start gap-3 p-4 rounded-md border text-left cursor-pointer ${
+                      source === o.id ? "border-primary bg-selected shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-line hover:bg-page"
+                    }`}
+                  >
+                    <o.icon className="w-5 h-5 mt-0.5 text-primary shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm font-semibold text-fg">{o.title}</span>
+                      <span className="block text-sm text-muted">{o.text}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <Input label="Tên hợp đồng" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Hợp đồng dịch vụ" />
+
+              {source === "template" ? (
+                templates.error ? (
+                  <ErrorState error={templates.error} onRetry={templates.reload} />
+                ) : (
+                  <>
+                    <Select
+                      label="Mẫu hợp đồng"
+                      required
+                      value={templateId}
+                      disabled={templates.isLoading}
+                      onChange={(e) => {
+                        setTemplateId(e.target.value);
+                        setValues({});
+                      }}
+                    >
+                      <option value="">{templates.isLoading ? "Đang tải…" : "Chọn mẫu"}</option>
+                      {templates.data?.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.variables.length} trường)
+                        </option>
+                      ))}
+                    </Select>
+                    {template && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 motion-safe:animate-fade-in">
+                        {template.variables.map((v) => (
+                          <Input
+                            key={v}
+                            label={v}
+                            required
+                            value={values[v] ?? ""}
+                            onChange={(e) => setValues((prev) => ({ ...prev, [v]: e.target.value }))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {templates.data?.length === 0 && (
+                      <p className="text-sm text-muted">
+                        Chưa có mẫu nào.{" "}
+                        <Link href="/app/templates" className="text-primary underline underline-offset-2">
+                          Tạo mẫu
+                        </Link>
+                      </p>
+                    )}
+                  </>
+                )
+              ) : (
+                <label
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    pickFile(e.dataTransfer.files[0]);
+                  }}
+                  className="flex flex-col items-center gap-1 p-8 rounded-md border border-dashed border-line-strong bg-page text-center cursor-pointer hover:bg-selected"
+                >
+                  <Upload className="w-6 h-6 text-primary" aria-hidden="true" />
+                  <span className="text-sm font-semibold text-fg">{file ? file.name : "Kéo thả file PDF vào đây hoặc bấm để chọn"}</span>
+                  <span className="text-xs text-muted">
+                    {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "Chỉ nhận .pdf, tối đa 10 MB"}
+                  </span>
+                  <input type="file" accept="application/pdf" className="sr-only" onChange={(e) => pickFile(e.target.files?.[0])} />
+                </label>
+              )}
+
+              <div className="flex justify-end pt-2 border-t border-line">
+                <Button variant="primary" disabled={!step1Valid} onClick={() => setStep(1)}>
+                  Tiếp tục
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {step === 1 && (
+          <Card
+            title={`Người ký theo thứ tự (${signers.length}/${MAX_SIGNERS})`}
+            icon={Users}
+            actions={
+              <Button
+                variant="secondary"
+                disabled={signers.length >= MAX_SIGNERS}
+                onClick={() => setSigners((prev) => [...prev, { fullName: "", email: "" }])}
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                Thêm người ký
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted">Hệ thống gửi link ký lần lượt theo thứ tự; người sau chỉ nhận link khi người trước đã ký.</p>
+              <ol className="flex flex-col gap-3">
+                {signers.map((s, i) => (
+                  <li key={i} className="flex flex-col md:flex-row md:items-end gap-3 p-3 rounded-md border border-line bg-page motion-safe:animate-fade-in">
+                    <span className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold text-white shrink-0 ${SIGNER_COLORS[i]}`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Input label="Họ và tên" required value={s.fullName} onChange={(e) => updateSigner(i, { fullName: e.target.value })} />
+                      <Input
+                        label="Email nhận link ký"
+                        type="email"
+                        required
+                        value={s.email}
+                        onChange={(e) => updateSigner(i, { email: e.target.value })}
+                        placeholder="ten@congty.vn"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" aria-label="Lên trên" disabled={i === 0} onClick={() => moveSigner(i, -1)}>
+                        <ArrowUp className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" aria-label="Xuống dưới" disabled={i === signers.length - 1} onClick={() => moveSigner(i, 1)}>
+                        <ArrowDown className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        aria-label="Xóa người ký"
+                        disabled={signers.length === 1}
+                        onClick={() => setSigners((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div className="max-w-xs">
+                <Input label="Hạn ký" type="datetime-local" required value={dueAt} onChange={(e) => setDueAt(e.target.value)} helperText="Phải sau thời điểm hiện tại." />
+              </div>
+              <div className="flex justify-between pt-2 border-t border-line">
+                <Button variant="secondary" onClick={() => setStep(0)}>
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  Quay lại
+                </Button>
+                <Button variant="primary" disabled={!step2Valid} onClick={goToReview}>
+                  Tiếp tục
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {step === 2 && (
+          <Card title="Kiểm tra trước khi gửi" icon={Send}>
+            <div className="flex flex-col gap-4">
+              <dl className="grid grid-cols-1 sm:grid-cols-[160px_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+                <dt className="text-muted">Tên hợp đồng</dt>
+                <dd className="font-semibold text-fg">{title}</dd>
+                <dt className="text-muted">Nguồn</dt>
+                <dd className="text-fg">{source === "upload" ? `File ${file?.name}` : `Mẫu ${template?.name}`}</dd>
+                <dt className="text-muted">Hạn ký</dt>
+                <dd className="text-fg">{formatDateTime(new Date(dueAt).toISOString())}</dd>
+                <dt className="text-muted">Người ký</dt>
+                <dd>
+                  <ol className="flex flex-col gap-1">
+                    {signers.map((s, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-sm flex items-center justify-center text-xs font-semibold text-white ${SIGNER_COLORS[i]}`}>{i + 1}</span>
+                        {s.fullName} <span className="text-muted">({s.email})</span>
+                      </li>
+                    ))}
+                  </ol>
+                </dd>
+              </dl>
+              <p className="p-3 rounded-md bg-strip text-sm text-muted">
+                Ô ký của mỗi người được đặt ở cuối trang cuối. Kéo thả vị trí ô ký trên PDF sẽ có khi tích hợp trình xem PDF.
+              </p>
+              <div className="flex justify-between pt-2 border-t border-line">
+                <Button variant="secondary" onClick={() => setStep(1)}>
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  Quay lại
+                </Button>
+                <Button variant="primary" onClick={() => setConfirmOpen(true)}>
+                  <Send className="w-4 h-4" aria-hidden="true" />
+                  Gửi ký
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
-      {/* STEP 1: NGUỒN HỢP ĐỒNG (FE-04) */}
-      {step === 1 && (
-        <div className="bg-surface border border-line rounded-2xl p-7 shadow-xs space-y-6">
-          <div className="flex flex-wrap gap-4">
-            <button
-              type="button"
-              onClick={() => setSourceMode("template")}
-              className={`flex-1 min-w-[240px] p-5 rounded-2xl border-2 text-left transition-all ${
-                sourceMode === "template"
-                  ? "border-primary bg-primary-light/50"
-                  : "border-line hover:border-slate-300"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center">
-                  <PenTool className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">Khởi tạo từ Mẫu hợp đồng</h3>
-                  <p className="text-xs text-muted">Điền biến động và tự động sinh tệp PDF</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSourceMode("upload")}
-              className={`flex-1 min-w-[240px] p-5 rounded-2xl border-2 text-left transition-all ${
-                sourceMode === "upload"
-                  ? "border-primary bg-primary-light/50"
-                  : "border-line hover:border-slate-300"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center">
-                  <Upload className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">Tải tệp PDF có sẵn</h3>
-                  <p className="text-xs text-muted">Hỗ trợ tệp PDF chuẩn, tối đa 10 MB</p>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          {sourceMode === "template" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-              <Input
-                label="Tên hợp đồng phát hành"
-                required
-                value={contractTitle}
-                onChange={(e) => setContractTitle(e.target.value)}
-              />
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  Chọn mẫu hợp đồng doanh nghiệp
-                </label>
-                <select className="w-full h-11 rounded-xl border border-slate-300 bg-surface px-4 text-sm font-medium text-slate-900 focus:outline-none focus:border-primary">
-                  <option>Mẫu Hợp đồng Dịch vụ Phần mềm SaaS (4 biến)</option>
-                  <option>Mẫu Thỏa thuận Bảo mật NDA (3 biến)</option>
-                  <option>Mẫu Hợp đồng Lao động Tiêu chuẩn (6 biến)</option>
-                </select>
-              </div>
-              <Input
-                label="Biến {{ten_doi_tac}} – Tên doanh nghiệp đối tác"
-                required
-                value={partnerCompany}
-                onChange={(e) => setPartnerCompany(e.target.value)}
-              />
-              <Input
-                label="Biến {{gia_tri_hd}} – Tổng giá trị hợp đồng"
-                required
-                value={contractValue}
-                onChange={(e) => setContractValue(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="border-2 border-dashed border-indigo-300 rounded-2xl p-10 text-center bg-indigo-50/30">
-              <FileText className="w-12 h-12 text-primary mx-auto mb-3" />
-              <p className="text-base font-bold text-slate-900">
-                Kéo thả tệp PDF hợp đồng vào đây hoặc bấm để chọn tệp
-              </p>
-              <p className="text-sm text-muted mt-1">
-                Chỉ nhận định dạng .pdf, dung lượng tối đa 10 MB
-              </p>
-            </div>
-          )}
-
-          <div className="pt-4 border-t border-line flex justify-end">
-            <Button variant="primary" size="lg" onClick={() => setStep(2)}>
-              <span>Tiếp tục: Thiết lập Người ký</span>
-              <ArrowRight className="w-5 h-5" />
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Gửi ký"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={isSending}>
+              Hủy
             </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: NGƯỜI KÝ TUẦN TỰ (FE-05) */}
-      {step === 2 && (
-        <div className="bg-surface border border-line rounded-2xl p-7 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-line">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                <span>Danh sách người ký tuần tự (Tối đa 5 bên)</span>
-              </h2>
-              <p className="text-sm text-muted mt-0.5">
-                Hệ thống sẽ gửi email mời ký lần lượt theo đúng thứ tự từ 1 đến hết
-              </p>
-            </div>
-            <Button variant="secondary" size="md" onClick={handleAddSigner}>
-              <Plus className="w-4 h-4" />
-              <span>Thêm người ký</span>
+            <Button variant="primary" onClick={handleSend} isLoading={isSending}>
+              Gửi ký
             </Button>
-          </div>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">
+          Gửi <span className="font-semibold">{title}</span> cho {signers.length} người ký theo thứ tự. Đã gửi thì không sửa được nội dung.
+        </p>
+      </Dialog>
 
-          <div className="space-y-4">
-            {signers.map((signer, index) => (
-              <div
-                key={signer.id}
-                className="p-5 rounded-2xl border border-line bg-slate-50/60 flex flex-col md:flex-row items-center gap-4"
-              >
-                <div
-                  className="w-10 h-10 rounded-xl text-white font-bold text-sm flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: signer.color }}
-                >
-                  #{index + 1}
-                </div>
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                  <Input
-                    label={`Họ và tên người ký lượt ${index + 1}`}
-                    value={signer.name}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSigners((prev) =>
-                        prev.map((item) => (item.id === signer.id ? { ...item, name: val } : item))
-                      );
-                    }}
-                  />
-                  <Input
-                    label="Email nhận mã OTP & link ký"
-                    type="email"
-                    value={signer.email}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSigners((prev) =>
-                        prev.map((item) => (item.id === signer.id ? { ...item, email: val } : item))
-                      );
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSigner(signer.id)}
-                  className="p-2.5 text-slate-400 hover:text-danger hover:bg-rose-50 rounded-xl transition"
-                  title="Xóa người ký"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="max-w-sm">
-            <Input
-              label="Thời hạn hoàn tất ký kết"
-              type="datetime-local"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-
-          <div className="pt-4 border-t border-line flex justify-between">
-            <Button variant="secondary" size="lg" onClick={() => setStep(1)}>
-              Quay lại Bước 1
+      <Dialog
+        open={blocked !== null}
+        onClose={() => setBlocked(null)}
+        title="Chưa gửi được hợp đồng"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBlocked(null)}>
+              Đóng
             </Button>
-            <Button variant="primary" size="lg" onClick={() => setStep(3)}>
-              <span>Tiếp tục: Đặt vị trí ô ký trên PDF</span>
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: VỊ TRÍ KÝ & GỬI KÝ (FE-05) */}
-      {step === 3 && (
-        <div className="bg-surface border border-line rounded-2xl p-7 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-line">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Đặt vị trí ô chữ ký trên tài liệu PDF (FE-05)
-              </h2>
-              <p className="text-sm text-muted">
-                Tọa độ lưu theo đơn vị điểm PDF (pt). Lưu ý: Đã phát hành thì không sửa được nội dung.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              {signers.map((s, idx) => (
-                <span key={s.id} className={`px-3 py-1.5 rounded-xl border ${s.badgeClass}`}>
-                  Lượt {idx + 1}: {s.name}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="border border-slate-200 rounded-2xl p-8 bg-slate-50">
-            <div className="max-w-[720px] mx-auto bg-white border border-slate-200 rounded-xl p-8 shadow-xs space-y-4 text-sm">
-              <div className="text-center border-b border-line pb-4">
-                <h3 className="font-bold text-base uppercase text-slate-900">{contractTitle}</h3>
-                <p className="text-xs text-muted mt-1">Đối tác: {partnerCompany} • Giá trị: {contractValue}</p>
-              </div>
-              <p className="text-slate-700">
-                Các bên cam kết thực hiện đúng quyền và nghĩa vụ theo các điều khoản đã thỏa thuận trong hợp đồng điện tử này.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 mt-6 border-t border-line">
-                <div className="p-5 rounded-xl border-2 border-dashed border-indigo-500 bg-indigo-50/40 text-center">
-                  <p className="text-xs font-bold text-indigo-700 uppercase">Ô KÝ LƯỢT 1 (X: 72pt, Y: 140pt)</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{signers[0]?.name}</p>
-                </div>
-                <div className="p-5 rounded-xl border-2 border-dashed border-emerald-600 bg-emerald-50/40 text-center">
-                  <p className="text-xs font-bold text-emerald-700 uppercase">Ô KÝ LƯỢT 2 (X: 340pt, Y: 140pt)</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">{signers[1]?.name ?? "Người ký 2"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-line flex justify-between">
-            <Button variant="secondary" size="lg" onClick={() => setStep(2)}>
-              Quay lại Bước 2
-            </Button>
-            <Button variant="primary" size="lg" onClick={handleSendContract}>
-              <Send className="w-5 h-5" />
-              <span>Phát hành & Gửi ký ngay</span>
-            </Button>
-          </div>
-        </div>
-      )}
+            <Link href="/app/billing">
+              <Button variant="primary">Nâng gói</Button>
+            </Link>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{blocked}</p>
+      </Dialog>
     </div>
   );
 }

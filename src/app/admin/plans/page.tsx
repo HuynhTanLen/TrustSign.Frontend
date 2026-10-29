@@ -1,290 +1,172 @@
 "use client";
 
 import * as React from "react";
+import { Package, Pencil, Plus } from "lucide-react";
+import { subscriptionApi, type Plan, type SavePlanRequest } from "@/lib/api/subscription";
+import { ApiError } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
+import { formatMoney } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/error-state";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Table } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Edit3, Power } from "lucide-react";
 
-interface PlanItem {
-  id: string;
-  name: string;
-  price: number;
-  durationDays: number;
-  monthlyQuota: number;
-  isTrial: boolean;
-  isActive: boolean;
-}
+const EMPTY: SavePlanRequest = { name: "", price: 0, durationDays: 30, monthlyQuota: 20, isTrial: false, isActive: true };
 
 export default function AdminPlansPage() {
   const { toast } = useToast();
-  const [plans, setPlans] = React.useState<PlanItem[]>([
-    {
-      id: "plan-trial",
-      name: "Gói Dùng thử",
-      price: 0,
-      durationDays: 14,
-      monthlyQuota: 5,
-      isTrial: true,
-      isActive: true,
-    },
-    {
-      id: "plan-basic",
-      name: "Gói Cơ bản",
-      price: 299000,
-      durationDays: 30,
-      monthlyQuota: 20,
-      isTrial: false,
-      isActive: true,
-    },
-    {
-      id: "plan-pro",
-      name: "Gói Doanh nghiệp Pro",
-      price: 699000,
-      durationDays: 30,
-      monthlyQuota: 100,
-      isTrial: false,
-      isActive: true,
-    },
-    {
-      id: "plan-legacy",
-      name: "Gói Khởi nghiệp 2025 (Cũ)",
-      price: 199000,
-      durationDays: 30,
-      monthlyQuota: 10,
-      isTrial: false,
-      isActive: false,
-    },
-  ]);
+  const { data, error, isLoading, reload, mutate } = useApi("admin-plans", subscriptionApi.plans);
+  const [editing, setEditing] = React.useState<{ id: string | null; form: SavePlanRequest } | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
 
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [editingPlan, setEditingPlan] = React.useState<PlanItem | null>(null);
-  const [name, setName] = React.useState("");
-  const [price, setPrice] = React.useState("299000");
-  const [durationDays, setDurationDays] = React.useState("30");
-  const [monthlyQuota, setMonthlyQuota] = React.useState("20");
-  const [isTrial, setIsTrial] = React.useState(false);
-  const [isActive, setIsActive] = React.useState(true);
+  const setField = <K extends keyof SavePlanRequest>(key: K, value: SavePlanRequest[K]) =>
+    setEditing((e) => (e ? { ...e, form: { ...e.form, [key]: value } } : e));
 
-  const openCreateModal = () => {
-    setEditingPlan(null);
-    setName("");
-    setPrice("499000");
-    setDurationDays("30");
-    setMonthlyQuota("50");
-    setIsTrial(false);
-    setIsActive(true);
-    setModalOpen(true);
-  };
-
-  const openEditModal = (p: PlanItem) => {
-    setEditingPlan(p);
-    setName(p.name);
-    setPrice(String(p.price));
-    setDurationDays(String(p.durationDays));
-    setMonthlyQuota(String(p.monthlyQuota));
-    setIsTrial(p.isTrial);
-    setIsActive(p.isActive);
-    setModalOpen(true);
-  };
-
-  const handleSave = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: PlanItem = {
-      id: editingPlan ? editingPlan.id : `plan-${Date.now()}`,
-      name,
-      price: Number(price) || 0,
-      durationDays: Number(durationDays) || 30,
-      monthlyQuota: Number(monthlyQuota) || 10,
-      isTrial,
-      isActive,
-    };
-
-    if (editingPlan) {
-      setPlans((prev) => prev.map((p) => (p.id === editingPlan.id ? payload : p)));
-      toast(`Đã cập nhật thông số "${name}"`, "success");
-    } else {
-      setPlans((prev) => [...prev, payload]);
-      toast(`Đã tạo gói dịch vụ "${name}"`, "success");
+    if (!editing) return;
+    setIsSaving(true);
+    try {
+      const saved = await subscriptionApi.savePlan(editing.id, editing.form);
+      mutate((list) => (editing.id ? list.map((p) => (p.id === saved.id ? saved : p)) : [...list, saved]));
+      toast(editing.id ? `Đã cập nhật gói ${saved.name}.` : `Đã tạo gói ${saved.name}.`, "success");
+      setEditing(null);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không lưu được gói dịch vụ.", "error");
+    } finally {
+      setIsSaving(false);
     }
-    setModalOpen(false);
   };
 
-  const toggleActive = (plan: PlanItem) => {
-    setPlans((prev) =>
-      prev.map((p) => (p.id === plan.id ? { ...p, isActive: !p.isActive } : p))
-    );
-    toast(
-      plan.isActive
-        ? `Đã ngừng bán "${plan.name}"`
-        : `Đã mở bán lại "${plan.name}"`,
-      "info"
-    );
+  const toggleActive = async (p: Plan) => {
+    const { id, ...rest } = p;
+    try {
+      const saved = await subscriptionApi.savePlan(id, { ...rest, isActive: !p.isActive });
+      mutate((list) => list.map((x) => (x.id === saved.id ? saved : x)));
+      toast(saved.isActive ? `Đã mở bán gói ${p.name}.` : `Đã ngừng bán gói ${p.name}.`, "success");
+    } catch {
+      toast("Không đổi được trạng thái gói.", "error");
+    }
   };
+
+  const f = editing?.form;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Quản lý Gói dịch vụ SaaS (FE-03)
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Thiết lập biểu phí, thời hạn chu kỳ, hạn mức hợp đồng/tháng và trạng thái mở bán trên toàn nền tảng
-          </p>
-        </div>
-        <Button variant="primary" size="md" onClick={openCreateModal}>
-          <Plus className="w-4 h-4" />
-          <span>Tạo gói dịch vụ mới</span>
-        </Button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Gói dịch vụ"
+        description="Giá, thời hạn mỗi kỳ, hạn mức hợp đồng mỗi tháng và trạng thái mở bán"
+        actions={
+          <Button variant="primary" onClick={() => setEditing({ id: null, form: EMPTY })}>
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            Tạo gói
+          </Button>
+        }
+      />
 
-      <div className="bg-surface border border-line rounded-2xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-line text-xs uppercase tracking-wider font-semibold text-slate-500 h-12">
-                <th className="px-6">Tên gói dịch vụ</th>
-                <th className="px-6">Đơn giá / Kỳ</th>
-                <th className="px-6">Thời hạn 1 kỳ</th>
-                <th className="px-6">Hạn mức HĐ / tháng</th>
-                <th className="px-6">Loại gói</th>
-                <th className="px-6">Trạng thái kinh doanh</th>
-                <th className="px-6 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line text-sm">
-              {plans.map((p) => (
-                <tr key={p.id} className="h-[64px] hover:bg-slate-50/80 transition">
-                  <td className="px-6 font-bold text-slate-900">{p.name}</td>
-                  <td className="px-6 font-semibold text-primary">
-                    {p.price === 0 ? "Miễn phí (0 ₫)" : `${p.price.toLocaleString("vi-VN")} ₫`}
-                  </td>
-                  <td className="px-6 text-slate-700">{p.durationDays} ngày</td>
-                  <td className="px-6 font-semibold text-slate-900">{p.monthlyQuota} hợp đồng</td>
-                  <td className="px-6">
-                    {p.isTrial ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-primary border border-indigo-200">
-                        Gói Dùng thử
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                        Gói Thương mại
+      {error ? (
+        <ErrorState error={error} onRetry={reload} />
+      ) : (
+        <Card title="Danh sách gói" icon={Package} bodyClassName="p-0">
+          <Table
+            bare
+            loading={isLoading}
+            rows={data ?? []}
+            getRowKey={(p) => p.id}
+            empty={<p className="p-4 text-sm text-muted">Chưa có gói nào.</p>}
+            columns={[
+              {
+                key: "name",
+                header: "Tên gói",
+                primary: true,
+                render: (p) => (
+                  <span className="inline-flex items-center gap-2 font-semibold">
+                    Gói {p.name}
+                    {p.isTrial && (
+                      <span className="inline-flex items-center h-[22px] px-2 rounded-sm bg-badge-signing-bg text-badge-signing-fg text-xs">
+                        Dùng thử
                       </span>
                     )}
-                  </td>
-                  <td className="px-6">
-                    {p.isActive ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Đang bán
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Ngừng bán
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openEditModal(p)}>
-                        <Edit3 className="w-4 h-4" />
-                        <span>Sửa</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => toggleActive(p)}>
-                        <Power className="w-4 h-4" />
-                        <span>{p.isActive ? "Ngừng bán" : "Mở bán"}</span>
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {modalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-line rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-5">
-            <div className="flex justify-between items-center pb-3 border-b border-line">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingPlan ? "Chỉnh sửa Gói dịch vụ" : "Tạo Gói dịch vụ mới"}
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-4">
-              <Input
-                label="Tên gói dịch vụ"
-                required
-                placeholder="Ví dụ: Gói Doanh nghiệp Plus"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input
-                  label="Giá (VNĐ / kỳ)"
-                  type="number"
-                  required
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
-                <Input
-                  label="Số ngày một kỳ"
-                  type="number"
-                  required
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(e.target.value)}
-                />
-                <Input
-                  label="Hạn mức HĐ/tháng"
-                  type="number"
-                  required
-                  value={monthlyQuota}
-                  onChange={(e) => setMonthlyQuota(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                <label className="flex items-center gap-2.5 text-sm font-medium text-slate-800 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isTrial}
-                    onChange={(e) => setIsTrial(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary"
-                  />
-                  <span>Đánh dấu là Gói Dùng thử</span>
-                </label>
-
-                <label className="flex items-center gap-2.5 text-sm font-medium text-slate-800 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary"
-                  />
-                  <span>Cho phép mở bán công khai</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-line">
-                <Button type="button" variant="secondary" size="md" onClick={() => setModalOpen(false)}>
-                  Hủy
-                </Button>
-                <Button type="submit" variant="primary" size="md">
-                  Lưu cấu hình gói
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+                  </span>
+                ),
+              },
+              { key: "price", header: "Giá", align: "right", render: (p) => formatMoney(p.price) },
+              { key: "days", header: "Số ngày", align: "right", render: (p) => p.durationDays },
+              { key: "quota", header: "Hợp đồng / tháng", align: "right", render: (p) => p.monthlyQuota },
+              {
+                key: "active",
+                header: "Trạng thái",
+                render: (p) => (
+                  <span
+                    className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold ${
+                      p.isActive ? "bg-badge-completed-bg text-badge-completed-fg" : "bg-badge-draft-bg text-badge-draft-fg"
+                    }`}
+                  >
+                    {p.isActive ? "Đang bán" : "Ngừng bán"}
+                  </span>
+                ),
+              },
+              {
+                key: "actions",
+                header: "",
+                align: "right",
+                render: (p) => (
+                  <span className="inline-flex gap-1">
+                    <Button variant="ghost" onClick={() => setEditing({ id: p.id, form: { ...p } })}>
+                      <Pencil className="w-4 h-4" aria-hidden="true" />
+                      Sửa
+                    </Button>
+                    <Button variant="ghost" onClick={() => toggleActive(p)}>
+                      {p.isActive ? "Ngừng bán" : "Mở bán"}
+                    </Button>
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </Card>
       )}
+
+      <Dialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing?.id ? "Sửa gói dịch vụ" : "Tạo gói dịch vụ"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(null)} disabled={isSaving}>
+              Hủy
+            </Button>
+            <Button type="submit" form="plan-form" variant="primary" isLoading={isSaving}>
+              Lưu
+            </Button>
+          </>
+        }
+      >
+        {f && (
+          <form id="plan-form" onSubmit={save} className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Input label="Tên gói" required value={f.name} onChange={(e) => setField("name", e.target.value)} />
+            </div>
+            <Input label="Giá (₫)" type="number" min={0} required value={f.price} onChange={(e) => setField("price", Number(e.target.value))} />
+            <Input label="Số ngày một kỳ" type="number" min={1} required value={f.durationDays} onChange={(e) => setField("durationDays", Number(e.target.value))} />
+            <Input label="Hợp đồng mỗi tháng" type="number" min={1} required value={f.monthlyQuota} onChange={(e) => setField("monthlyQuota", Number(e.target.value))} />
+            <div className="col-span-2 flex flex-col gap-2 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={f.isTrial} onChange={(e) => setField("isTrial", e.target.checked)} className="w-4 h-4 accent-primary" />
+                Gói dùng thử (tặng khi tạo doanh nghiệp)
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={f.isActive} onChange={(e) => setField("isActive", e.target.checked)} className="w-4 h-4 accent-primary" />
+                Đang bán
+              </label>
+            </div>
+          </form>
+        )}
+      </Dialog>
     </div>
   );
 }

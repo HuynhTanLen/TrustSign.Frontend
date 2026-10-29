@@ -1,37 +1,142 @@
 @import "tailwindcss";
 
+/* Chữ Tín design system: https://claude.ai/artifact/7D3qYYdNRDbu6pJXtxHTvW */
 @theme {
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-light: #eef2ff;
-  --color-fg: #0f172a;
-  --color-muted: #475569;
-  --color-line: #e2e8f0;
-  --color-line-subtle: #f1f5f9;
-  --color-page: #f8fafc;
+  --font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --color-primary: #1b3a5c;
+  --color-primary-hover: #142c46;
+  --color-fg: #1f2328;
+  --color-muted: #5f6b7a;
+  --color-line: #d0d7de;
+  --color-line-strong: #8c959f;
+  --color-page: #f5f6f8;
   --color-surface: #ffffff;
-  --color-selected: #eef2ff;
-  --color-danger: #dc2626;
-  --color-success: #059669;
-  --color-warning: #d97706;
+  --color-selected: #e1e9f3;
+  --color-danger: #c62828;
+  --color-danger-hover: #a32020;
+  --color-success: #2e7d32;
+  --color-warning: #b26a00;
+  --color-skeleton: #e1e4e8;
+  --color-overlay: rgba(31, 35, 40, 0.4);
+  /* Legacy name still used by pages; same as selected. */
+  --color-primary-light: #e1e9f3;
+
+  /* Red seal of the logo: brand mark only, never a button or status. */
+  --color-seal: #b3261e;
+  /* Top bar is color-primary; these sit on it. */
+  --color-topbar-muted: #c3cedb;
+  --color-topbar-hover: #24496f;
+  /* Title strip of a Card. */
+  --color-strip: #eef1f5;
+
+  --color-badge-draft-bg: #eef0f3;
+  --color-badge-draft-fg: #424a53;
+  --color-badge-pending-bg: #fff4d6;
+  --color-badge-pending-fg: #7a5200;
+  --color-badge-signing-bg: #e8f0fa;
+  --color-badge-signing-fg: #1f5fa8;
+  --color-badge-completed-bg: #e6f2e7;
+  --color-badge-completed-fg: #246428;
+  --color-badge-declined-bg: #fbeaea;
+  --color-badge-declined-fg: #a32020;
+  --color-badge-cancelled-bg: #dde1e6;
+  --color-badge-cancelled-fg: #2c3239;
+  --color-badge-expired-bg: #fdeee0;
+  --color-badge-expired-fg: #9a4a00;
+
+  --text-table: 13px;
+  --text-table--line-height: 18px;
+
+  --spacing-control: 36px;
+  --spacing-row: 40px;
+  --container-content: 1200px;
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  --shadow-menu: 0 2px 8px rgba(31, 35, 40, 0.12);
+  --shadow-dialog: 0 8px 24px rgba(31, 35, 40, 0.16);
+
+  /* Motion: short, purposeful, off under prefers-reduced-motion (use motion-safe:). */
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --animate-fade-in: fade-in 160ms var(--ease-out-soft) both;
+  --animate-fade-up: fade-up 220ms var(--ease-out-soft) both;
+  --animate-pop-in: pop-in 160ms var(--ease-out-soft) both;
+  --animate-drop-in: drop-in 140ms var(--ease-out-soft) both;
+  --animate-slide-in: slide-in 220ms var(--ease-out-soft) both;
+  --animate-grow-x: grow-x 600ms var(--ease-out-soft) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.97); }
+  }
+  @keyframes drop-in {
+    from { opacity: 0; transform: translateY(-4px); }
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(16px); }
+  }
+  @keyframes grow-x {
+    from { transform: scaleX(0); }
+  }
+  @keyframes grow-y {
+    from { transform: scaleY(0); }
+  }
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: var(--color-page);
-  color: var(--color-fg);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    background-color: var(--color-page);
+    color: var(--color-fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Colour changes on every interactive element ease instead of snapping. */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  tr {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+    }
+  }
 }
 
 .transparent-checkerboard {
-  background-color: #f8fafc;
+  background-color: var(--color-surface);
   background-image:
-    linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
-    linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
-    linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+    linear-gradient(45deg, var(--color-line) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-line) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-line) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-line) 75%);
   background-size: 12px 12px;
   background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
 }

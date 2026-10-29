@@ -6,7 +6,9 @@ import { authApi } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { CheckCircle2, KeyRound, Mail } from "lucide-react";
 
+// Planned endpoint (IDN-06, Tuần 5): POST /api/auth/forgot-password.
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [email, setEmail] = React.useState("");
@@ -18,7 +20,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      await authApi.forgotPassword(email);
+      await authApi.forgotPassword(email.trim());
       setIsSubmitted(true);
       toast("Đã gửi hướng dẫn đặt lại mật khẩu", "success");
     } catch {
@@ -30,51 +32,63 @@ export default function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <div className="text-center py-2">
-        <h1 className="text-base font-semibold text-fg mb-2">Kiểm tra hộp thư</h1>
-        <p className="text-xs text-muted leading-relaxed mb-4">
-          Nếu địa chỉ <strong>{email}</strong> tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi đến bạn.
-        </p>
-        <Link href="/login" className="text-xs text-primary hover:underline font-medium">
-          Quay về trang đăng nhập
-        </Link>
+      <div>
+        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+          <h1 className="text-base font-semibold text-fg">Kiểm tra hộp thư</h1>
+        </header>
+        <div className="p-6 flex flex-col gap-4">
+          <p className="text-sm text-muted">
+            Nếu địa chỉ <span className="font-semibold text-fg">{email}</span> tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi tới hộp thư.
+          </p>
+          <Link
+            href="/login"
+            className="text-sm text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+          >
+            Quay về trang đăng nhập
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-base font-semibold text-fg mb-2">Quên mật khẩu</h1>
-      <p className="text-xs text-muted mb-4">
-        Nhập địa chỉ email đăng ký để nhận liên kết đặt lại mật khẩu.
-      </p>
+      <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
+        <KeyRound className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+        <h1 className="text-base font-semibold text-fg">Quên mật khẩu</h1>
+      </header>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <Input
-          label="Email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="ten@doanhnghiep.vn"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+      <div className="p-6">
+        <p className="text-sm text-muted mb-5">
+          Nhập địa chỉ email đăng ký để nhận liên kết đặt lại mật khẩu.
+        </p>
 
-        <Button
-          type="submit"
-          variant="primary"
-          className="w-full mt-2"
-          isLoading={isLoading}
-          disabled={isLoading}
-        >
-          Gửi yêu cầu
-        </Button>
-      </form>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="ten@doanhnghiep.vn"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
+          />
 
-      <div className="mt-4 pt-4 border-t border-line text-center">
-        <Link href="/login" className="text-xs text-primary hover:underline font-medium">
-          Quay về trang đăng nhập
-        </Link>
+          <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
+            Gửi yêu cầu
+          </Button>
+        </form>
+
+        <div className="mt-5 pt-4 border-t border-line text-center text-sm">
+          <Link
+            href="/login"
+            className="text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+          >
+            Quay về trang đăng nhập
+          </Link>
+        </div>
       </div>
     </div>
   );

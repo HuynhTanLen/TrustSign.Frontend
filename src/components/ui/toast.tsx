@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { CircleCheck, CircleAlert, Info } from "lucide-react";
 
 interface Toast {
   id: string;
@@ -32,24 +32,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col items-end gap-2 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto px-3.5 py-2.5 rounded-lg border text-xs font-medium shadow-md bg-surface text-fg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150 ${
-              t.type === "error"
-                ? "border-rose-200 text-rose-800"
-                : t.type === "info"
-                ? "border-indigo-200 text-indigo-800"
-                : "border-emerald-200 text-emerald-800"
-            }`}
+            role={t.type === "error" ? "alert" : "status"}
+            className="pointer-events-auto w-full sm:w-[360px] flex items-start gap-2 px-4 py-3 rounded-md border border-line bg-surface shadow-menu text-sm text-fg motion-safe:animate-slide-in"
           >
             {t.type === "error" ? (
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <CircleAlert className="w-4 h-4 mt-0.5 text-danger shrink-0" aria-hidden="true" />
             ) : t.type === "info" ? (
-              <Info className="w-4 h-4 text-indigo-600 shrink-0" />
+              <Info className="w-4 h-4 mt-0.5 text-primary shrink-0" aria-hidden="true" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CircleCheck className="w-4 h-4 mt-0.5 text-success shrink-0" aria-hidden="true" />
             )}
             <span>{t.message}</span>
           </div>

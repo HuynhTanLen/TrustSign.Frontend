@@ -1,271 +1,223 @@
 import Link from "next/link";
-import { GatewayStatus } from "@/components/gateway-status";
 import {
-  FileSignature,
+  Building2,
+  Check,
+  ChevronDown,
+  FilePenLine,
+  History,
+  ListOrdered,
+  MailCheck,
   ShieldCheck,
-  Clock,
-  CheckCircle2,
-  ArrowRight,
-  Lock,
-  FileCheck2,
-  Layers,
-  QrCode,
-  Sparkles,
+  Users,
 } from "lucide-react";
+import { GatewayStatus } from "@/components/gateway-status";
+import { PublicHeader, PublicFooter } from "@/components/public-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type ContractStatus } from "@/components/ui/badge";
+
+const heroPoints = [
+  "Một tài khoản quản lý nhiều doanh nghiệp tách biệt",
+  "Mời thành viên qua email, phân quyền theo vai trò",
+  "Xác thực người ký bằng OTP và chữ ký số PAdES",
+];
+
+// Hình minh họa danh sách hợp đồng trên trang giới thiệu, không phải bản ghi thật.
+const previewRows: { title: string; code: string; status: ContractStatus }[] = [
+  { title: "Hợp đồng dịch vụ", code: "HĐ-0142", status: "Signing" },
+  { title: "Phụ lục gia hạn", code: "HĐ-0141", status: "Completed" },
+  { title: "Hợp đồng lao động", code: "HĐ-0139", status: "Pending" },
+  { title: "Biên bản thanh lý", code: "HĐ-0137", status: "Draft" },
+];
+
+const steps = [
+  { title: "Đăng ký và xác minh", text: "Tạo tài khoản cá nhân và kích hoạt qua liên kết gửi tới email." },
+  { title: "Thiết lập doanh nghiệp", text: "Khởi tạo không gian làm việc cho doanh nghiệp hoặc nhận lời mời tham gia." },
+  { title: "Phân quyền nhân sự", text: "Mời thành viên theo vai trò Chủ doanh nghiệp, Quản lý hợp đồng hoặc Nhân viên." },
+  { title: "Soạn và ký hợp đồng", text: "Soạn hợp đồng, gửi ký tuần tự qua OTP và lưu trữ bản ký số PAdES." },
+];
+
+const features = [
+  { icon: Building2, title: "Đa doanh nghiệp", text: "Một tài khoản có thể tham gia nhiều doanh nghiệp và chuyển đổi ngữ cảnh làm việc." },
+  { icon: Users, title: "Phân quyền vai trò", text: "Chủ doanh nghiệp, quản lý hợp đồng và nhân viên thấy đúng phần việc được giao." },
+  { icon: FilePenLine, title: "Mẫu hợp đồng", text: "Tạo mẫu một lần với các trường cần điền, dùng lại thống nhất trong doanh nghiệp." },
+  { icon: ListOrdered, title: "Ký tuần tự", text: "Tối đa 5 bên ký lần lượt; người sau nhận liên kết khi người trước đã hoàn tất." },
+  { icon: MailCheck, title: "Xác thực OTP", text: "Mã 6 số gửi qua email cho người ký ngoài mà không bắt buộc tạo tài khoản." },
+  { icon: ShieldCheck, title: "Chữ ký số và nhật ký", text: "Bản hoàn tất có chữ ký số PAdES mở bằng Adobe Reader kèm nhật ký chuỗi băm." },
+];
+
+const faqs = [
+  {
+    q: "Một tài khoản có thể làm việc ở nhiều doanh nghiệp không?",
+    a: "Có. Một địa chỉ email có thể vừa là Chủ doanh nghiệp ở công ty này vừa là Quản lý hợp đồng hoặc Nhân viên ở công ty khác, chuyển đổi ngay ở thanh bên.",
+  },
+  {
+    q: "Mời thành viên tham gia doanh nghiệp hoạt động thế nào?",
+    a: "Chủ doanh nghiệp nhập email và chọn vai trò. Hệ thống gửi liên kết lời mời có hạn 7 ngày; người nhận đăng nhập đúng email đó để chấp nhận.",
+  },
+  {
+    q: "Người ký bên ngoài có cần đăng ký tài khoản không?",
+    a: "Không. Người ký đối tác nhận liên kết qua email, xác thực bằng mã OTP 6 số và ký trực tiếp trên trình duyệt.",
+  },
+  {
+    q: "Hợp đồng điện tử trên Chữ Tín tuân thủ quy định nào?",
+    a: "Hệ thống được thiết kế theo Luật Giao dịch điện tử 2023, kết hợp chữ ký số PAdES, dấu thời gian và nhật ký thao tác bất biến.",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-page text-fg">
-      {/* Top Enterprise Header */}
-      <header className="h-[72px] border-b border-line bg-surface/95 backdrop-blur-sm px-6 lg:px-12 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-10">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-sm shadow-indigo-500/20">
-              <FileSignature className="w-5 h-5" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg text-slate-900 leading-tight">
-                Chữ Tín <span className="text-primary font-semibold">TrustSign</span>
-              </span>
-              <span className="text-[11px] text-muted font-medium">
-                Nền tảng hợp đồng điện tử doanh nghiệp
-              </span>
-            </div>
-          </Link>
+    <div className="min-h-screen flex flex-col bg-page text-fg">
+      <PublicHeader />
 
-          <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-600">
-            <Link href="/pricing" className="hover:text-primary transition-colors">
-              Bảng giá dịch vụ
-            </Link>
-            <Link href="/verify" className="hover:text-primary transition-colors">
-              Xác minh chữ ký số
-            </Link>
-            <Link href="/app" className="hover:text-primary transition-colors">
-              Khu Doanh nghiệp (/app)
-            </Link>
-            <Link href="/admin" className="hover:text-primary transition-colors">
-              Quản trị nền tảng (/admin)
-            </Link>
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="hidden sm:block">
-            <Button variant="ghost" size="md">
-              Quản trị nền tảng
-            </Button>
-          </Link>
-          <Link href="/login">
-            <Button variant="secondary" size="md">
-              Đăng nhập
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button variant="primary" size="md">
-              Dùng thử miễn phí
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-[1280px] w-full mx-auto px-6 lg:px-12 py-14 lg:py-20 flex-1">
-        {/* Hero Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-20">
-          {/* Left Hero Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-light border border-indigo-200 text-primary text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Chuẩn ký số PAdES X.509 • Nhật ký bất biến SHA-256 Hash-Chain</span>
+      <main className="flex-1">
+        <section className="bg-surface border-b border-line">
+          <div className="max-w-content mx-auto px-4 lg:px-6 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+            <div className="motion-safe:animate-fade-up">
+              <h1 className="text-2xl lg:text-[28px] lg:leading-9 font-semibold text-fg">
+                Quản lý và ký hợp đồng điện tử cho doanh nghiệp
+              </h1>
+              <p className="mt-3 text-base text-muted max-w-[520px]">
+                Thiết lập không gian làm việc doanh nghiệp, phân quyền thành viên, soạn và ký hợp đồng điện tử tập trung ở một nơi.
+              </p>
+              <ul className="mt-5 flex flex-col gap-2 text-sm">
+                {heroPoints.map((p) => (
+                  <li key={p} className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link href="/register">
+                  <Button variant="primary">Đăng ký tài khoản</Button>
+                </Link>
+                <Link href="/login">
+                  <Button variant="secondary">Đăng nhập</Button>
+                </Link>
+              </div>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-bold text-slate-900 leading-[1.2] tracking-tight">
-              Quản lý và ký kết hợp đồng điện tử{" "}
-              <span className="text-primary">chuẩn pháp lý</span> cho doanh nghiệp Việt
-            </h1>
+            <div
+              aria-hidden="true"
+              className="rounded-md border border-line bg-page p-3 motion-safe:animate-fade-up [animation-delay:120ms]"
+            >
+              <div className="rounded-md border border-line bg-surface overflow-hidden">
+                <div className="h-9 px-3 bg-primary flex items-center gap-2 text-xs text-white">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-seal ring-1 ring-white" />
+                  <span className="font-semibold">Chữ Tín</span>
+                  <span className="ml-auto text-topbar-muted">Không gian doanh nghiệp</span>
+                </div>
+                <div className="px-3 h-9 flex items-center gap-2 bg-strip border-b border-line text-xs font-semibold">
+                  <History className="w-3.5 h-3.5 text-primary" />
+                  Minh họa danh sách hợp đồng
+                </div>
+                <ul>
+                  {previewRows.map((r, i) => (
+                    <li
+                      key={r.code}
+                      className="h-row px-3 flex items-center gap-3 border-b border-line last:border-b-0 text-sm motion-safe:animate-fade-in"
+                      style={{ animationDelay: `${240 + i * 80}ms` }}
+                    >
+                      <span className="font-mono text-xs text-muted w-16">{r.code}</span>
+                      <span className="flex-1 truncate">{r.title}</span>
+                      <Badge contractStatus={r.status} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
 
-            <p className="text-base sm:text-lg text-muted leading-relaxed max-w-[620px]">
-              Khởi tạo hợp đồng từ mẫu động, phân luồng ký tuần tự nhiều bên, xác thực mã OTP qua email,
-              tách chữ ký viết tay bằng thuật toán Otsu và đóng dấu chứng thư số X.509 hợp lệ trên Adobe Reader.
+        <section className="max-w-content mx-auto px-4 lg:px-6 py-12">
+          <h2 className="text-xl font-semibold text-fg">Quy trình triển khai</h2>
+          <ol className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {steps.map((s, i) => (
+              <li key={s.title} className="relative bg-surface border border-line rounded-md p-4">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary text-white text-sm font-semibold">
+                  {i + 1}
+                </span>
+                <h3 className="mt-3 text-base font-semibold text-fg">{s.title}</h3>
+                <p className="mt-1 text-sm text-muted">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="bg-surface border-y border-line">
+          <div className="max-w-content mx-auto px-4 lg:px-6 py-12">
+            <h2 className="text-xl font-semibold text-fg">Chức năng chính</h2>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+              {features.map((f) => (
+                <div key={f.title} className="flex gap-3">
+                  <f.icon className="w-4 h-4 mt-1 text-primary shrink-0" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-base font-semibold text-fg">{f.title}</h3>
+                    <p className="mt-1 text-sm text-muted">{f.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="max-w-content mx-auto px-4 lg:px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div>
+            <h2 className="text-xl font-semibold text-fg">Câu hỏi thường gặp</h2>
+            <p className="mt-2 text-sm text-muted">
+              Đã có tài khoản doanh nghiệp?{" "}
+              <Link href="/login" className="text-primary underline underline-offset-2 hover:text-primary-hover">
+                Đăng nhập
+              </Link>{" "}
+              để vào không gian làm việc.
             </p>
+          </div>
+          <div className="lg:col-span-2 bg-surface border border-line rounded-md divide-y divide-line">
+            {faqs.map((f) => (
+              <details key={f.q} className="group">
+                <summary className="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer list-none font-semibold text-fg hover:bg-page [&::-webkit-details-marker]:hidden">
+                  {f.q}
+                  <ChevronDown
+                    className="w-4 h-4 text-muted shrink-0 transition-transform duration-200 group-open:rotate-180"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <p className="px-4 pb-4 text-sm text-muted motion-safe:animate-fade-in">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
 
-            <div className="flex flex-wrap items-center gap-3.5 pt-2">
-              <Link href="/app">
-                <Button variant="primary" size="lg">
-                  <span>Trải nghiệm Không gian làm việc</span>
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
-              </Link>
+        <section className="bg-primary text-white">
+          <div className="max-w-content mx-auto px-4 lg:px-6 py-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Bắt đầu thiết lập không gian doanh nghiệp</h2>
+              <p className="mt-1 text-sm text-topbar-muted">
+                Tạo tài khoản, xác minh email và mời các thành viên trong đơn vị cùng làm việc.
+              </p>
+            </div>
+            <div className="flex gap-2">
               <Link href="/register">
-                <Button variant="secondary" size="lg">
-                  Đăng ký dùng thử 14 ngày
-                </Button>
+                <Button variant="inverse">Tạo tài khoản</Button>
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center h-control px-4 rounded-md border border-topbar-muted text-sm font-semibold text-white hover:bg-topbar-hover"
+              >
+                Đăng nhập
               </Link>
             </div>
-
-            <div className="pt-4 grid grid-cols-3 gap-6 border-t border-line max-w-[540px]">
-              <div>
-                <p className="text-xl font-bold text-slate-900">PAdES B-T</p>
-                <p className="text-xs text-muted mt-0.5">Chuẩn chữ ký số PDF</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-slate-900">SHA-256</p>
-                <p className="text-xs text-muted mt-0.5">Chuỗi băm chống sửa đổi</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-slate-900">SePay QR</p>
-                <p className="text-xs text-muted mt-0.5">Kích hoạt gói tức thì</p>
-              </div>
-            </div>
           </div>
+        </section>
 
-          {/* Right Hero Interactive Preview Card */}
-          <div className="lg:col-span-5">
-            <div className="bg-surface border border-slate-200/90 rounded-2xl p-6 shadow-lg shadow-slate-900/5 space-y-5">
-              <div className="flex items-center justify-between pb-4 border-b border-line">
-                <div>
-                  <span className="text-xs font-mono text-slate-500">MÃ HỢP ĐỒNG: TS-2026-092</span>
-                  <h2 className="text-base font-bold text-slate-900 mt-0.5">
-                    Hợp đồng Dịch vụ Phần mềm Cloud
-                  </h2>
-                </div>
-                <Badge contractStatus="Signing" />
-              </div>
-
-              {/* Luồng ký tuần tự */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Tiến trình ký tuần tự (2 bên)
-                </p>
-
-                <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
-                      1
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Nguyễn Văn An (Bên A)</p>
-                      <p className="text-xs text-slate-600">Đã ký số X.509 • 23/10/2026 09:15</p>
-                    </div>
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                </div>
-
-                <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary text-white font-bold text-xs flex items-center justify-center">
-                      2
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Trần Bình Minh (Bên B)</p>
-                      <p className="text-xs text-primary font-medium">Đang chờ xác thực OTP & ký tên</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-primary bg-surface px-2.5 py-1 rounded-lg border border-indigo-200">
-                    Đến lượt
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                <Link href="/sign/demo-token" className="flex-1">
-                  <Button variant="primary" size="md" className="w-full">
-                    Mở phòng ký mẫu (/sign)
-                  </Button>
-                </Link>
-                <Link href="/verify" className="flex-1">
-                  <Button variant="secondary" size="md" className="w-full">
-                    Kiểm tra chữ ký (/verify)
-                  </Button>
-                </Link>
-              </div>
-            </div>
+        {process.env.NODE_ENV !== "production" && (
+          <div className="max-w-content mx-auto px-4 lg:px-6 py-4">
+            <GatewayStatus />
           </div>
-        </div>
-
-        {/* 4 Trụ cột chức năng chính */}
-        <div className="mb-16">
-          <div className="text-center max-w-[680px] mx-auto mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              Quy trình khép kín từ soạn thảo đến xác thực pháp lý
-            </h2>
-            <p className="text-sm sm:text-base text-muted mt-2">
-              Thiết kế tối ưu cho doanh nghiệp vừa và nhỏ tại Việt Nam với đầy đủ phân quyền và kiểm toán
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 rounded-2xl border border-line bg-surface shadow-xs hover:border-indigo-200 transition-all">
-              <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 text-primary flex items-center justify-center mb-4">
-                <Layers className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">
-                1. Soạn từ mẫu & Đặt ô ký
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Tự động nhận diện biến động <code>{"{{ten_bien}}"}</code> từ mẫu HTML hoặc tải file PDF, kéo thả vị trí ô ký theo tọa độ chuẩn.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-line bg-surface shadow-xs hover:border-indigo-200 transition-all">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">
-                2. Tách chữ ký bằng Otsu
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Chụp ảnh chữ ký trên giấy, hệ thống tự động tách nền trong suốt ngay trên trình duyệt bằng thuật toán ngưỡng Otsu.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-line bg-surface shadow-xs hover:border-indigo-200 transition-all">
-              <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center mb-4">
-                <Lock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">
-                3. Ký PAdES & Hash-Chain
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Xác thực người ký qua OTP 6 số, nhúng chứng thư số X.509 kèm dấu thời gian TSA và ghi nhật ký chuỗi băm SHA-256.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-line bg-surface shadow-xs hover:border-indigo-200 transition-all">
-              <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center mb-4">
-                <QrCode className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">
-                4. Thuê bao SePay VietQR
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Quản lý hạn mức hợp đồng theo tháng, thanh toán chuyển khoản VietQR tự động kích hoạt gói qua SePay Webhook.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Bar */}
-        <div className="pt-8 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-4">
-          <GatewayStatus />
-          <div className="flex items-center gap-4 text-sm font-semibold">
-            <Link href="/app" className="text-primary hover:underline">
-              Mở Bảng điều khiển (/app) →
-            </Link>
-            <Link href="/verify" className="text-slate-600 hover:text-slate-900">
-              Tra cứu hợp đồng (/verify)
-            </Link>
-          </div>
-        </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="h-[64px] border-t border-line bg-surface px-6 lg:px-12 flex items-center justify-between text-sm text-muted">
-        <span>© 2026 Chữ Tín (TrustSign). Nền tảng ký kết hợp đồng điện tử.</span>
-        <span className="hidden sm:inline">Tuân thủ Luật Giao dịch điện tử 2023</span>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
