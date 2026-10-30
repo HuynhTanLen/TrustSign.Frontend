@@ -1,8 +1,6 @@
 import { apiFetch } from "@/lib/api";
-import { USE_MOCK, mockResponse } from "@/lib/mock";
+import { USE_MOCK, mockError, mockResponse } from "@/lib/mock";
 import { mockDb } from "@/lib/mock/data";
-
-// Planned endpoints (FE-04): GET/POST /api/templates, GET/PUT/DELETE /api/templates/{id}.
 
 export interface TemplateSummary {
   id: string;
@@ -10,6 +8,10 @@ export interface TemplateSummary {
   variables: string[];
   authorName: string;
   updatedAt: string;
+}
+
+export interface TemplateDetail extends TemplateSummary {
+  content: string;
 }
 
 export interface SaveTemplateRequest {
@@ -28,11 +30,24 @@ export const templatesApi = {
     return apiFetch<TemplateSummary[]>("/api/templates");
   },
 
-  create(data: SaveTemplateRequest): Promise<TemplateSummary> {
+  get(id: string): Promise<TemplateDetail> {
     if (USE_MOCK) {
-      const created: TemplateSummary = {
+      const found = mockDb.templates.find((t) => t.id === id);
+      if (!found) return mockError(404, "Không tìm thấy mẫu hợp đồng.");
+      return mockResponse({
+        ...found,
+        content: found.variables.map((v) => `${v}: {{${v}}}`).join("\n"),
+      });
+    }
+    return apiFetch<TemplateDetail>(`/api/templates/${encodeURIComponent(id)}`);
+  },
+
+  create(data: SaveTemplateRequest): Promise<TemplateDetail> {
+    if (USE_MOCK) {
+      const created: TemplateDetail = {
         id: `tpl-${Date.now()}`,
         name: data.name,
+        content: data.content,
         variables: detectVariables(data.content),
         authorName: mockDb.currentUserName,
         updatedAt: new Date().toISOString(),
@@ -40,6 +55,35 @@ export const templatesApi = {
       mockDb.templates.unshift(created);
       return mockResponse(created);
     }
-    return apiFetch<TemplateSummary>("/api/templates", { method: "POST", body: JSON.stringify(data) });
+    return apiFetch<TemplateDetail>("/api/templates", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  update(id: string, data: SaveTemplateRequest): Promise<TemplateDetail> {
+    if (USE_MOCK) {
+      const idx = mockDb.templates.findIndex((t) => t.id === id);
+      if (idx === -1) return mockError(404, "Không tìm thấy mẫu hợp đồng.");
+      const updated: TemplateDetail = {
+        ...mockDb.templates[idx],
+        name: data.name,
+        content: data.content,
+        variables: detectVariables(data.content),
+        updatedAt: new Date().toISOString(),
+      };
+      mockDb.templates[idx] = updated;
+      return mockResponse(updated);
+    }
+    return apiFetch<TemplateDetail>(`/api/templates/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  remove(id: string): Promise<void> {
+    if (USE_MOCK) {
+      const idx = mockDb.templates.findIndex((t) => t.id === id);
+      if (idx !== -1) mockDb.templates.splice(idx, 1);
+      return mockResponse(undefined);
+    }
+    return apiFetch<void>(`/api/templates/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 };
