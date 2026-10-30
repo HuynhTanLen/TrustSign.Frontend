@@ -7,6 +7,9 @@ import {
   Building2,
   CreditCard,
   FileCheck2,
+  FilePenLine,
+  FileText,
+  Plus,
   ShieldCheck,
   UserCheck,
   UserCog,
@@ -15,8 +18,9 @@ import {
 } from "lucide-react";
 import { tenantsApi, type TenantDto, type TenantMemberDto } from "@/lib/api/tenants";
 import { subscriptionApi, type CurrentSubscription } from "@/lib/api/subscription";
+import { contractsApi, type ContractListItem } from "@/lib/api/contracts";
 import { useApi } from "@/lib/use-api";
-import { daysUntil, formatDate, formatMoney } from "@/lib/format";
+import { daysUntil, formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import {
   TENANT_ROLE_DESCRIPTIONS,
   TENANT_ROLE_LABELS,
@@ -35,20 +39,27 @@ interface WorkspaceOverviewData {
   tenants: TenantDto[];
   members: TenantMemberDto[];
   subscription: CurrentSubscription | null;
+  contracts: ContractListItem[];
 }
 
 export default function DashboardPage() {
   const { user, activeTenantId, currentRole, openProfileModal } = useWorkspace();
 
   const { data, error, isLoading, reload } = useApi<WorkspaceOverviewData>(
-    `m1-m2-overview:${activeTenantId}`,
+    `m1-m3-overview:${activeTenantId}`,
     async () => {
-      const [tenants, members, subscriptionResult] = await Promise.all([
+      const [tenants, members, subscriptionResult, contractsResult] = await Promise.all([
         tenantsApi.mine(),
         tenantsApi.getMembers(),
         subscriptionApi.current().catch(() => null),
+        contractsApi.list().catch(() => []),
       ]);
-      return { tenants, members, subscription: subscriptionResult };
+      return {
+        tenants,
+        members,
+        subscription: subscriptionResult,
+        contracts: contractsResult,
+      };
     },
   );
 
@@ -71,20 +82,26 @@ export default function DashboardPage() {
               <UserCog className="w-4 h-4 mr-1" aria-hidden="true" />
               Sửa hồ sơ
             </Button>
-            <Link href="/app/billing">
+            <Link href="/app/templates">
               <Button variant="secondary">
-                <CreditCard className="w-4 h-4 mr-1" aria-hidden="true" />
-                Gói & Thanh toán
+                <FilePenLine className="w-4 h-4 mr-1" aria-hidden="true" />
+                Mẫu hợp đồng
               </Button>
             </Link>
             {isOwner && (
               <Link href="/app/members">
-                <Button variant="primary">
+                <Button variant="secondary">
                   <UserPlus className="w-4 h-4 mr-1" aria-hidden="true" />
                   Mời thành viên
                 </Button>
               </Link>
             )}
+            <Link href="/app/contracts/new">
+              <Button variant="primary">
+                <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                Soạn hợp đồng
+              </Button>
+            </Link>
           </>
         }
       />
@@ -267,6 +284,67 @@ export default function DashboardPage() {
               </dl>
             </Card>
           </div>
+
+          {/* Recent Contracts Card (M3 Live) */}
+          <Card
+            title={`Hợp đồng gần đây (${data?.contracts.length ?? 0})`}
+            icon={FileText}
+            actions={
+              <Link
+                href="/app/contracts"
+                className="text-xs font-bold text-primary underline underline-offset-2 hover:text-primary-hover"
+              >
+                Xem tất cả hợp đồng →
+              </Link>
+            }
+            bodyClassName="p-0"
+          >
+            <Table
+              bare
+              loading={isLoading}
+              rows={(data?.contracts ?? []).slice(0, 5)}
+              getRowKey={(c) => c.id}
+              empty={
+                <div className="p-6 text-sm text-muted text-center flex flex-col items-center gap-2">
+                  <span>Chưa có hợp đồng nào được tạo trong doanh nghiệp.</span>
+                  <Link href="/app/contracts/new">
+                    <Button variant="secondary">Soạn hợp đồng đầu tiên</Button>
+                  </Link>
+                </div>
+              }
+              columns={[
+                {
+                  key: "code",
+                  header: "Mã",
+                  render: (c) => <span className="font-mono text-xs text-muted">{c.code}</span>,
+                },
+                {
+                  key: "title",
+                  header: "Tên hợp đồng",
+                  primary: true,
+                  render: (c) => (
+                    <Link
+                      href={`/app/contracts/${c.id}`}
+                      className="font-semibold text-fg hover:text-primary underline-offset-2 hover:underline"
+                    >
+                      {c.title}
+                    </Link>
+                  ),
+                },
+                { key: "partner", header: "Bên ký", render: (c) => c.partner },
+                {
+                  key: "status",
+                  header: "Trạng thái",
+                  render: (c) => <Badge contractStatus={c.status} />,
+                },
+                {
+                  key: "sent",
+                  header: "Ngày gửi",
+                  render: (c) => (c.sentAt ? formatDateTime(c.sentAt) : "Chưa gửi"),
+                },
+              ]}
+            />
+          </Card>
 
           {/* Members Table Card */}
           <Card

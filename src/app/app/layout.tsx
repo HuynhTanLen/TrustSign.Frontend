@@ -18,6 +18,8 @@ import { AppShell, UserMenu, menuItemClass, type ShellNavItem } from "@/componen
 import {
   Building2,
   CreditCard,
+  FilePenLine,
+  FileText,
   LayoutDashboard,
   LogOut,
   Shield,
@@ -134,9 +136,11 @@ function AppLayoutShell({
   const currentRole: TenantRole =
     user?.tenants?.find((t) => t.id === selectedTenantId)?.role ?? "Employee";
 
-  // Navigation M1 + M2:
+  // Navigation M1 + M2 + M3:
   const nav: ShellNavItem[] = [
     { href: "/app", label: "Tổng quan", icon: LayoutDashboard, exact: true },
+    { href: "/app/contracts", label: "Hợp đồng", icon: FileText },
+    { href: "/app/templates", label: "Mẫu hợp đồng", icon: FilePenLine },
     { href: "/app/billing", label: "Gói và thanh toán", icon: CreditCard },
     ...(currentRole === "TenantOwner"
       ? [{ href: "/app/members", label: "Thành viên", icon: Users }]
