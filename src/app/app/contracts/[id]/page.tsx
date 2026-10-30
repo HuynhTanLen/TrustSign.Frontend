@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Award, Ban, CircleCheck, CircleX, Download, FileText, History, Users } from "lucide-react";
+import { Award, Ban, CircleCheck, CircleX, Download, FileText, History, Send, Users } from "lucide-react";
 import { contractsApi, type ContractSigner } from "@/lib/api/contracts";
 import { ROOT_CA_URL } from "@/lib/api/admin";
-import { API_URL } from "@/lib/api";
+import { API_URL, ApiError } from "@/lib/api";
 import { USE_MOCK } from "@/lib/mock";
 import { useApi } from "@/lib/use-api";
 import { formatDateTime } from "@/lib/format";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/error-state";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -31,6 +33,14 @@ export default function ContractDetailPage() {
   const { data: contract, error, isLoading, reload, mutate } = useApi(`contract:${id}`, () => contractsApi.get(id));
   const [confirmCancel, setConfirmCancel] = React.useState(false);
   const [isCancelling, setIsCancelling] = React.useState(false);
+  const [confirmSend, setConfirmSend] = React.useState(false);
+  const [isSending, setIsSending] = React.useState(false);
+  const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
+  const [dueAt, setDueAt] = React.useState(() => {
+    const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  });
 
   const handleCancel = async () => {
     setIsCancelling(true);
@@ -39,10 +49,40 @@ export default function ContractDetailPage() {
       mutate((c) => ({ ...c, status: "Cancelled" }));
       setConfirmCancel(false);
       toast("Đã hủy hợp đồng.", "success");
-    } catch {
-      toast("Không hủy được hợp đồng.", "error");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không hủy được hợp đồng.", "error");
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleSendDraft = async () => {
+    if (!dueAt || new Date(dueAt).getTime() <= Date.now()) {
+      toast("Hạn ký phải sau thời điểm hiện tại.", "error");
+      return;
+    }
+    setIsSending(true);
+    try {
+      await contractsApi.send(id, new Date(dueAt).toISOString());
+      setConfirmSend(false);
+      toast("Đã gửi hợp đồng đi ký.", "success");
+      reload();
+    } catch (err) {
+      setConfirmSend(false);
+      if (
+        err instanceof ApiError &&
+        (err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded" || err.status === 403)
+      ) {
+        setBlockedMessage(
+          err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded"
+            ? "Doanh nghiệp đã dùng hết hạn mức gửi ký trong kỳ. Vui lòng nâng cấp gói cước để tiếp tục gửi ký."
+            : "Gói dịch vụ đã hết hạn. Vui lòng gia hạn hoặc nâng cấp gói cước.",
+        );
+      } else {
+        toast(err instanceof ApiError ? err.message : "Không gửi được hợp đồng.", "error");
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -75,7 +115,9 @@ export default function ContractDetailPage() {
     );
   }
 
-  const canCancel = contract.status === "Pending" || contract.status === "Signing";
+  const canCancel =
+    contract.status === "Draft" || contract.status === "Pending" || contract.status === "Signing";
+  const canSend = contract.status === "Draft" && contract.signers.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,12 +131,18 @@ export default function ContractDetailPage() {
         }
         description={
           <>
-            Mã <span className="font-mono">{contract.code}</span> · Người tạo {contract.creatorName} · Hạn ký{" "}
-            {formatDateTime(contract.dueAt)}
+            Mã <span className="font-mono">{contract.code}</span> · Người tạo {contract.creatorName}
+            {contract.dueAt ? ` · Hạn ký ${formatDateTime(contract.dueAt)}` : " · Chưa gửi ký"}
           </>
         }
         actions={
           <>
+            {canSend && (
+              <Button variant="primary" onClick={() => setConfirmSend(true)}>
+                <Send className="w-4 h-4" aria-hidden="true" />
+                Gửi ký
+              </Button>
+            )}
             {canCancel && (
               <Button variant="danger" onClick={() => setConfirmCancel(true)}>
                 <Ban className="w-4 h-4" aria-hidden="true" />
@@ -176,7 +224,11 @@ export default function ContractDetailPage() {
                 <li key={s.order} className="p-4 flex items-start gap-3">
                   <span
                     className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold shrink-0 ${
-                      s.status === "Signed" ? "bg-success text-white" : s.status === "Current" ? "bg-primary text-white" : "bg-page text-muted border border-line"
+                      s.status === "Signed"
+                        ? "bg-success text-white"
+                        : s.status === "Current"
+                          ? "bg-primary text-white"
+                          : "bg-page text-muted border border-line"
                     }`}
                   >
                     {s.order}
@@ -184,10 +236,17 @@ export default function ContractDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-fg">{s.fullName}</p>
                     <p className="text-xs text-muted truncate">{s.email}</p>
+                    {s.pageNumber !== undefined && s.boxX !== undefined && s.boxY !== undefined && (
+                      <p className="mt-0.5 font-mono text-[11px] text-muted">
+                        Ô ký: Trang {s.pageNumber} · ({Math.round(s.boxX)}, {Math.round(s.boxY)}) pt
+                      </p>
+                    )}
                     {s.signedAt && <p className="mt-0.5 text-xs text-muted">Ký lúc {formatDateTime(s.signedAt)}</p>}
                     {s.declineReason && <p className="mt-0.5 text-xs text-danger">Lý do: {s.declineReason}</p>}
                   </div>
-                  <span className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold shrink-0 ${SIGNER_STATUS[s.status].className}`}>
+                  <span
+                    className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold shrink-0 ${SIGNER_STATUS[s.status].className}`}
+                  >
                     {SIGNER_STATUS[s.status].label}
                   </span>
                 </li>
@@ -199,11 +258,14 @@ export default function ContractDetailPage() {
             <ol className="relative flex flex-col gap-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-line">
               {contract.events.map((ev, i) => (
                 <li
-                  key={ev.hash}
+                  key={ev.hash + i}
                   className="relative pl-6 motion-safe:animate-fade-up"
                   style={{ animationDelay: `${i * 60}ms` }}
                 >
-                  <span className="absolute left-0 top-1.5 w-[11px] h-[11px] rounded-full bg-surface border-2 border-primary" aria-hidden="true" />
+                  <span
+                    className="absolute left-0 top-1.5 w-[11px] h-[11px] rounded-full bg-surface border-2 border-primary"
+                    aria-hidden="true"
+                  />
                   <p className="text-xs text-muted">{formatDateTime(ev.at)}</p>
                   <p className="text-sm font-semibold text-fg">{ev.title}</p>
                   <p className="text-xs text-muted">{ev.detail}</p>
@@ -216,6 +278,53 @@ export default function ContractDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={confirmSend}
+        onClose={() => setConfirmSend(false)}
+        title="Gửi hợp đồng nháp đi ký"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmSend(false)} disabled={isSending}>
+              Đóng
+            </Button>
+            <Button variant="primary" onClick={handleSendDraft} isLoading={isSending}>
+              Xác nhận gửi ký
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-fg">
+            Gửi hợp đồng <span className="font-mono font-semibold">{contract.code}</span> cho người ký đầu tiên. Hệ thống sẽ trừ 01 lượt hợp đồng trong hạn mức gói cước.
+          </p>
+          <Input
+            label="Hạn ký"
+            type="datetime-local"
+            required
+            value={dueAt}
+            onChange={(e) => setDueAt(e.target.value)}
+          />
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={blockedMessage !== null}
+        onClose={() => setBlockedMessage(null)}
+        title="Không đủ hạn mức gửi ký"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBlockedMessage(null)}>
+              Đóng
+            </Button>
+            <Link href="/app/billing">
+              <Button variant="primary">Nâng cấp gói cước</Button>
+            </Link>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{blockedMessage}</p>
+      </Dialog>
 
       <Dialog
         open={confirmCancel}
