@@ -17,9 +17,11 @@ import { useToast } from "@/components/ui/toast";
 import { AppShell, UserMenu, menuItemClass, type ShellNavItem } from "@/components/app-shell";
 import {
   Building2,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Shield,
+  Tag,
   UserCog,
   Users,
 } from "lucide-react";
@@ -88,10 +90,10 @@ function AppLayoutShell({
       const res = await tenantsApi.switchTenant(newTenantId);
       setUser(res.user);
       setSelectedTenantId(newTenantId);
-      toast("Đã chuyển doanh nghiệp làm việc", "success");
+      toast("Đã chuyển không gian doanh nghiệp", "success");
     } catch (err) {
       toast(
-        err instanceof ApiError ? err.message : "Không thể chuyển doanh nghiệp làm việc",
+        err instanceof ApiError ? err.message : "Không thể chuyển không gian làm việc",
         "error",
       );
     } finally {
@@ -132,14 +134,17 @@ function AppLayoutShell({
   const currentRole: TenantRole =
     user?.tenants?.find((t) => t.id === selectedTenantId)?.role ?? "Employee";
 
+  // Navigation M1 + M2:
   const nav: ShellNavItem[] = [
     { href: "/app", label: "Tổng quan", icon: LayoutDashboard, exact: true },
+    { href: "/app/billing", label: "Gói và thanh toán", icon: CreditCard },
     ...(currentRole === "TenantOwner"
       ? [{ href: "/app/members", label: "Thành viên", icon: Users }]
       : []),
   ];
 
   const secondaryNav: ShellNavItem[] = [
+    { href: "/pricing", label: "Bảng giá dịch vụ", icon: Tag },
     { href: "/onboarding", label: "Tạo doanh nghiệp mới", icon: Building2 },
     ...(user?.role === "Admin"
       ? [{ href: "/admin", label: "Quản trị nền tảng", icon: Shield }]
@@ -149,15 +154,15 @@ function AppLayoutShell({
   if (isInitializing || !user) {
     return (
       <div className="min-h-screen flex flex-col bg-page text-fg">
-        <div className="h-14 bg-primary" />
-        <div className="max-w-content w-full mx-auto p-6 flex flex-col gap-4">
-          <Skeleton className="h-6 w-56" />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
+        <div className="h-16 navy-panel" />
+        <div className="max-w-content w-full mx-auto p-6 sm:p-8 flex flex-col gap-6">
+          <Skeleton className="h-8 w-64 rounded-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
           </div>
-          <Skeleton className="h-56" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
     );
@@ -178,27 +183,32 @@ function AppLayoutShell({
         nav={nav}
         secondaryNav={secondaryNav}
         sidebarTop={
-          <Select
-            label="Doanh nghiệp đang làm việc"
-            value={selectedTenantId}
-            disabled={isSwitchingTenant}
-            onChange={(e) => handleSwitchTenant(e.target.value)}
-          >
-            {user.tenants?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} — {TENANT_ROLE_LABELS[t.role] ?? t.role}
-              </option>
-            ))}
-            <option value="__create_new__">+ Tạo doanh nghiệp mới…</option>
-          </Select>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+              Doanh nghiệp hiện tại
+            </span>
+            <Select
+              value={selectedTenantId}
+              disabled={isSwitchingTenant}
+              onChange={(e) => handleSwitchTenant(e.target.value)}
+              className="font-semibold text-fg"
+            >
+              {user.tenants?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({TENANT_ROLE_LABELS[t.role] ?? t.role})
+                </option>
+              ))}
+              <option value="__create_new__">+ Tạo doanh nghiệp mới…</option>
+            </Select>
+          </div>
         }
         topbarLeft={
-          <span>
-            Vai trò:{" "}
-            <span className="font-semibold text-white">
+          <div className="flex items-center gap-2">
+            <span>Vai trò của bạn:</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 text-white font-semibold text-xs border border-white/20">
               {TENANT_ROLE_LABELS[currentRole] ?? currentRole}
             </span>
-          </span>
+          </div>
         }
         topbarRight={
           <UserMenu name={user.fullName} email={user.email}>
@@ -229,7 +239,7 @@ function AppLayoutShell({
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className={`${menuItemClass} text-danger`}
+                  className={`${menuItemClass} text-danger hover:bg-badge-declined-bg`}
                 >
                   <LogOut className="w-4 h-4" aria-hidden="true" />
                   Đăng xuất
@@ -269,6 +279,7 @@ function AppLayoutShell({
               maxLength={100}
               value={profileFullName}
               onChange={(e) => setProfileFullName(e.target.value)}
+              helperText="Họ và tên của bạn sẽ được hiển thị khi ký các biên bản và hợp đồng."
             />
           </form>
         </Dialog>

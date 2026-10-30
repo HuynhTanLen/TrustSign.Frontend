@@ -63,7 +63,21 @@ function shouldRedirectOnUnauthorized(pathname: string): boolean {
     !pathname.startsWith("/login") &&
     !pathname.startsWith("/register") &&
     !pathname.startsWith("/verify-email") &&
-    !pathname.startsWith("/invitations/")
+    !pathname.startsWith("/invitations/") &&
+    !pathname.startsWith("/pricing")
+  );
+}
+
+async function throwProblemError(response: Response): Promise<never> {
+  const problem = await response.json().catch(() => null);
+  const correlationId =
+    response.headers.get("X-Correlation-ID") ??
+    (typeof problem?.correlationId === "string" ? problem.correlationId : null);
+  throw new ApiError(
+    response.status,
+    problem?.code,
+    correlationId,
+    problem?.detail ?? problem?.title ?? `Yêu cầu thất bại (${response.status})`,
   );
 }
 
@@ -72,7 +86,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCou
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
-  if (init.body !== undefined && !headers.has("Content-Type")) {
+  if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -100,17 +114,38 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCou
   }
 
   if (!response.ok) {
-    const problem = await response.json().catch(() => null);
-    const correlationId =
-      response.headers.get("X-Correlation-ID") ??
-      (typeof problem?.correlationId === "string" ? problem.correlationId : null);
-    throw new ApiError(
-      response.status,
-      problem?.code,
-      correlationId,
-      problem?.detail ?? problem?.title ?? `Yêu cầu thất bại (${response.status})`,
-    );
+    await throwProblemError(response);
   }
 
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+}
+
+/** Tải dữ liệu nhị phân (PDF hóa đơn, hợp đồng) có tự động làm mới access token khi gặp 401. */
+export async function apiFetchBlob(path: string, init: RequestInit = {}, retryCount = 0): Promise<Blob> {
+  const headers = new Headers(init.headers);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && retryCount === 0) {
+    const newToken = await requestRefreshToken();
+    if (newToken) {
+      return apiFetchBlob(path, init, 1);
+    } else if (typeof window !== "undefined" && shouldRedirectOnUnauthorized(window.location.pathname)) {
+      const target = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/login?redirect=${encodeURIComponent(target)}`);
+    }
+  }
+
+  if (!response.ok) {
+    await throwProblemError(response);
+  }
+
+  return response.blob();
 }

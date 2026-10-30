@@ -13,7 +13,16 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { Building2, CircleAlert, FileText, LogOut, Mail, MapPin, Shield } from "lucide-react";
+import {
+  Building2,
+  CircleAlert,
+  FileText,
+  LogOut,
+  Mail,
+  MapPin,
+  Shield,
+  Sparkles,
+} from "lucide-react";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -71,7 +80,7 @@ export default function OnboardingPage() {
         contactEmail: contactEmail.trim() || undefined,
       });
 
-      toast("Đã tạo doanh nghiệp mới", "success");
+      toast("Đã khởi tạo không gian doanh nghiệp mới", "success");
       router.push("/app");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -89,20 +98,20 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-page text-fg">
-      <header className="h-14 bg-primary text-white sticky top-0 z-30">
-        <div className="h-full max-w-content mx-auto px-4 lg:px-6 flex items-center justify-between gap-3">
+      <header className="h-16 navy-panel text-white sticky top-0 z-30 border-b border-white/10 shadow-xs">
+        <div className="h-full max-w-content mx-auto px-4 lg:px-6 flex items-center justify-between gap-4">
           <Wordmark href={hasExistingTenant ? "/app" : "/"} tone="light" />
           {currentUser && (
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-3 text-xs">
               <span className="hidden sm:inline text-topbar-muted truncate max-w-[240px]">
                 {currentUser.email}
               </span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 h-control px-3 rounded-md text-white hover:bg-topbar-hover cursor-pointer"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-white/10 border border-white/15 text-white hover:bg-white/18 cursor-pointer font-medium"
               >
-                <LogOut className="w-4 h-4" aria-hidden="true" />
+                <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Đăng xuất</span>
               </button>
             </div>
@@ -110,41 +119,58 @@ export default function OnboardingPage() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-[560px] mx-auto px-4 py-10 motion-safe:animate-fade-up">
+      <main className="flex-1 w-full max-w-[620px] mx-auto px-4 py-10 lg:py-14 motion-safe:animate-fade-up">
         {isCheckingSession ? (
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-[320px] w-full" />
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-[360px] w-full rounded-xl" />
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             {currentUser?.role === "Admin" && (
-              <div className="p-3 rounded-md border border-line bg-selected flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 text-fg">
-                  <Shield className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-                  <span>Tài khoản Quản trị nền tảng không bắt buộc thuộc doanh nghiệp.</span>
+              <div className="p-4 rounded-xl border border-line bg-selected flex items-center justify-between gap-3 text-sm shadow-xs">
+                <div className="flex items-center gap-2.5 text-fg">
+                  <Shield className="w-5 h-5 text-primary shrink-0" aria-hidden="true" />
+                  <span>Tài khoản Quản trị nền tảng có thể vào thẳng trung tâm điều hành.</span>
                 </div>
                 <Link
                   href="/admin"
-                  className="text-primary font-semibold underline underline-offset-2 hover:text-primary-hover shrink-0"
+                  className="text-primary font-bold underline underline-offset-4 hover:text-primary-hover shrink-0"
                 >
-                  Vào khu quản trị
+                  Vào khu quản trị →
                 </Link>
               </div>
             )}
 
             <PageHeader
-              back={hasExistingTenant ? { href: "/app", label: "Quay lại không gian doanh nghiệp" } : undefined}
-              title={hasExistingTenant ? "Tạo doanh nghiệp mới" : "Tạo doanh nghiệp đầu tiên"}
-              description="Thiết lập thông tin đơn vị. Tài khoản khởi tạo sẽ giữ vai trò Chủ doanh nghiệp."
+              back={hasExistingTenant ? { href: "/app", label: "Quay lại không gian làm việc" } : undefined}
+              title={hasExistingTenant ? "Tạo thêm doanh nghiệp" : "Thiết lập doanh nghiệp đầu tiên"}
+              description="Khởi tạo không gian pháp nhân. Bạn sẽ giữ vai trò Chủ doanh nghiệp (TenantOwner)."
             />
 
-            <Card title="Thông tin doanh nghiệp" icon={Building2} bodyClassName="p-6">
+            {/* Trial Banner Callout */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-selected via-surface to-strip border border-primary/20 shadow-xs flex items-start gap-3">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shrink-0 mt-0.5 shadow-xs">
+                <Sparkles className="w-4 h-4 text-accent" />
+              </span>
+              <div className="text-xs leading-relaxed">
+                <p className="font-bold text-fg text-sm">Tự động kích hoạt Gói dùng thử 14 ngày</p>
+                <p className="text-muted mt-0.5">
+                  Doanh nghiệp mới sẽ được tặng ngay hạn mức hợp đồng gửi ký để bạn và đồng nghiệp trải nghiệm toàn bộ tính năng mà không cần thanh toán trước.
+                </p>
+              </div>
+            </div>
+
+            <Card
+              title="Thông tin pháp nhân"
+              icon={Building2}
+              bodyClassName="p-6"
+            >
               {errorMessage && (
                 <div
                   role="alert"
-                  className="mb-5 p-3 rounded-md border border-line bg-badge-declined-bg text-sm text-danger flex items-start gap-2.5"
+                  className="mb-5 p-3.5 rounded-lg border border-danger/25 bg-badge-declined-bg text-sm text-danger flex items-start gap-3"
                 >
                   <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
@@ -158,13 +184,14 @@ export default function OnboardingPage() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <Input
-                  label="Tên doanh nghiệp"
+                  label="Tên doanh nghiệp / Đơn vị"
                   required
                   maxLength={200}
-                  placeholder="Công ty TNHH Giải pháp Phần mềm…"
+                  placeholder="Công ty TNHH Công nghệ & Giải pháp Chữ Tín"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   leftIcon={<Building2 className="w-4 h-4" aria-hidden="true" />}
+                  helperText="Tên pháp nhân sẽ hiển thị trên thông tin hợp đồng và thư mời ký."
                 />
 
                 <Input
@@ -176,15 +203,15 @@ export default function OnboardingPage() {
                 />
 
                 <Input
-                  label="Địa chỉ trụ sở"
-                  placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
+                  label="Địa chỉ trụ sở chính"
+                  placeholder="Tầng 5, Tòa nhà Landmark, Hà Nội"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   leftIcon={<MapPin className="w-4 h-4" aria-hidden="true" />}
                 />
 
                 <Input
-                  label="Email liên hệ"
+                  label="Email liên hệ doanh nghiệp"
                   type="email"
                   placeholder="lienhe@doanhnghiep.vn"
                   value={contactEmail}
@@ -192,7 +219,7 @@ export default function OnboardingPage() {
                   leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
                 />
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-3 pt-3">
                   {hasExistingTenant && (
                     <Link href="/app">
                       <Button type="button" variant="secondary" disabled={isSubmitting}>
@@ -203,10 +230,11 @@ export default function OnboardingPage() {
                   <Button
                     type="submit"
                     variant="primary"
+                    size="lg"
                     className={hasExistingTenant ? "" : "w-full"}
                     isLoading={isSubmitting}
                   >
-                    Tạo doanh nghiệp
+                    Hoàn tất & Khởi tạo doanh nghiệp
                   </Button>
                 </div>
               </form>

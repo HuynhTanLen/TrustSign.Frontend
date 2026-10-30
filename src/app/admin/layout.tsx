@@ -16,6 +16,8 @@ import {
   ArrowLeftRight,
   LayoutDashboard,
   LogOut,
+  Package,
+  Shield,
   UserCog,
 } from "lucide-react";
 
@@ -89,17 +91,19 @@ function AdminLayoutShell({
     }
   };
 
+  // Navigation M1 + M2 trong khu Quản trị:
   const nav: ShellNavItem[] = [
     { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
+    { href: "/admin/plans", label: "Gói dịch vụ", icon: Package },
   ];
 
   if (isInitializing) {
     return (
       <div className="min-h-screen flex flex-col bg-page text-fg">
-        <div className="h-14 bg-primary" />
-        <div className="max-w-content w-full mx-auto p-6 flex flex-col gap-4">
-          <Skeleton className="h-6 w-56" />
-          <Skeleton className="h-40 w-full" />
+        <div className="h-16 navy-panel" />
+        <div className="max-w-content w-full mx-auto p-6 sm:p-8 flex flex-col gap-6">
+          <Skeleton className="h-8 w-64 rounded-lg" />
+          <Skeleton className="h-44 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -108,12 +112,17 @@ function AdminLayoutShell({
   if (isForbidden) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-page p-4">
-        <div className="max-w-md w-full bg-surface border border-line rounded-md p-6 flex flex-col gap-3">
-          <h1 className="text-xl font-semibold text-fg">Không có quyền truy cập</h1>
-          <p className="text-sm text-muted">
-            Tài khoản <span className="font-semibold text-fg">{user?.email}</span> không có vai trò Quản trị nền tảng nên không mở được khu này.
-          </p>
-          <div className="flex flex-wrap gap-2 pt-2">
+        <div className="max-w-md w-full bg-surface border border-line rounded-xl p-6 sm:p-8 flex flex-col gap-4 shadow-card">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-badge-declined-bg text-danger">
+            <Shield className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-fg">Không có quyền truy cập</h1>
+            <p className="text-sm text-muted mt-1 leading-relaxed">
+              Tài khoản <span className="font-semibold text-fg">{user?.email}</span> không thuộc vai trò Quản trị nền tảng (Admin) nên không thể truy cập khu vực này.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2.5 pt-2">
             <Button
               variant="primary"
               onClick={() => router.push(user?.hasTenant ? "/app" : "/onboarding")}
@@ -144,9 +153,12 @@ function AdminLayoutShell({
         },
       ]}
       topbarLeft={
-        <span>
-          Vai trò: <span className="font-semibold text-white">Quản trị nền tảng</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <span>Quyền hạn:</span>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 text-white font-semibold text-xs border border-white/20">
+            Quản trị nền tảng (Admin)
+          </span>
+        </div>
       }
       topbarRight={
         <UserMenu name={user?.fullName} email={user?.email}>
@@ -171,7 +183,7 @@ function AdminLayoutShell({
               <button
                 type="button"
                 onClick={handleLogout}
-                className={`${menuItemClass} text-danger`}
+                className={`${menuItemClass} text-danger hover:bg-badge-declined-bg`}
               >
                 <LogOut className="w-4 h-4" aria-hidden="true" />
                 Đăng xuất
@@ -186,7 +198,7 @@ function AdminLayoutShell({
       <Dialog
         open={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
-        title="Sửa hồ sơ cá nhân"
+        title="Sửa hồ sơ quản trị viên"
         footer={
           <>
             <Button

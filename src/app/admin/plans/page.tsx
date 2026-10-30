@@ -15,11 +15,23 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Table } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 
-const EMPTY: SavePlanRequest = { name: "", price: 0, durationDays: 30, monthlyQuota: 20, isTrial: false, isActive: true };
+const EMPTY: SavePlanRequest = {
+  name: "",
+  price: 0,
+  durationDays: 30,
+  monthlyQuota: 20,
+  isTrial: false,
+  isActive: true,
+};
 
 export default function AdminPlansPage() {
   const { toast } = useToast();
-  const { data, error, isLoading, reload, mutate } = useApi("admin-plans", subscriptionApi.plans);
+  // Gọi endpoint /api/subscription/admin/plans để lấy TẤT CẢ các gói (kể cả isActive: false)
+  const { data, error, isLoading, reload, mutate } = useApi(
+    "admin-plans-all",
+    subscriptionApi.adminPlans,
+  );
+
   const [editing, setEditing] = React.useState<{ id: string | null; form: SavePlanRequest } | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -32,8 +44,13 @@ export default function AdminPlansPage() {
     setIsSaving(true);
     try {
       const saved = await subscriptionApi.savePlan(editing.id, editing.form);
-      mutate((list) => (editing.id ? list.map((p) => (p.id === saved.id ? saved : p)) : [...list, saved]));
-      toast(editing.id ? `Đã cập nhật gói ${saved.name}.` : `Đã tạo gói ${saved.name}.`, "success");
+      mutate((list) =>
+        editing.id ? list.map((p) => (p.id === saved.id ? saved : p)) : [...list, saved],
+      );
+      toast(
+        editing.id ? `Đã cập nhật gói ${saved.name}.` : `Đã khởi tạo gói ${saved.name}.`,
+        "success",
+      );
       setEditing(null);
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không lưu được gói dịch vụ.", "error");
@@ -47,9 +64,12 @@ export default function AdminPlansPage() {
     try {
       const saved = await subscriptionApi.savePlan(id, { ...rest, isActive: !p.isActive });
       mutate((list) => list.map((x) => (x.id === saved.id ? saved : x)));
-      toast(saved.isActive ? `Đã mở bán gói ${p.name}.` : `Đã ngừng bán gói ${p.name}.`, "success");
+      toast(
+        saved.isActive ? `Đã mở bán gói ${p.name}.` : `Đã ngừng bán gói ${p.name}.`,
+        "success",
+      );
     } catch {
-      toast("Không đổi được trạng thái gói.", "error");
+      toast("Không đổi được trạng thái mở bán của gói.", "error");
     }
   };
 
@@ -58,12 +78,12 @@ export default function AdminPlansPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Gói dịch vụ"
-        description="Giá, thời hạn mỗi kỳ, hạn mức hợp đồng mỗi tháng và trạng thái mở bán"
+        title="Quản lý Gói dịch vụ"
+        description="Định giá, số ngày mỗi chu kỳ thuê bao, hạn mức hợp đồng gửi ký mỗi tháng và trạng thái mở bán (M2)"
         actions={
           <Button variant="primary" onClick={() => setEditing({ id: null, form: EMPTY })}>
-            <Plus className="w-4 h-4" aria-hidden="true" />
-            Tạo gói
+            <Plus className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            Tạo gói dịch vụ mới
           </Button>
         }
       />
@@ -71,39 +91,60 @@ export default function AdminPlansPage() {
       {error ? (
         <ErrorState error={error} onRetry={reload} />
       ) : (
-        <Card title="Danh sách gói" icon={Package} bodyClassName="p-0">
+        <Card
+          title={isLoading ? "Danh sách gói" : `Danh sách gói dịch vụ (${data?.length ?? 0})`}
+          icon={Package}
+          bodyClassName="p-0"
+        >
           <Table
             bare
             loading={isLoading}
             rows={data ?? []}
             getRowKey={(p) => p.id}
-            empty={<p className="p-4 text-sm text-muted">Chưa có gói nào.</p>}
+            empty={<p className="p-6 text-sm text-muted text-center">Chưa có gói dịch vụ nào.</p>}
             columns={[
               {
                 key: "name",
                 header: "Tên gói",
                 primary: true,
                 render: (p) => (
-                  <span className="inline-flex items-center gap-2 font-semibold">
+                  <span className="inline-flex items-center gap-2 font-bold text-fg">
                     Gói {p.name}
                     {p.isTrial && (
-                      <span className="inline-flex items-center h-[22px] px-2 rounded-sm bg-badge-signing-bg text-badge-signing-fg text-xs">
-                        Dùng thử
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-badge-signing-bg text-badge-signing-fg text-[11px] font-semibold">
+                        Dùng thử mặc định
                       </span>
                     )}
                   </span>
                 ),
               },
-              { key: "price", header: "Giá", align: "right", render: (p) => formatMoney(p.price) },
-              { key: "days", header: "Số ngày", align: "right", render: (p) => p.durationDays },
-              { key: "quota", header: "Hợp đồng / tháng", align: "right", render: (p) => p.monthlyQuota },
+              {
+                key: "price",
+                header: "Đơn giá",
+                align: "right",
+                render: (p) => <span className="font-bold">{formatMoney(p.price)}</span>,
+              },
+              {
+                key: "days",
+                header: "Số ngày",
+                align: "right",
+                render: (p) => `${p.durationDays} ngày`,
+              },
+              {
+                key: "quota",
+                header: "Hợp đồng / tháng",
+                align: "right",
+                render: (p) => `${p.monthlyQuota} lượt`,
+              },
               {
                 key: "active",
                 header: "Trạng thái",
                 render: (p) => (
                   <span
-                    className={`inline-flex items-center h-[22px] px-2 rounded-sm text-xs font-semibold ${
-                      p.isActive ? "bg-badge-completed-bg text-badge-completed-fg" : "bg-badge-draft-bg text-badge-draft-fg"
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      p.isActive
+                        ? "bg-badge-completed-bg text-badge-completed-fg"
+                        : "bg-badge-draft-bg text-badge-draft-fg"
                     }`}
                   >
                     {p.isActive ? "Đang bán" : "Ngừng bán"}
@@ -112,15 +153,23 @@ export default function AdminPlansPage() {
               },
               {
                 key: "actions",
-                header: "",
+                header: "Thao tác",
                 align: "right",
                 render: (p) => (
-                  <span className="inline-flex gap-1">
-                    <Button variant="ghost" onClick={() => setEditing({ id: p.id, form: { ...p } })}>
-                      <Pencil className="w-4 h-4" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditing({ id: p.id, form: { ...p } })}
+                    >
+                      <Pencil className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                       Sửa
                     </Button>
-                    <Button variant="ghost" onClick={() => toggleActive(p)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => toggleActive(p)}
+                    >
                       {p.isActive ? "Ngừng bán" : "Mở bán"}
                     </Button>
                   </span>
@@ -131,17 +180,19 @@ export default function AdminPlansPage() {
         </Card>
       )}
 
+      {/* Dialog tạo / sửa gói */}
       <Dialog
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={editing?.id ? "Sửa gói dịch vụ" : "Tạo gói dịch vụ"}
+        title={editing?.id ? `Chỉnh sửa gói: ${f?.name}` : "Tạo gói dịch vụ mới"}
+        className="max-w-[560px]"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditing(null)} disabled={isSaving}>
               Hủy
             </Button>
             <Button type="submit" form="plan-form" variant="primary" isLoading={isSaving}>
-              Lưu
+              Lưu cấu hình gói
             </Button>
           </>
         }
@@ -149,19 +200,76 @@ export default function AdminPlansPage() {
         {f && (
           <form id="plan-form" onSubmit={save} className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <Input label="Tên gói" required value={f.name} onChange={(e) => setField("name", e.target.value)} />
+              <Input
+                label="Tên gói dịch vụ"
+                required
+                maxLength={100}
+                placeholder="Cơ bản, Tiêu chuẩn, Chuyên nghiệp…"
+                value={f.name}
+                onChange={(e) => setField("name", e.target.value)}
+              />
             </div>
-            <Input label="Giá (₫)" type="number" min={0} required value={f.price} onChange={(e) => setField("price", Number(e.target.value))} />
-            <Input label="Số ngày một kỳ" type="number" min={1} required value={f.durationDays} onChange={(e) => setField("durationDays", Number(e.target.value))} />
-            <Input label="Hợp đồng mỗi tháng" type="number" min={1} required value={f.monthlyQuota} onChange={(e) => setField("monthlyQuota", Number(e.target.value))} />
-            <div className="col-span-2 flex flex-col gap-2 text-sm">
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={f.isTrial} onChange={(e) => setField("isTrial", e.target.checked)} className="w-4 h-4 accent-primary" />
-                Gói dùng thử (tặng khi tạo doanh nghiệp)
+
+            <Input
+              label="Đơn giá (VNĐ)"
+              type="number"
+              min={0}
+              required
+              value={f.price}
+              onChange={(e) => setField("price", Number(e.target.value))}
+              helperText={f.price === 0 ? "Miễn phí" : formatMoney(f.price)}
+            />
+
+            <Input
+              label="Thời hạn chu kỳ (ngày)"
+              type="number"
+              min={1}
+              required
+              value={f.durationDays}
+              onChange={(e) => setField("durationDays", Number(e.target.value))}
+            />
+
+            <div className="col-span-2">
+              <Input
+                label="Hạn mức hợp đồng gửi ký mỗi tháng"
+                type="number"
+                min={1}
+                required
+                value={f.monthlyQuota}
+                onChange={(e) => setField("monthlyQuota", Number(e.target.value))}
+                helperText="Số lượt tạo và điều phối luồng ký kết trong 30 ngày."
+              />
+            </div>
+
+            <div className="col-span-2 flex flex-col gap-3 pt-2 border-t border-line text-sm">
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-line bg-strip cursor-pointer hover:bg-selected/40">
+                <input
+                  type="checkbox"
+                  checked={f.isTrial}
+                  onChange={(e) => setField("isTrial", e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-primary"
+                />
+                <div>
+                  <span className="font-semibold text-fg block">Gói dùng thử (Trial)</span>
+                  <span className="text-xs text-muted">
+                    Tự động cấp miễn phí cho doanh nghiệp mới khi vừa khởi tạo.
+                  </span>
+                </div>
               </label>
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={f.isActive} onChange={(e) => setField("isActive", e.target.checked)} className="w-4 h-4 accent-primary" />
-                Đang bán
+
+              <label className="flex items-start gap-3 p-3 rounded-lg border border-line bg-strip cursor-pointer hover:bg-selected/40">
+                <input
+                  type="checkbox"
+                  checked={f.isActive}
+                  onChange={(e) => setField("isActive", e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-primary"
+                />
+                <div>
+                  <span className="font-semibold text-fg block">Đang mở bán công khai</span>
+                  <span className="text-xs text-muted">
+                    Gói sẽ xuất hiện tại bảng giá công khai và danh mục nâng cấp của doanh nghiệp.
+                  </span>
+                </div>
               </label>
             </div>
           </form>

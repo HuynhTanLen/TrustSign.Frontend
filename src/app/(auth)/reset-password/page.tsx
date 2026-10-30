@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { CheckCircle2, CircleAlert, KeyRound, Lock } from "lucide-react";
 
-// Planned endpoint (IDN-06, Tuần 5): POST /api/auth/reset-password.
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,18 +64,22 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div>
-        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-          <CircleAlert className="w-4 h-4 text-danger shrink-0" aria-hidden="true" />
-          <h1 className="text-base font-semibold text-fg">Liên kết không hợp lệ</h1>
+      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-declined-bg text-danger border border-danger/15">
+            <CircleAlert className="w-4 h-4" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-base font-bold text-fg">Liên kết không hợp lệ</h1>
+            <p className="text-xs text-muted">Thiếu thông tin xác thực</p>
+          </div>
         </header>
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-6 flex flex-col gap-5">
           <p className="text-sm text-muted">Không tìm thấy mã xác thực để đặt lại mật khẩu.</p>
-          <Link
-            href="/login"
-            className="text-sm text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
-          >
-            Quay về trang đăng nhập
+          <Link href="/login" className="block">
+            <Button variant="primary" className="w-full">
+              Quay về trang đăng nhập
+            </Button>
           </Link>
         </div>
       </div>
@@ -85,20 +88,24 @@ function ResetPasswordContent() {
 
   if (isSuccess) {
     return (
-      <div>
-        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-          <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
-          <h1 className="text-base font-semibold text-fg">Đặt lại mật khẩu thành công</h1>
+      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-completed-bg text-success border border-success/15">
+            <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-base font-bold text-fg">Đặt lại mật khẩu thành công</h1>
+            <p className="text-xs text-muted">Đang chuyển về trang đăng nhập…</p>
+          </div>
         </header>
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-6 flex flex-col gap-5">
           <p className="text-sm text-muted">
-            Mật khẩu đã được cập nhật. Hệ thống đang chuyển về trang đăng nhập…
+            Mật khẩu mới đã được cập nhật thành công. Bạn có thể đăng nhập ngay bây giờ.
           </p>
-          <Link
-            href="/login"
-            className="text-sm text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
-          >
-            Đăng nhập ngay
+          <Link href="/login" className="block">
+            <Button variant="primary" className="w-full">
+              Đăng nhập ngay
+            </Button>
           </Link>
         </div>
       </div>
@@ -106,19 +113,22 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div>
-      <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-        <KeyRound className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-        <h1 className="text-base font-semibold text-fg">Đặt lại mật khẩu</h1>
+    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
+          <KeyRound className="w-4 h-4" aria-hidden="true" />
+        </span>
+        <div>
+          <h1 className="text-base font-bold text-fg">Đặt lại mật khẩu mới</h1>
+          <p className="text-xs text-muted">Nhập mật khẩu mới an toàn tối thiểu 8 ký tự</p>
+        </div>
       </header>
 
       <div className="p-6">
-        <p className="text-sm text-muted mb-5">Nhập mật khẩu mới tối thiểu 8 ký tự.</p>
-
         {errorMessage && (
           <div
             role="alert"
-            className="mb-4 p-3 rounded-md border border-line bg-badge-declined-bg text-sm text-danger flex items-start gap-2"
+            className="mb-5 p-3.5 rounded-lg border border-danger/25 bg-badge-declined-bg text-sm text-danger flex items-start gap-3"
           >
             <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             <span>{errorMessage}</span>
@@ -137,17 +147,17 @@ function ResetPasswordContent() {
           />
 
           <Input
-            label="Nhập lại mật khẩu"
+            label="Nhập lại mật khẩu mới"
             type="password"
             required
-            placeholder="Nhập lại mật khẩu mới"
+            placeholder="Nhập lại mật khẩu"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
           />
 
-          <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
-            Lưu mật khẩu
+          <Button type="submit" variant="primary" size="lg" className="w-full mt-2" isLoading={isLoading}>
+            Lưu mật khẩu mới
           </Button>
         </form>
       </div>
@@ -159,10 +169,10 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 flex flex-col gap-3">
-          <Skeleton className="h-5 w-1/2" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+        <div className="p-6 rounded-xl border border-line bg-surface shadow-card flex flex-col gap-4">
+          <Skeleton className="h-6 w-1/2" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       }
     >

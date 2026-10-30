@@ -6,7 +6,7 @@ export interface TableColumn<T> {
   header: string;
   align?: "left" | "right";
   render: (row: T) => React.ReactNode;
-  /** Shown as the card title on narrow screens. */
+  /** Cột tiêu đề chính khi hiển thị dạng thẻ trên màn hình hẹp. */
   primary?: boolean;
   className?: string;
 }
@@ -18,10 +18,9 @@ interface TableProps<T> {
   selectedKey?: string;
   onRowClick?: (row: T) => void;
   loading?: boolean;
-  /** Rendered instead of the rows when there are none, usually an EmptyState. */
   empty?: React.ReactNode;
   className?: string;
-  /** Inside a Card: no outer border, the card provides it. */
+  /** Đặt trong Card: không viền ngoài để khớp liền mạch với Card. */
   bare?: boolean;
 }
 
@@ -43,7 +42,11 @@ export function Table<T>({
 
   return (
     <div className={className}>
-      <div className={`hidden md:block overflow-x-auto bg-surface ${bare ? "" : "rounded-md border border-line"}`}>
+      <div
+        className={`hidden md:block overflow-x-auto bg-surface ${
+          bare ? "" : "rounded-lg border border-line shadow-card"
+        }`}
+      >
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
@@ -51,7 +54,7 @@ export function Table<T>({
                 <th
                   key={c.key}
                   scope="col"
-                  className={`h-row px-3 bg-page border-b border-line text-table font-semibold text-fg whitespace-nowrap ${
+                  className={`h-11 px-4 bg-strip/85 border-b border-line text-table font-semibold uppercase tracking-wider text-muted whitespace-nowrap ${
                     c.align === "right" ? "text-right" : "text-left"
                   }`}
                 >
@@ -65,7 +68,7 @@ export function Table<T>({
               ? Array.from({ length: 5 }, (_, i) => (
                   <tr key={i} className="border-b border-line last:border-b-0">
                     {columns.map((c) => (
-                      <td key={c.key} className="h-row px-3">
+                      <td key={c.key} className="h-row px-4">
                         <Skeleton className="h-4 w-3/4" />
                       </td>
                     ))}
@@ -80,13 +83,13 @@ export function Table<T>({
                       aria-selected={selectedKey !== undefined ? selected : undefined}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
                       className={`border-b border-line last:border-b-0 ${
-                        selected ? "bg-selected" : "hover:bg-page"
+                        selected ? "bg-selected/70" : "hover:bg-primary-subtle/60"
                       } ${onRowClick ? "cursor-pointer" : ""}`}
                     >
                       {columns.map((c) => (
                         <td
                           key={c.key}
-                          className={`h-row px-3 whitespace-nowrap ${
+                          className={`h-row px-4 whitespace-nowrap ${
                             c.align === "right" ? "text-right tabular-nums" : ""
                           } ${c.className ?? ""}`}
                         >
@@ -100,10 +103,13 @@ export function Table<T>({
         </table>
       </div>
 
-      <ul className={`md:hidden flex flex-col gap-2 ${bare ? "p-4" : ""}`}>
+      <ul className={`md:hidden flex flex-col gap-3 ${bare ? "p-4" : ""}`}>
         {loading
           ? Array.from({ length: 3 }, (_, i) => (
-              <li key={i} className="p-4 rounded-md border border-line bg-surface flex flex-col gap-2">
+              <li
+                key={i}
+                className="p-4 rounded-lg border border-line bg-surface shadow-xs flex flex-col gap-2"
+              >
                 <Skeleton className="h-4 w-2/3" />
                 <Skeleton className="h-4 w-1/2" />
               </li>
@@ -114,16 +120,16 @@ export function Table<T>({
                 <li
                   key={key}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`p-4 rounded-md border border-line ${
-                    key === selectedKey ? "bg-selected" : "bg-surface"
+                  className={`p-4 rounded-lg border border-line shadow-xs ${
+                    key === selectedKey ? "bg-selected/70 border-primary/30" : "bg-surface"
                   } ${onRowClick ? "cursor-pointer" : ""}`}
                 >
                   <div className="text-sm font-semibold text-fg">{primary.render(row)}</div>
-                  <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dl className="mt-3 pt-2.5 border-t border-line grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs items-center">
                     {rest.map((c) => (
                       <React.Fragment key={c.key}>
-                        <dt className="text-muted">{c.header}</dt>
-                        <dd className="text-fg">{c.render(row)}</dd>
+                        <dt className="text-muted font-medium">{c.header || "Thao tác"}</dt>
+                        <dd className="text-fg justify-self-end text-right">{c.render(row)}</dd>
                       </React.Fragment>
                     ))}
                   </dl>

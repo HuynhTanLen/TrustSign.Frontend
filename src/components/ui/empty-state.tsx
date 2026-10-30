@@ -20,11 +20,15 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center px-6 py-8 text-center rounded-md border border-dashed border-line-strong bg-surface ${className}`}
+      className={`flex flex-col items-center justify-center px-6 py-12 text-center rounded-lg border border-dashed border-line-strong bg-surface ${className}`}
     >
-      {icon && <div className="mb-3 text-muted [&_svg]:w-6 [&_svg]:h-6">{icon}</div>}
-      <h3 className="text-base font-semibold text-fg mb-1">{title}</h3>
-      <p className="max-w-[420px] text-sm text-muted mb-4">{description}</p>
+      {icon && (
+        <div className="mb-3.5 inline-flex items-center justify-center w-12 h-12 rounded-full bg-selected text-primary border border-primary/10 [&_svg]:w-5 [&_svg]:h-5">
+          {icon}
+        </div>
+      )}
+      <h3 className="text-base font-bold text-fg mb-1">{title}</h3>
+      <p className="max-w-[420px] text-sm text-muted mb-5">{description}</p>
       {actionLabel && onAction && (
         <Button variant="primary" onClick={onAction}>
           {actionLabel}

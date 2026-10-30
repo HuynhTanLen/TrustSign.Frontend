@@ -199,14 +199,14 @@ export default function MembersPage() {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
-          title="Thành viên và lời mời"
+          title="Thành viên & Lời mời"
           description="Quản lý danh sách nhân sự và phân quyền trong doanh nghiệp"
         />
         <Card title="Không có quyền truy cập" icon={ShieldAlert}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm text-fg">
-                Chỉ <span className="font-semibold">Chủ doanh nghiệp</span> mới có quyền quản lý thành viên và gửi lời mời.
+                Chỉ <span className="font-bold">Chủ doanh nghiệp</span> mới có quyền quản lý thành viên và gửi lời mời tham gia.
               </p>
               {forbiddenError.correlationId && (
                 <p className="mt-1 font-mono text-xs text-muted">
@@ -226,12 +226,12 @@ export default function MembersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Thành viên và lời mời"
-        description="Quản lý thành viên, phân quyền vai trò và lời mời tham gia doanh nghiệp"
+        title="Thành viên & Lời mời"
+        description="Quản lý nhân sự, phân quyền vai trò và theo dõi trạng thái lời mời tham gia doanh nghiệp"
         actions={
           <Button type="button" variant="primary" onClick={handleOpenInvite}>
-            <UserPlus className="w-4 h-4" aria-hidden="true" />
-            Mời thành viên
+            <UserPlus className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            Mời thành viên mới
           </Button>
         }
       />
@@ -244,11 +244,13 @@ export default function MembersPage() {
             tabs={[
               {
                 id: "members",
-                label: isLoading ? "Thành viên" : `Thành viên (${members.length})`,
+                label: "Thành viên hiện tại",
+                count: isLoading ? undefined : members.length,
               },
               {
                 id: "invitations",
-                label: isLoading ? "Lời mời đang chờ" : `Lời mời đang chờ (${invitations.length})`,
+                label: "Lời mời đang chờ",
+                count: isLoading ? undefined : invitations.length,
               },
             ]}
             value={activeTab}
@@ -256,7 +258,7 @@ export default function MembersPage() {
           />
 
           {activeTab === "members" ? (
-            <Card title="Danh sách thành viên" icon={Users} bodyClassName="p-0">
+            <Card title="Danh sách thành viên tổ chức" icon={Users} bodyClassName="p-0">
               <Table
                 bare
                 loading={isLoading}
@@ -265,8 +267,8 @@ export default function MembersPage() {
                 empty={
                   <EmptyState
                     icon={<Users />}
-                    title="Chưa có thành viên"
-                    description="Mời các thành viên trong đơn vị để bắt đầu làm việc."
+                    title="Chưa có thành viên nào khác"
+                    description="Mời các đồng nghiệp trong đơn vị để cùng phối hợp soạn và ký hợp đồng."
                     actionLabel="Mời thành viên"
                     onAction={handleOpenInvite}
                     className="border-0 rounded-none"
@@ -278,21 +280,25 @@ export default function MembersPage() {
                     header: "Họ và tên",
                     primary: true,
                     render: (m) => (
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-7 h-7 rounded-full bg-selected border border-line text-primary text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-full bg-selected border border-primary/15 text-primary text-xs font-bold inline-flex items-center justify-center shrink-0">
                           {m.fullName.trim().slice(0, 1).toUpperCase() || "?"}
                         </span>
-                        <span className="font-semibold text-fg">{m.fullName}</span>
-                        {m.userId === user.id && (
-                          <Badge className="bg-selected text-primary">Bạn</Badge>
-                        )}
+                        <div className="min-w-0">
+                          <span className="font-bold text-fg block">{m.fullName}</span>
+                          {m.userId === user.id && (
+                            <span className="inline-flex items-center text-[10px] font-semibold text-primary">
+                              (Tài khoản của bạn)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ),
                   },
                   {
                     key: "email",
                     header: "Email",
-                    render: (m) => <span className="text-muted">{m.email}</span>,
+                    render: (m) => <span className="text-muted font-medium">{m.email}</span>,
                   },
                   {
                     key: "role",
@@ -341,12 +347,13 @@ export default function MembersPage() {
                         <Button
                           type="button"
                           variant="ghost"
+                          size="sm"
                           disabled={isSelf || isLastOwner}
                           title={disabledReason}
                           onClick={() => setMemberToRemove(m)}
                           className="text-danger hover:bg-badge-declined-bg"
                         >
-                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                          <Trash2 className="w-4 h-4 mr-1" aria-hidden="true" />
                           Xóa
                         </Button>
                       );
@@ -356,7 +363,7 @@ export default function MembersPage() {
               />
             </Card>
           ) : (
-            <Card title="Lời mời đang chờ xác nhận" icon={Mail} bodyClassName="p-0">
+            <Card title="Lời mời đang chờ chấp nhận" icon={Mail} bodyClassName="p-0">
               <Table
                 bare
                 loading={isLoading}
@@ -366,8 +373,8 @@ export default function MembersPage() {
                   <EmptyState
                     icon={<Mail />}
                     title="Chưa có lời mời đang chờ"
-                    description="Các lời mời đã gửi qua email nhưng chưa được người nhận chấp nhận sẽ hiển thị tại đây."
-                    actionLabel="Mời thành viên"
+                    description="Các thư mời gửi qua email chưa được kích hoạt sẽ xuất hiện tại đây."
+                    actionLabel="Gửi lời mời mới"
                     onAction={handleOpenInvite}
                     className="border-0 rounded-none"
                   />
@@ -377,7 +384,7 @@ export default function MembersPage() {
                     key: "email",
                     header: "Email người nhận",
                     primary: true,
-                    render: (inv) => <span className="font-semibold text-fg">{inv.email}</span>,
+                    render: (inv) => <span className="font-bold text-fg">{inv.email}</span>,
                   },
                   {
                     key: "role",
@@ -419,20 +426,22 @@ export default function MembersPage() {
                           <Button
                             type="button"
                             variant="secondary"
+                            size="sm"
                             disabled={isBusy}
                             onClick={() => handleResendInvite(inv)}
                           >
-                            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                             Gửi lại
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
+                            size="sm"
                             disabled={isBusy}
                             onClick={() => handleRevokeInvite(inv)}
                             className="text-danger hover:bg-badge-declined-bg"
                           >
-                            <XCircle className="w-4 h-4" aria-hidden="true" />
+                            <XCircle className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                             Thu hồi
                           </Button>
                         </div>
@@ -446,11 +455,11 @@ export default function MembersPage() {
         </>
       )}
 
-      {/* Hộp thoại mời thành viên */}
+      {/* Dialog mời thành viên */}
       <Dialog
         open={inviteOpen}
         onClose={() => !isInviting && setInviteOpen(false)}
-        title="Mời thành viên"
+        title="Mời thành viên vào doanh nghiệp"
         footer={
           <>
             <Button
@@ -462,7 +471,7 @@ export default function MembersPage() {
               Hủy
             </Button>
             <Button type="submit" form="invite-member-form" variant="primary" isLoading={isInviting}>
-              Gửi lời mời
+              Gửi thư mời
             </Button>
           </>
         }
@@ -471,7 +480,7 @@ export default function MembersPage() {
           {inviteError && (
             <div
               role="alert"
-              className="p-3 rounded-md border border-line bg-badge-declined-bg text-sm text-danger flex items-start gap-2"
+              className="p-3.5 rounded-lg border border-danger/25 bg-badge-declined-bg text-sm text-danger flex items-start gap-2.5"
             >
               <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
               <span>{inviteError}</span>
@@ -482,11 +491,11 @@ export default function MembersPage() {
             label="Email người nhận"
             type="email"
             required
-            placeholder="nhanvien@doanhnghiep.vn"
+            placeholder="dongnghiep@doanhnghiep.vn"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
-            helperText="Liên kết lời mời có hiệu lực trong 7 ngày."
+            helperText="Hệ thống gửi thư mời chứa liên kết kích hoạt bảo mật có hiệu lực trong 7 ngày."
           />
 
           <Select
@@ -494,15 +503,15 @@ export default function MembersPage() {
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as TenantRole)}
             options={[
-              { value: "Employee", label: "Nhân viên" },
-              { value: "ContractManager", label: "Quản lý hợp đồng" },
-              { value: "TenantOwner", label: "Chủ doanh nghiệp" },
+              { value: "Employee", label: "Nhân viên (Thực hiện ký theo phân công)" },
+              { value: "ContractManager", label: "Quản lý hợp đồng (Tạo mẫu & điều phối)" },
+              { value: "TenantOwner", label: "Chủ doanh nghiệp (Toàn quyền quản trị & thanh toán)" },
             ]}
           />
         </form>
       </Dialog>
 
-      {/* Hộp thoại xác nhận xóa thành viên */}
+      {/* Dialog xác nhận xóa thành viên */}
       <Dialog
         open={memberToRemove !== null}
         onClose={() => !isRemoving && setMemberToRemove(null)}
@@ -523,15 +532,15 @@ export default function MembersPage() {
               isLoading={isRemoving}
               onClick={handleConfirmRemove}
             >
-              Xóa thành viên
+              Xác nhận xóa
             </Button>
           </>
         }
       >
         {memberToRemove && (
-          <p className="text-sm text-fg">
+          <p className="text-sm text-fg leading-relaxed">
             Bạn có chắc chắn muốn xóa thành viên{" "}
-            <span className="font-semibold">{memberToRemove.fullName}</span> ({memberToRemove.email}) khỏi doanh nghiệp hiện tại không?
+            <span className="font-bold text-fg">{memberToRemove.fullName}</span> ({memberToRemove.email}) khỏi không gian doanh nghiệp này không? Thành viên sẽ mất toàn bộ quyền truy cập vào các tài liệu nội bộ.
           </p>
         )}
       </Dialog>

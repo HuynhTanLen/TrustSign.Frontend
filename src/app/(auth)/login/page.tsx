@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { CircleAlert, Eye, EyeOff, Lock, LogIn, Mail } from "lucide-react";
 
-// Chỉ nhận đường dẫn nội bộ để tránh open redirect.
 function safeRedirect(value: string | null): string | null {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
     return null;
@@ -117,21 +116,22 @@ function LoginForm() {
     : "/register";
 
   return (
-    <div>
-      <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-        <LogIn className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-        <h1 className="text-base font-semibold text-fg">Đăng nhập</h1>
+    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
+          <LogIn className="w-4 h-4" aria-hidden="true" />
+        </span>
+        <div>
+          <h1 className="text-base font-bold text-fg">Đăng nhập tài khoản</h1>
+          <p className="text-xs text-muted">Truy cập không gian làm việc doanh nghiệp</p>
+        </div>
       </header>
 
       <div className="p-6">
-        <p className="text-sm text-muted mb-5">
-          Nhập thông tin tài khoản để truy cập không gian làm việc của doanh nghiệp.
-        </p>
-
         {errorMessage && (
           <div
             role="alert"
-            className="mb-5 p-3 rounded-md border border-line bg-badge-declined-bg text-sm text-danger flex items-start gap-2.5"
+            className="mb-5 p-3.5 rounded-lg border border-danger/25 bg-badge-declined-bg text-sm text-danger flex items-start gap-3"
           >
             <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             <div className="flex-1 min-w-0">
@@ -140,10 +140,11 @@ function LoginForm() {
                 <p className="mt-1 font-mono text-xs text-muted">Mã theo dõi: {correlationId}</p>
               )}
               {isUnverified && (
-                <div className="mt-2">
+                <div className="mt-2.5">
                   <Button
                     type="button"
                     variant="secondary"
+                    size="sm"
                     onClick={handleResendVerification}
                     isLoading={isResending}
                     disabled={resendCooldown > 0 || isResending}
@@ -160,7 +161,7 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
-            label="Email"
+            label="Email đăng nhập"
             type="email"
             required
             autoComplete="email"
@@ -170,43 +171,54 @@ function LoginForm() {
             leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
           />
 
-          <Input
-            label="Mật khẩu"
-            type={showPassword ? "text" : "password"}
-            required
-            autoComplete="current-password"
-            placeholder="Nhập mật khẩu"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
-            rightIcon={
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[13px] font-semibold text-fg">
+                Mật khẩu <span className="text-danger">*</span>
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-primary hover:text-primary-hover underline underline-offset-2"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted">
+                <Lock className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu của bạn"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-control rounded-md border border-line-strong bg-surface pl-10 pr-10 text-sm text-fg shadow-xs placeholder:text-muted/75 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/15"
+              />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-fg cursor-pointer"
+                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-muted hover:text-fg cursor-pointer"
                 aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" aria-hidden="true" />
-                ) : (
-                  <Eye className="w-4 h-4" aria-hidden="true" />
-                )}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-            }
-          />
+            </div>
+          </div>
 
-          <Button type="submit" variant="primary" className="w-full mt-1" isLoading={isLoading}>
+          <Button type="submit" variant="primary" size="lg" className="w-full mt-2" isLoading={isLoading}>
             Đăng nhập
           </Button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-line text-center text-sm text-muted">
-          Chưa có tài khoản?{" "}
+        <div className="mt-6 pt-5 border-t border-line text-center text-sm text-muted">
+          Chưa có tài khoản doanh nghiệp?{" "}
           <Link
             href={registerHref}
-            className="text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+            className="text-primary font-bold underline underline-offset-4 hover:text-primary-hover"
           >
-            Đăng ký tài khoản
+            Đăng ký dùng thử 14 ngày
           </Link>
         </div>
       </div>
@@ -218,11 +230,11 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 flex flex-col gap-3">
-          <Skeleton className="h-5 w-1/3" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+        <div className="p-6 rounded-xl border border-line bg-surface shadow-card flex flex-col gap-4">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       }
     >

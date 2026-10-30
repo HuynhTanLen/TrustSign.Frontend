@@ -115,9 +115,9 @@ export default function NewContractPage() {
       router.push(`/app/contracts/${contractId}`);
     } catch (err) {
       setConfirmOpen(false);
-      if (err instanceof ApiError && (err.code === "Quota.Exceeded" || err.status === 403)) {
+      if (err instanceof ApiError && (err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded" || err.status === 403)) {
         setBlocked(
-          err.code === "Quota.Exceeded"
+          err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded"
             ? "Doanh nghiệp đã dùng hết hạn mức gửi ký trong tháng. Hợp đồng được lưu ở trạng thái Nháp."
             : "Gói dịch vụ đã hết hạn. Hợp đồng được lưu ở trạng thái Nháp.",
         );

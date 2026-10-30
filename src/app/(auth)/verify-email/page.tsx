@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { CheckCircle2, CircleAlert, Mail, MailCheck } from "lucide-react";
 
-// Tránh gọi trùng một token dùng 1 lần khi React 19 chạy hiệu ứng 2 lần ở chế độ phát triển.
 const verificationRequests = new Map<string, Promise<{ success: boolean; message: string }>>();
 
 function verifyTokenOnce(token: string) {
@@ -113,15 +112,19 @@ function VerifyEmailContent() {
 
   if (status === "loading") {
     return (
-      <div>
-        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-          <MailCheck className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-          <h1 className="text-base font-semibold text-fg">Xác minh tài khoản</h1>
+      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
+            <MailCheck className="w-4 h-4 text-primary" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-base font-bold text-fg">Xác minh tài khoản</h1>
+            <p className="text-xs text-muted">Đang kiểm tra tính hợp lệ của liên kết…</p>
+          </div>
         </header>
-        <div className="p-6 flex flex-col gap-3">
-          <p className="text-sm text-muted">Đang kiểm tra liên kết xác minh tài khoản…</p>
+        <div className="p-6 flex flex-col gap-4">
           <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-9 w-full mt-2" />
+          <Skeleton className="h-10 w-full mt-2" />
         </div>
       </div>
     );
@@ -129,18 +132,23 @@ function VerifyEmailContent() {
 
   if (status === "success") {
     return (
-      <div>
-        <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-          <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
-          <h1 className="text-base font-semibold text-fg">Xác minh tài khoản thành công</h1>
+      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-completed-bg text-success border border-success/15">
+            <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-base font-bold text-fg">Xác minh thành công</h1>
+            <p className="text-xs text-muted">Tài khoản của bạn đã được kích hoạt</p>
+          </div>
         </header>
-        <div className="p-6 flex flex-col gap-4">
-          <p className="text-sm text-muted">
-            Địa chỉ email của bạn đã được kích hoạt. Bạn có thể đăng nhập để bắt đầu sử dụng hệ thống.
+        <div className="p-6 flex flex-col gap-5">
+          <p className="text-sm text-muted leading-relaxed">
+            Địa chỉ email của bạn đã hoàn tất kích hoạt an toàn. Bạn có thể đăng nhập ngay để thiết lập không gian doanh nghiệp.
           </p>
           <Link href={loginHref} className="block">
-            <Button variant="primary" className="w-full">
-              Đăng nhập
+            <Button variant="primary" size="lg" className="w-full">
+              Đăng nhập ngay
             </Button>
           </Link>
         </div>
@@ -149,28 +157,33 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div>
-      <header className="flex items-center gap-2 px-6 h-11 bg-strip border-b border-line">
-        <CircleAlert className="w-4 h-4 text-danger shrink-0" aria-hidden="true" />
-        <h1 className="text-base font-semibold text-fg">
-          {status === "no-token" ? "Thiếu mã xác minh" : "Liên kết xác minh hết hạn hoặc không hợp lệ"}
-        </h1>
+    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-declined-bg text-danger border border-danger/15">
+          <CircleAlert className="w-4 h-4" aria-hidden="true" />
+        </span>
+        <div>
+          <h1 className="text-base font-bold text-fg">
+            {status === "no-token" ? "Thiếu mã xác minh" : "Liên kết đã hết hạn"}
+          </h1>
+          <p className="text-xs text-muted">Vui lòng nhận liên kết xác thực mới</p>
+        </div>
       </header>
 
-      <div className="p-6 flex flex-col gap-4">
+      <div className="p-6 flex flex-col gap-5">
         <div className="text-sm text-muted">
           <p>
             {verifiedState?.errorDetail ??
-              "Liên kết xác minh không còn hiệu lực hoặc đã được sử dụng trước đó. Nhập địa chỉ email đăng ký để nhận liên kết mới."}
+              "Liên kết xác minh không còn hiệu lực hoặc đã được sử dụng trước đó. Vui lòng nhập email để nhận liên kết mới."}
           </p>
           {verifiedState?.correlationId && (
-            <p className="mt-1 font-mono text-xs text-muted">
+            <p className="mt-1.5 font-mono text-xs text-muted">
               Mã theo dõi: {verifiedState.correlationId}
             </p>
           )}
         </div>
 
-        <form onSubmit={handleResend} className="flex flex-col gap-3">
+        <form onSubmit={handleResend} className="flex flex-col gap-4">
           <Input
             type="email"
             label="Email đã đăng ký"
@@ -183,6 +196,7 @@ function VerifyEmailContent() {
           <Button
             type="submit"
             variant="primary"
+            size="lg"
             className="w-full"
             isLoading={isResending}
             disabled={resendCooldown > 0 || isResending}
@@ -193,10 +207,10 @@ function VerifyEmailContent() {
           </Button>
         </form>
 
-        <div className="pt-3 border-t border-line text-center text-sm">
+        <div className="pt-4 border-t border-line text-center text-sm">
           <Link
             href={loginHref}
-            className="text-primary font-semibold underline underline-offset-2 hover:text-primary-hover"
+            className="text-primary font-bold underline underline-offset-4 hover:text-primary-hover"
           >
             Quay lại trang đăng nhập
           </Link>
@@ -210,10 +224,10 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 flex flex-col gap-3">
-          <Skeleton className="h-5 w-1/2" />
+        <div className="p-6 rounded-xl border border-line bg-surface shadow-card flex flex-col gap-4">
+          <Skeleton className="h-6 w-1/2" />
           <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       }
     >
