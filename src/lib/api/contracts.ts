@@ -3,8 +3,6 @@ import { USE_MOCK, mockError, mockResponse } from "@/lib/mock";
 import { mockDb } from "@/lib/mock/data";
 import type { ContractStatus } from "@/components/ui/badge";
 
-// Endpoints are "dự kiến" (planned) per UI-PROMPT.md FE-04..FE-08; adjust when the Contracts module ships.
-
 export interface ContractListItem {
   id: string;
   code: string;
@@ -28,6 +26,11 @@ export interface ContractSigner {
   status: SignerStatus;
   signedAt: string | null;
   declineReason: string | null;
+  pageNumber?: number;
+  boxX?: number;
+  boxY?: number;
+  boxWidth?: number;
+  boxHeight?: number;
 }
 
 export interface ContractSignature {
@@ -63,6 +66,11 @@ export interface ContractListQuery {
 export interface NewSigner {
   fullName: string;
   email: string;
+  pageNumber: number;
+  boxX: number;
+  boxY: number;
+  boxWidth: number;
+  boxHeight: number;
 }
 
 export const contractsApi = {
@@ -121,7 +129,18 @@ export const contractsApi = {
     if (USE_MOCK) return mockResponse(undefined);
     return apiFetch<void>(`/api/contracts/${encodeURIComponent(id)}/signers`, {
       method: "PUT",
-      body: JSON.stringify({ signers: signers.map((s, i) => ({ ...s, order: i + 1 })) }),
+      body: JSON.stringify({
+        signers: signers.map((s, i) => ({
+          fullName: s.fullName,
+          email: s.email,
+          order: i + 1,
+          pageNumber: s.pageNumber,
+          boxX: Math.round(s.boxX),
+          boxY: Math.round(s.boxY),
+          boxWidth: Math.round(s.boxWidth),
+          boxHeight: Math.round(s.boxHeight),
+        })),
+      }),
     });
   },
 
