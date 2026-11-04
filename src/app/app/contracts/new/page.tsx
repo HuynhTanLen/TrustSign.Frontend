@@ -214,14 +214,23 @@ function splitContractIntoA4Pages(structuredTemplate: string, title: string): st
   const rawLines = structuredTemplate.replace(/\r\n/g, "\n").split("\n");
   const normalizedTitle = (title || "").trim().toUpperCase();
 
-  // Loại bỏ dòng Quốc hiệu / Tiêu ngữ / Tiêu đề trùng lặp ở đầu vì Trang 1 đã có phần Header chuẩn
+  // Loại bỏ dòng Quốc hiệu / Tiêu ngữ / Tiêu đề trùng lặp ở đầu (trước Mục I) vì Trang 1 đã có phần Header căn giữa chuẩn
+  let seenFirstSection = false;
   const bodyLines = rawLines.filter((line) => {
     const trimmed = line.trim();
-    if (!trimmed) return true;
+    if (!trimmed) return seenFirstSection;
     const upper = trimmed.toUpperCase();
-    if (upper === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM") return false;
-    if (trimmed === "Độc lập - Tự do - Hạnh phúc") return false;
-    if (normalizedTitle && upper === normalizedTitle) return false;
+    if (/^(I+\.|ĐIỀU\s+\d+|-\s+)/i.test(trimmed)) {
+      seenFirstSection = true;
+    }
+    if (!seenFirstSection) {
+      if (upper === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM") return false;
+      if (trimmed === "Độc lập - Tự do - Hạnh phúc") return false;
+      if (normalizedTitle && upper === normalizedTitle) return false;
+      if (/^(HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN|PHỤ LỤC)\b/i.test(trimmed) && !trimmed.endsWith(".")) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -466,8 +475,25 @@ function InteractiveContractPaper({
             const trimmed = line.trim();
             if (!trimmed) return <div key={idx} className="h-1.5" />;
 
+            const isCenteredDocTitle =
+              /^(HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN|PHỤ LỤC)\s+/i.test(trimmed) &&
+              trimmed.length < 95 &&
+              !trimmed.endsWith(".") &&
+              !trimmed.endsWith(":");
+
+            if (isCenteredDocTitle) {
+              return (
+                <p
+                  key={idx}
+                  className="text-center font-bold text-[14px] uppercase text-[#1f5fa8] my-2"
+                >
+                  {renderLineWithTokens(line, idx)}
+                </p>
+              );
+            }
+
             const isHeading =
-              /^(ĐIỀU\s+\d+|I+\.|BÊN\s+[AB]|HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN)/i.test(trimmed);
+              /^(ĐIỀU\s+\d+|I+\.|BÊN\s+[AB])/i.test(trimmed);
 
             return (
               <p

@@ -732,21 +732,75 @@ export default function TemplatesPage() {
         <div className="lg:col-span-5 lg:sticky lg:top-20 flex flex-col gap-4">
           <Card title="Bản xem trước Hợp đồng A4 (Tự động dàn trang)" icon={FileText}>
             <div className="rounded-md border-2 border-line-strong bg-white text-slate-900 p-6 shadow-sm font-sans text-xs leading-relaxed max-h-[680px] overflow-y-auto flex flex-col justify-between">
-              <div className="whitespace-pre-wrap">
-                {formattedContent.split(/(\{\{[a-zA-Z0-9_]+\}\})/g).map((part, i) => {
-                  if (/^\{\{.+\}\}$/.test(part)) {
-                    const key = part.slice(2, -2);
-                    const friendly = VARIABLE_LABELS[key] ?? key.replace(/_/g, " ");
+              <div className="flex flex-col gap-1">
+                {formattedContent.split(/\r?\n/).map((line, lineIdx) => {
+                  const trimmed = line.trim();
+                  if (!trimmed) return <div key={lineIdx} className="h-1.5" />;
+
+                  const upper = trimmed.toUpperCase();
+                  if (upper === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM") {
                     return (
-                      <span
-                        key={i}
-                        className="inline-block px-1.5 py-0.5 mx-0.5 rounded-sm bg-selected text-primary border border-primary/30 font-sans font-semibold text-[11px]"
-                      >
-                        [{friendly}]
-                      </span>
+                      <p key={lineIdx} className="text-center font-bold text-[12px] uppercase tracking-wide">
+                        {trimmed}
+                      </p>
                     );
                   }
-                  return <React.Fragment key={i}>{part}</React.Fragment>;
+                  if (trimmed === "Độc lập - Tự do - Hạnh phúc") {
+                    return (
+                      <p
+                        key={lineIdx}
+                        className="text-center font-semibold text-[11.5px] underline underline-offset-4 mb-2"
+                      >
+                        {trimmed}
+                      </p>
+                    );
+                  }
+                  const isDocTitle =
+                    upper === (name || "HỢP ĐỒNG GIAO DỊCH").trim().toUpperCase() ||
+                    (/^(HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN|PHỤ LỤC)\s+/i.test(trimmed) &&
+                      trimmed.length < 95 &&
+                      !trimmed.endsWith(".") &&
+                      !trimmed.endsWith(":"));
+
+                  if (isDocTitle) {
+                    return (
+                      <p
+                        key={lineIdx}
+                        className="text-center font-bold text-[14px] uppercase text-[#1f5fa8] my-2"
+                      >
+                        {trimmed}
+                      </p>
+                    );
+                  }
+
+                  const isSectionOrClause = /^(I+\.|ĐIỀU\s+\d+)/i.test(trimmed);
+
+                  return (
+                    <p
+                      key={lineIdx}
+                      className={
+                        isSectionOrClause
+                          ? "font-bold text-[12px] text-slate-950 mt-1.5"
+                          : "text-[11.5px] text-slate-800"
+                      }
+                    >
+                      {line.split(/(\{\{[a-zA-Z0-9_]+\}\})/g).map((part, i) => {
+                        if (/^\{\{.+\}\}$/.test(part)) {
+                          const key = part.slice(2, -2);
+                          const friendly = VARIABLE_LABELS[key] ?? key.replace(/_/g, " ");
+                          return (
+                            <span
+                              key={i}
+                              className="inline-block px-1.5 py-0.5 mx-0.5 rounded-sm bg-selected text-primary border border-primary/30 font-sans font-semibold text-[11px]"
+                            >
+                              [{friendly}]
+                            </span>
+                          );
+                        }
+                        return <React.Fragment key={i}>{part}</React.Fragment>;
+                      })}
+                    </p>
+                  );
                 })}
               </div>
 
