@@ -3,6 +3,7 @@
 /* Chữ Tín (TrustSign) — Modern Enterprise LegalTech & FinTech Design System */
 @theme {
   --font-sans: "Inter", "Be Vietnam Pro", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Times New Roman", "Segoe UI", Roboto, Arial, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   /* Core Brand & Surface Palette */

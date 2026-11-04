@@ -731,7 +731,7 @@ export default function TemplatesPage() {
         {/* CỘT PHẢI: TỜ HỢP ĐỒNG A4 ĐƯỢC TỰ ĐỘNG DÀN TRANG THEO ĐÚNG TRÌNH TỰ */}
         <div className="lg:col-span-5 lg:sticky lg:top-20 flex flex-col gap-4">
           <Card title="Bản xem trước Hợp đồng A4 (Tự động dàn trang)" icon={FileText}>
-            <div className="rounded-md border-2 border-line-strong bg-white text-black p-6 shadow-sm font-serif text-xs leading-relaxed max-h-[680px] overflow-y-auto flex flex-col justify-between">
+            <div className="rounded-md border-2 border-line-strong bg-white text-slate-900 p-6 shadow-sm font-sans text-xs leading-relaxed max-h-[680px] overflow-y-auto flex flex-col justify-between">
               <div className="whitespace-pre-wrap">
                 {formattedContent.split(/(\{\{[a-zA-Z0-9_]+\}\})/g).map((part, i) => {
                   if (/^\{\{.+\}\}$/.test(part)) {
