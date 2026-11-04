@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, CircleAlert, Eye, EyeOff, Lock, Mail, User, UserPlus } from "lucide-react";
+import { CheckCircle2, CircleAlert, Eye, EyeOff, Lock, Mail, Phone, User, UserPlus } from "lucide-react";
 
 function safeRedirect(value: string | null): string | null {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
@@ -50,8 +50,10 @@ function RegisterForm() {
 
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
+  const [phoneNumber, setPhoneNumber] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [acceptTerms, setAcceptTerms] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -79,9 +81,19 @@ function RegisterForm() {
     setErrorMessage(null);
     setCorrelationId(null);
 
+    if (!acceptTerms) {
+      setErrorMessage("Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá nhân.");
+      return;
+    }
+
     const trimmedName = fullName.trim();
     if (!trimmedName || trimmedName.length > 100) {
       setErrorMessage("Họ và tên là bắt buộc và tối đa 100 ký tự.");
+      return;
+    }
+
+    if (phoneNumber.trim() && !/^(0|\+84)\d{9}$/.test(phoneNumber.trim())) {
+      setErrorMessage("Số điện thoại không đúng định dạng Việt Nam (10 chữ số, bắt đầu bằng 0 hoặc +84).");
       return;
     }
 
@@ -101,6 +113,8 @@ function RegisterForm() {
         fullName: trimmedName,
         email: email.trim(),
         password,
+        acceptTerms: true,
+        phoneNumber: phoneNumber.trim() || undefined,
       });
       if (redirectParam && typeof window !== "undefined") {
         window.sessionStorage.setItem("trustsign_post_verify_redirect", redirectParam);
@@ -201,7 +215,7 @@ function RegisterForm() {
         </span>
         <div>
           <h1 className="text-base font-bold text-fg">Đăng ký tài khoản mới</h1>
-          <p className="text-xs text-muted">Trải nghiệm miễn phí 14 ngày không rủi ro</p>
+          <p className="text-xs text-muted">Khởi tạo tài khoản cá nhân trên nền tảng Chữ Tín</p>
         </div>
       </header>
 
@@ -242,6 +256,16 @@ function RegisterForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
+          />
+
+          <Input
+            label="Số điện thoại liên hệ"
+            type="tel"
+            autoComplete="tel"
+            placeholder="0912345678 (không bắt buộc)"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            leftIcon={<Phone className="w-4 h-4" aria-hidden="true" />}
           />
 
           <div>
@@ -297,8 +321,34 @@ function RegisterForm() {
             leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
           />
 
-          <Button type="submit" variant="primary" size="lg" className="w-full mt-2" isLoading={isLoading}>
-            Tạo tài khoản & Dùng thử 14 ngày
+          <div className="flex items-start gap-2.5 pt-1">
+            <input
+              id="accept-terms"
+              type="checkbox"
+              required
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-line text-primary focus:ring-primary cursor-pointer accent-[#1b3a5c]"
+            />
+            <label htmlFor="accept-terms" className="text-xs text-muted leading-relaxed cursor-pointer select-none">
+              Tôi đồng ý với{" "}
+              <span className="text-primary font-semibold hover:underline">Điều khoản sử dụng</span> và{" "}
+              <span className="text-primary font-semibold hover:underline">
+                Chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023)
+              </span>{" "}
+              của hệ thống Chữ Tín.
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className="w-full mt-2"
+            isLoading={isLoading}
+            disabled={!acceptTerms || isLoading}
+          >
+            Đăng ký tài khoản
           </Button>
         </form>
 

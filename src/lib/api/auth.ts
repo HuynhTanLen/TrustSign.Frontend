@@ -15,6 +15,8 @@ export interface UserDto {
   hasTenant: boolean;
   activeTenantId?: string | null;
   tenants?: UserTenantDto[];
+  phoneNumber?: string | null;
+  jobTitle?: string | null;
 }
 
 export interface AuthResponse {
@@ -27,6 +29,8 @@ export interface RegisterRequest {
   fullName: string;
   email: string;
   password: string;
+  acceptTerms: boolean;
+  phoneNumber?: string;
 }
 
 export interface LoginRequest {
@@ -37,6 +41,17 @@ export interface LoginRequest {
 export interface ResetPasswordRequest {
   token: string;
   newPassword: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  phoneNumber?: string;
+  jobTitle?: string;
 }
 
 export const authApi = {
@@ -88,10 +103,27 @@ export const authApi = {
   },
 
   /** Cập nhật hồ sơ cá nhân */
-  async updateProfile(fullName: string): Promise<UserDto> {
+  async updateProfile(
+    input: string | UpdateProfileRequest,
+    phoneNumber?: string,
+    jobTitle?: string,
+  ): Promise<UserDto> {
+    const body =
+      typeof input === "string"
+        ? { fullName: input, phoneNumber, jobTitle }
+        : input;
+
     return apiFetch<UserDto>("/api/auth/me", {
       method: "PATCH",
-      body: JSON.stringify({ fullName }),
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** Đổi mật khẩu */
+  async changePassword(data: ChangePasswordRequest): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   },
 

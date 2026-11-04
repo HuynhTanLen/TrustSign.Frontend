@@ -38,17 +38,17 @@ export function Dialog({
   preventClose = false,
   className = "",
 }: DialogProps) {
-  const [mounted, setMounted] = React.useState(false);
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const panelRef = React.useRef<HTMLDivElement>(null);
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const titleId = React.useId();
   const descId = React.useId();
   const onCloseRef = React.useRef(onClose);
   const preventCloseRef = React.useRef(preventClose);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   React.useEffect(() => {
     onCloseRef.current = onClose;

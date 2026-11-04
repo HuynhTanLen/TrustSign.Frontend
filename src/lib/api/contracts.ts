@@ -19,6 +19,8 @@ export interface ContractListItem {
 
 export type SignerStatus = "Waiting" | "Current" | "Signed" | "Declined";
 
+export type RecipientRole = "Signer" | "Approver" | "Cc";
+
 export interface ContractSigner {
   order: number;
   fullName: string;
@@ -31,6 +33,10 @@ export interface ContractSigner {
   boxY?: number;
   boxWidth?: number;
   boxHeight?: number;
+  role?: RecipientRole;
+  phone?: string | null;
+  organization?: string | null;
+  title?: string | null;
 }
 
 export interface ContractSignature {
@@ -71,6 +77,10 @@ export interface NewSigner {
   boxY: number;
   boxWidth: number;
   boxHeight: number;
+  role?: RecipientRole;
+  phone?: string;
+  organization?: string;
+  title?: string;
 }
 
 export const contractsApi = {
@@ -139,6 +149,10 @@ export const contractsApi = {
           boxY: Math.round(s.boxY),
           boxWidth: Math.round(s.boxWidth),
           boxHeight: Math.round(s.boxHeight),
+          role: s.role ?? "Signer",
+          phone: s.phone || undefined,
+          organization: s.organization || undefined,
+          title: s.title || undefined,
         })),
       }),
     });

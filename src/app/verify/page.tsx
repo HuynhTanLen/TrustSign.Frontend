@@ -229,7 +229,9 @@ export default function VerifyPage() {
                       className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface hover:bg-slate-50/50 transition-colors"
                     >
                       <div>
-                        <p className="text-sm font-bold text-fg">{s.signerName}</p>
+                        <p className="text-sm font-bold text-fg">
+                          {[s.signerName, s.title, s.organization].filter(Boolean).join(", ")}
+                        </p>
                         <p className="text-xs text-muted mt-0.5">
                           Nhà cung cấp CA: <strong>{s.issuer}</strong> · Serial{" "}
                           <span className="font-mono text-fg">{s.serial}</span> · Ký lúc{" "}

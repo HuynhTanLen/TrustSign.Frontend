@@ -14,15 +14,20 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import {
+  Briefcase,
   Building2,
   CircleAlert,
   FileText,
   LogOut,
   Mail,
   MapPin,
+  Phone,
   Shield,
   Sparkles,
+  User,
 } from "lucide-react";
+
+const TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/;
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -32,8 +37,12 @@ export default function OnboardingPage() {
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
   const [companyName, setCompanyName] = React.useState("");
   const [taxCode, setTaxCode] = React.useState("");
+  const [taxCodeError, setTaxCodeError] = React.useState<string | null>(null);
   const [address, setAddress] = React.useState("");
   const [contactEmail, setContactEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [representativeName, setRepresentativeName] = React.useState("");
+  const [representativeTitle, setRepresentativeTitle] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [correlationId, setCorrelationId] = React.useState<string | null>(null);
@@ -64,6 +73,16 @@ export default function OnboardingPage() {
     router.push("/login");
   };
 
+  const handleTaxCodeChange = (val: string) => {
+    setTaxCode(val);
+    const trimmed = val.trim();
+    if (trimmed && !TAX_CODE_REGEX.test(trimmed)) {
+      setTaxCodeError("MST không đúng định dạng (gồm 10 số hoặc 13 số có dạng 1234567890-123)");
+    } else {
+      setTaxCodeError(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -75,13 +94,22 @@ export default function OnboardingPage() {
       return;
     }
 
+    const trimmedTaxCode = taxCode.trim();
+    if (trimmedTaxCode && !TAX_CODE_REGEX.test(trimmedTaxCode)) {
+      setErrorMessage("Mã số thuế không đúng định dạng (gồm 10 số hoặc 13 số dạng 1234567890-123).");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await tenantsApi.create({
         name: trimmedName,
-        taxCode: taxCode.trim() || undefined,
+        taxCode: trimmedTaxCode || undefined,
         address: address.trim() || undefined,
         contactEmail: contactEmail.trim() || undefined,
+        phone: phone.trim() || undefined,
+        representativeName: representativeName.trim() || undefined,
+        representativeTitle: representativeTitle.trim() || undefined,
       });
 
       toast("Đã khởi tạo không gian doanh nghiệp mới", "success");
@@ -153,10 +181,10 @@ export default function OnboardingPage() {
               description="Khởi tạo không gian pháp nhân. Bạn sẽ giữ vai trò Chủ doanh nghiệp (TenantOwner)."
             />
 
-            {/* Trial Banner Callout */}
-            <div className="p-4 rounded-xl bg-gradient-to-r from-selected via-surface to-strip border border-primary/20 shadow-xs flex items-start gap-3">
+            {/* Flat Trial Banner Callout (No gradient, no cyan) */}
+            <div className="p-4 rounded-xl bg-surface border border-line shadow-xs flex items-start gap-3">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shrink-0 mt-0.5 shadow-xs">
-                <Sparkles className="w-4 h-4 text-accent" />
+                <Sparkles className="w-4 h-4 text-white" />
               </span>
               <div className="text-xs leading-relaxed">
                 <p className="font-bold text-fg text-sm">Tự động kích hoạt Gói dùng thử 14 ngày</p>
@@ -200,11 +228,50 @@ export default function OnboardingPage() {
 
                 <Input
                   label="Mã số thuế"
-                  placeholder="0101234567 (không bắt buộc)"
+                  placeholder="0101234567 hoặc 0101234567-001 (không bắt buộc)"
                   value={taxCode}
-                  onChange={(e) => setTaxCode(e.target.value)}
+                  onChange={(e) => handleTaxCodeChange(e.target.value)}
                   leftIcon={<FileText className="w-4 h-4" aria-hidden="true" />}
+                  error={taxCodeError || undefined}
+                  helperText={!taxCodeError ? "Định dạng 10 số hoặc 13 số (ví dụ: 0101234567 hoặc 0101234567-001)" : undefined}
                 />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Người đại diện pháp luật"
+                    placeholder="Nguyễn Văn A"
+                    value={representativeName}
+                    onChange={(e) => setRepresentativeName(e.target.value)}
+                    leftIcon={<User className="w-4 h-4" aria-hidden="true" />}
+                  />
+
+                  <Input
+                    label="Chức vụ người đại diện"
+                    placeholder="Giám đốc / Tổng giám đốc"
+                    value={representativeTitle}
+                    onChange={(e) => setRepresentativeTitle(e.target.value)}
+                    leftIcon={<Briefcase className="w-4 h-4" aria-hidden="true" />}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Số điện thoại doanh nghiệp"
+                    placeholder="0241234567 hoặc 0901234567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    leftIcon={<Phone className="w-4 h-4" aria-hidden="true" />}
+                  />
+
+                  <Input
+                    label="Email liên hệ doanh nghiệp"
+                    type="email"
+                    placeholder="lienhe@doanhnghiep.vn"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
+                  />
+                </div>
 
                 <Input
                   label="Địa chỉ trụ sở chính"
@@ -212,15 +279,6 @@ export default function OnboardingPage() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   leftIcon={<MapPin className="w-4 h-4" aria-hidden="true" />}
-                />
-
-                <Input
-                  label="Email liên hệ doanh nghiệp"
-                  type="email"
-                  placeholder="lienhe@doanhnghiep.vn"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
                 />
 
                 <div className="flex items-center justify-end gap-3 pt-3">

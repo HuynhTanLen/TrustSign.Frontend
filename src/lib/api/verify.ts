@@ -13,6 +13,8 @@ export interface VerifiedSignature {
   signedAt: string;
   intact: boolean;
   certificateStatus: "Valid" | "Revoked";
+  organization?: string | null;
+  title?: string | null;
 }
 
 export interface VerifiedEvent {

@@ -23,7 +23,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { contractsApi, type NewSigner } from "@/lib/api/contracts";
+import { contractsApi, type NewSigner, type RecipientRole } from "@/lib/api/contracts";
 import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
 import { tenantsApi } from "@/lib/api/tenants";
 import {
@@ -571,6 +571,8 @@ export default function NewContractPage() {
   const { user, activeTenantId } = useWorkspace();
   const templates = useApi("templates", templatesApi.list);
   const tenants = useApi("tenants:mine", tenantsApi.mine);
+  const currentTenantApi = useApi("tenants:current", tenantsApi.getCurrent);
+  const currentTenant = currentTenantApi.data;
 
   const activeTenant = React.useMemo(
     () => tenants.data?.find((t) => t.id === activeTenantId) ?? tenants.data?.[0],
@@ -601,8 +603,15 @@ export default function NewContractPage() {
   const [file, setFile] = React.useState<File | null>(null);
   const [uploadedTotalPages, setUploadedTotalPages] = React.useState(1);
   const [signers, setSigners] = React.useState<NewSigner[]>([
-    { fullName: user.fullName || "", email: user.email || "", ...defaultBoxForOrder(0, 2) },
-    { fullName: "", email: "", ...defaultBoxForOrder(1, 2) },
+    {
+      fullName: user.fullName || "",
+      email: user.email || "",
+      role: "Signer",
+      phone: user.phoneNumber || "",
+      title: user.jobTitle || "",
+      ...defaultBoxForOrder(0, 2),
+    },
+    { fullName: "", email: "", role: "Signer", phone: "", title: "", organization: "", ...defaultBoxForOrder(1, 2) },
   ]);
   const [activeSignerIndex, setActiveSignerIndex] = React.useState(0);
   const [activePage, setActivePage] = React.useState(1);
@@ -642,6 +651,7 @@ export default function NewContractPage() {
       const oneYear = buildDurationValue(todayVn, 12);
 
       const defaults: Record<string, string> = {};
+      const company = currentTenant ?? activeTenant;
       for (const k of varKeys) {
         if (isStartDateField(k)) {
           defaults[k] = todayVn;
@@ -649,19 +659,23 @@ export default function NewContractPage() {
           defaults[k] = "12 tháng";
         } else if (isDurationOrEndDateField(k)) {
           defaults[k] = oneYear.text;
-        } else if (k === "ten_ben_a" && activeTenant?.name) {
-          defaults[k] = activeTenant.name;
-        } else if (k === "mst_ben_a" && activeTenant?.taxCode) {
-          defaults[k] = activeTenant.taxCode;
-        } else if (k === "dia_chi_ben_a" && activeTenant?.address) {
-          defaults[k] = activeTenant.address;
-        } else if (k === "dai_dien_ben_a" && user.fullName) {
-          defaults[k] = user.fullName;
+        } else if (k === "ten_ben_a" && (company?.name || activeTenant?.name)) {
+          defaults[k] = company?.name || activeTenant?.name || "";
+        } else if (k === "mst_ben_a" && (company?.taxCode || activeTenant?.taxCode)) {
+          defaults[k] = company?.taxCode || activeTenant?.taxCode || "";
+        } else if (k === "dia_chi_ben_a" && (company?.address || activeTenant?.address)) {
+          defaults[k] = company?.address || activeTenant?.address || "";
+        } else if (k === "dai_dien_ben_a") {
+          defaults[k] = company?.representativeName || user.fullName || "";
+        } else if (k === "chuc_vu_ben_a" && company?.representativeTitle) {
+          defaults[k] = company.representativeTitle;
+        } else if (k === "sdt_ben_a" && (company?.phone || user.phoneNumber)) {
+          defaults[k] = company?.phone || user.phoneNumber || "";
         }
       }
       return defaults;
     },
-    [activeTenant, user.fullName],
+    [currentTenant, activeTenant, user.fullName, user.phoneNumber],
   );
 
   // Khi chọn mẫu (mẫu tham khảo hoặc mẫu DB) -> nạp nội dung & tự điền ngày hôm nay + thông tin Bên A
@@ -928,11 +942,16 @@ export default function NewContractPage() {
       ? file !== null
       : activeVariables.length > 0 && activeVariables.every((v) => (values[v] ?? "").trim() !== ""));
 
+  const hasSignerRole = signers.some((s) => (s.role ?? "Signer") === "Signer");
   const step2Valid =
-    signers.every((s) => s.fullName.trim() && /\S+@\S+\.\S+/.test(s.email)) && dueAt !== "";
+    signers.length > 0 &&
+    hasSignerRole &&
+    signers.every((s) => s.fullName.trim() && /\S+@\S+\.\S+/.test(s.email)) &&
+    dueAt !== "";
 
   const goToSignersStep = () => {
-    const repA = values["dai_dien_ben_a"] || values["ten_ben_a"] || user.fullName || "";
+    const company = currentTenant ?? activeTenant;
+    const repA = values["dai_dien_ben_a"] || company?.representativeName || user.fullName || "";
     const repB =
       values["dai_dien_ben_b"] || values["ho_ten_nhan_vien"] || values["ten_ben_b"] || "";
 
@@ -942,13 +961,21 @@ export default function NewContractPage() {
         next[0] = {
           ...next[0],
           fullName: repA || next[0].fullName,
-          email: next[0].email || activeTenant?.contactEmail || user.email || "",
+          email: next[0].email || company?.contactEmail || user.email || "",
+          phone: next[0].phone || company?.phone || user.phoneNumber || "",
+          organization: next[0].organization || company?.name || "",
+          title: next[0].title || company?.representativeTitle || user.jobTitle || "",
+          role: next[0].role ?? "Signer",
         };
       }
       if (next[1] && !next[1].fullName.trim() && repB) {
         next[1] = {
           ...next[1],
           fullName: repB,
+          organization: next[1].organization || values["ten_ben_b"] || "",
+          title: next[1].title || values["chuc_vu_ben_b"] || "",
+          phone: next[1].phone || values["sdt_ben_b"] || "",
+          role: next[1].role ?? "Signer",
         };
       }
       return next;
@@ -972,9 +999,13 @@ export default function NewContractPage() {
   }, []);
 
   const goToPlacement = () => {
+    if (!signers.some((s) => (s.role ?? "Signer") === "Signer")) {
+      toast("Hợp đồng phải có ít nhất 1 người ký (Signer).", "error");
+      return;
+    }
     const normalizedEmails = signers.map((s) => s.email.trim().toLowerCase());
     if (new Set(normalizedEmails).size !== normalizedEmails.length) {
-      toast("Email giữa Chủ doanh nghiệp và Đối tác không được trùng nhau.", "error");
+      toast("Email giữa các bên liên quan không được trùng nhau.", "error");
       return;
     }
     if (new Date(dueAt).getTime() <= Date.now()) {
@@ -983,7 +1014,8 @@ export default function NewContractPage() {
     }
     const targetSignPage =
       source === "upload" ? Math.max(1, uploadedTotalPages) : totalTemplatePages;
-    setActiveSignerIndex(0);
+    const firstSignerIndex = signers.findIndex((s) => (s.role ?? "Signer") === "Signer");
+    setActiveSignerIndex(firstSignerIndex >= 0 ? firstSignerIndex : 0);
     setActivePage(targetSignPage);
     setStep(2);
 
@@ -1678,7 +1710,15 @@ export default function NewContractPage() {
                     const nextCount = prev.length + 1;
                     return [
                       ...prev.map((s, idx) => ({ ...s, ...defaultBoxForOrder(idx, nextCount) })),
-                      { fullName: "", email: "", ...defaultBoxForOrder(prev.length, nextCount) },
+                      {
+                        fullName: "",
+                        email: "",
+                        role: "Signer",
+                        phone: "",
+                        organization: "",
+                        title: "",
+                        ...defaultBoxForOrder(prev.length, nextCount),
+                      },
                     ];
                   })
                 }
@@ -1699,29 +1739,37 @@ export default function NewContractPage() {
               <ol className="flex flex-col gap-3">
                 {signers.map((s, i) => {
                   const roleTag =
-                    i === 0
-                      ? "Lượt 1 · Chủ doanh nghiệp (Bên A) — Nhận mail xác nhận & ký duyệt trước"
-                      : i === 1
-                        ? "Lượt 2 · Đối tác / Khách hàng (Bên B) — Nhận mail ký sau khi Chủ DN đã duyệt"
-                        : `Lượt ${i + 1} · Bên liên quan thứ ${i + 1}`;
+                    s.role === "Approver"
+                      ? `Lượt ${i + 1} · Người duyệt (OTP xác thực, không cần ô ký)`
+                      : s.role === "Cc"
+                        ? "Nhận bản sao Cc (Không có lượt ký, nhận email khi hoàn tất)"
+                        : i === 0
+                          ? "Lượt 1 · Chủ doanh nghiệp (Bên A) — Ký số trước"
+                          : i === 1
+                            ? "Lượt 2 · Đối tác (Bên B) — Ký sau khi Bên A duyệt/ký"
+                            : `Lượt ${i + 1} · Người ký ${i + 1}`;
 
                   return (
                     <li
                       key={i}
-                      className="flex flex-col gap-2.5 p-3.5 rounded-md border border-line bg-page motion-safe:animate-fade-in"
+                      className="flex flex-col gap-3 p-3.5 rounded-md border border-line bg-page motion-safe:animate-fade-in"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`w-6 h-6 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0 ${SIGNER_COLORS[i]}`}
+                            className={`w-6 h-6 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0 ${SIGNER_COLORS[i % SIGNER_COLORS.length]}`}
                           >
                             {i + 1}
                           </span>
                           <Badge
                             className={
-                              i === 0
-                                ? "bg-selected text-primary"
-                                : "bg-badge-completed-bg text-badge-completed-fg"
+                              s.role === "Approver"
+                                ? "bg-amber-500/15 text-amber-700"
+                                : s.role === "Cc"
+                                  ? "bg-strip text-muted"
+                                  : i === 0
+                                    ? "bg-selected text-primary"
+                                    : "bg-badge-completed-bg text-badge-completed-fg"
                             }
                           >
                             {roleTag}
@@ -1746,7 +1794,7 @@ export default function NewContractPage() {
                           </Button>
                           <Button
                             variant="ghost"
-                            aria-label="Xóa người ký"
+                            aria-label="Xóa người nhận"
                             disabled={signers.length === 1}
                             onClick={() => setSigners((prev) => prev.filter((_, j) => j !== i))}
                           >
@@ -1755,27 +1803,52 @@ export default function NewContractPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Select
+                          label="Vai trò"
+                          value={s.role ?? "Signer"}
+                          onChange={(e) => updateSigner(i, { role: e.target.value as RecipientRole })}
+                          options={[
+                            { value: "Signer", label: "Người ký (Có ô ký trên PDF & OTP)" },
+                            { value: "Approver", label: "Người duyệt (Duyệt/từ chối qua OTP, không đóng chữ ký)" },
+                            { value: "Cc", label: "Nhận bản sao Cc (Nhận email khi hoàn tất)" },
+                          ]}
+                        />
                         <Input
-                          label={
-                            i === 0 ? "Họ tên Chủ doanh nghiệp / Đại diện Bên A" : "Họ và tên người ký"
-                          }
+                          label={i === 0 ? "Họ tên Chủ doanh nghiệp / Đại diện Bên A" : "Họ và tên"}
                           required
                           value={s.fullName}
                           onChange={(e) => updateSigner(i, { fullName: e.target.value })}
                           placeholder="Nguyễn Văn A"
                         />
                         <Input
-                          label={
-                            i === 0
-                              ? "Email Chủ doanh nghiệp (Nhận link xác nhận ký)"
-                              : "Email đối tác nhận link ký"
-                          }
+                          label="Email nhận thông báo / link ký"
                           type="email"
                           required
                           value={s.email}
                           onChange={(e) => updateSigner(i, { email: e.target.value })}
-                          placeholder="giamdoc@congty.vn"
+                          placeholder="email@doanhnghiep.vn"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Input
+                          label="Số điện thoại"
+                          value={s.phone ?? ""}
+                          onChange={(e) => updateSigner(i, { phone: e.target.value })}
+                          placeholder="0912345678"
+                        />
+                        <Input
+                          label="Đơn vị / Doanh nghiệp"
+                          value={s.organization ?? ""}
+                          onChange={(e) => updateSigner(i, { organization: e.target.value })}
+                          placeholder="Công ty ABC"
+                        />
+                        <Input
+                          label="Chức vụ"
+                          value={s.title ?? ""}
+                          onChange={(e) => updateSigner(i, { title: e.target.value })}
+                          placeholder="Giám đốc"
                         />
                       </div>
                     </li>
@@ -1863,85 +1936,91 @@ export default function NewContractPage() {
                     })}
                   </div>
 
-                  {signers[activeSignerIndex] && (
-                    <div className="p-4 rounded-md border border-line bg-page flex flex-col gap-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                        Tọa độ ô ký · Lượt #{activeSignerIndex + 1} ({signers[activeSignerIndex].fullName})
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Input
-                          label={`Trang PDF (1-${maxPageLimit})`}
-                          type="number"
-                          min={1}
-                          max={maxPageLimit}
-                          value={String(signers[activeSignerIndex].pageNumber)}
-                          onChange={(e) => {
-                            const p = Math.max(
-                              1,
-                              Math.min(maxPageLimit, Number(e.target.value) || 1),
-                            );
-                            updateSigner(activeSignerIndex, { pageNumber: p });
-                            setActivePage(p);
-                          }}
-                        />
-                        <Input
-                          label="Tọa độ X (pt)"
-                          type="number"
-                          min={10}
-                          max={480}
-                          value={String(signers[activeSignerIndex].boxX)}
-                          onChange={(e) =>
-                            updateSigner(activeSignerIndex, {
-                              boxX: Math.max(10, Math.min(480, Number(e.target.value) || 10)),
-                            })
-                          }
-                        />
-                        <Input
-                          label="Tọa độ Y (pt)"
-                          type="number"
-                          min={10}
-                          max={760}
-                          value={String(signers[activeSignerIndex].boxY)}
-                          onChange={(e) =>
-                            updateSigner(activeSignerIndex, {
-                              boxY: Math.max(10, Math.min(760, Number(e.target.value) || 10)),
-                            })
-                          }
-                        />
+                  {signers[activeSignerIndex] && (signers[activeSignerIndex].role ?? "Signer") === "Signer" && (
+                    <details className="p-3.5 rounded-md border border-line bg-page text-xs group">
+                      <summary className="font-semibold text-fg cursor-pointer select-none flex items-center justify-between">
+                        <span>Tùy chỉnh tọa độ ô ký (Nâng cao)</span>
+                        <span className="text-muted group-open:rotate-180 transition-transform">▼</span>
+                      </summary>
+                      <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-line">
+                        <p className="text-[11px] text-muted leading-relaxed">
+                          Kéo thả ô ký trên trang giấy A4 bên cạnh là cách đặt chính. Nếu cần căn chỉnh tọa độ chính xác từng điểm (pt), bạn có thể nhập thủ công bên dưới.
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            label={`Trang PDF (1-${maxPageLimit})`}
+                            type="number"
+                            min={1}
+                            max={maxPageLimit}
+                            value={String(signers[activeSignerIndex].pageNumber)}
+                            onChange={(e) => {
+                              const p = Math.max(
+                                1,
+                                Math.min(maxPageLimit, Number(e.target.value) || 1),
+                              );
+                              updateSigner(activeSignerIndex, { pageNumber: p });
+                              setActivePage(p);
+                            }}
+                          />
+                          <Input
+                            label="Tọa độ X (pt)"
+                            type="number"
+                            min={10}
+                            max={480}
+                            value={String(signers[activeSignerIndex].boxX)}
+                            onChange={(e) =>
+                              updateSigner(activeSignerIndex, {
+                                boxX: Math.max(10, Math.min(480, Number(e.target.value) || 10)),
+                              })
+                            }
+                          />
+                          <Input
+                            label="Tọa độ Y (pt)"
+                            type="number"
+                            min={10}
+                            max={760}
+                            value={String(signers[activeSignerIndex].boxY)}
+                            onChange={(e) =>
+                              updateSigner(activeSignerIndex, {
+                                boxY: Math.max(10, Math.min(760, Number(e.target.value) || 10)),
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            label="Chiều rộng (pt)"
+                            type="number"
+                            min={80}
+                            max={260}
+                            value={String(signers[activeSignerIndex].boxWidth)}
+                            onChange={(e) =>
+                              updateSigner(activeSignerIndex, {
+                                boxWidth: Math.max(
+                                  80,
+                                  Math.min(260, Number(e.target.value) || DEFAULT_BOX_WIDTH),
+                                ),
+                              })
+                            }
+                          />
+                          <Input
+                            label="Chiều cao (pt)"
+                            type="number"
+                            min={40}
+                            max={140}
+                            value={String(signers[activeSignerIndex].boxHeight)}
+                            onChange={(e) =>
+                              updateSigner(activeSignerIndex, {
+                                boxHeight: Math.max(
+                                  40,
+                                  Math.min(140, Number(e.target.value) || DEFAULT_BOX_HEIGHT),
+                                ),
+                              })
+                            }
+                          />
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          label="Chiều rộng (pt)"
-                          type="number"
-                          min={80}
-                          max={260}
-                          value={String(signers[activeSignerIndex].boxWidth)}
-                          onChange={(e) =>
-                            updateSigner(activeSignerIndex, {
-                              boxWidth: Math.max(
-                                80,
-                                Math.min(260, Number(e.target.value) || DEFAULT_BOX_WIDTH),
-                              ),
-                            })
-                          }
-                        />
-                        <Input
-                          label="Chiều cao (pt)"
-                          type="number"
-                          min={40}
-                          max={140}
-                          value={String(signers[activeSignerIndex].boxHeight)}
-                          onChange={(e) =>
-                            updateSigner(activeSignerIndex, {
-                              boxHeight: Math.max(
-                                40,
-                                Math.min(140, Number(e.target.value) || DEFAULT_BOX_HEIGHT),
-                              ),
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
+                    </details>
                   )}
                 </div>
 
@@ -2029,6 +2108,7 @@ export default function NewContractPage() {
                       )}
 
                       {signers.map((s, idx) => {
+                        if ((s.role ?? "Signer") !== "Signer") return null;
                         if (s.pageNumber !== activePage) return null;
                         const leftPct = (s.boxX / PDF_PAGE_WIDTH) * 100;
                         const topPct =
@@ -2102,23 +2182,44 @@ export default function NewContractPage() {
                 <dt className="text-muted">Trình tự gửi Email ký số</dt>
                 <dd>
                   <ol className="flex flex-col gap-2">
-                    {signers.map((s, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`w-5 h-5 rounded-sm flex items-center justify-center text-xs font-semibold text-white ${SIGNER_COLORS[i]}`}
-                        >
-                          {i + 1}
-                        </span>
-                        <span className="font-semibold text-fg">
-                          {i === 0 ? "Chủ DN (Duyệt & ký trước):" : "Đối tác (Ký sau):"}
-                        </span>
-                        <span className="font-medium text-fg">{s.fullName}</span>
-                        <span className="text-muted">({s.email})</span>
-                        <span className="font-mono text-xs px-1.5 py-0.5 rounded-sm bg-page border border-line text-muted">
-                          Trang {s.pageNumber} · X={s.boxX}, Y={s.boxY}
-                        </span>
-                      </li>
-                    ))}
+                    {signers.map((s, i) => {
+                      const isSigner = (s.role ?? "Signer") === "Signer";
+                      const isApprover = s.role === "Approver";
+                      const roleName = isApprover
+                        ? "Người duyệt (Duyệt qua OTP)"
+                        : isSigner
+                          ? "Người ký (Có ô ký trên PDF)"
+                          : "Nhận bản sao Cc";
+
+                      return (
+                        <li key={i} className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`w-5 h-5 rounded-sm flex items-center justify-center text-xs font-semibold text-white ${SIGNER_COLORS[i % SIGNER_COLORS.length]}`}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className="font-semibold text-fg">
+                            {roleName}:
+                          </span>
+                          <span className="font-medium text-fg">{s.fullName}</span>
+                          {(s.title || s.organization) && (
+                            <span className="text-xs text-muted">
+                              ({[s.title, s.organization].filter(Boolean).join(", ")})
+                            </span>
+                          )}
+                          <span className="text-muted">({s.email})</span>
+                          {isSigner ? (
+                            <span className="font-mono text-xs px-1.5 py-0.5 rounded-sm bg-page border border-line text-muted">
+                              Trang {s.pageNumber} · X={s.boxX}, Y={s.boxY}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-strip border border-line text-muted">
+                              {isApprover ? "Không cần ô ký" : "Nhận link xem khi hoàn tất"}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ol>
                 </dd>
               </dl>

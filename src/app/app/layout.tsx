@@ -6,13 +6,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authApi, UserDto } from "@/lib/api/auth";
 import { type TenantRole } from "@/lib/api/tenants";
-import { ApiError } from "@/lib/api";
 import { TENANT_ROLE_LABELS, WorkspaceContext } from "@/lib/workspace-context";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/toast";
 import { AppShell, UserMenu, menuItemClass, type ShellNavItem } from "@/components/app-shell";
 import {
   Building2,
@@ -21,9 +16,9 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  Settings,
   Shield,
   Tag,
-  UserCog,
 } from "lucide-react";
 
 function AppLayoutShell({
@@ -33,11 +28,7 @@ function AppLayoutShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { toast } = useToast();
 
-  const [profileModalOpen, setProfileModalOpen] = React.useState(false);
-  const [profileFullName, setProfileFullName] = React.useState("");
-  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [user, setUser] = React.useState<UserDto | null>(null);
   const [selectedTenantId, setSelectedTenantId] = React.useState<string>("");
   const [isInitializing, setIsInitializing] = React.useState(true);
@@ -82,30 +73,9 @@ function AppLayoutShell({
     router.push("/login");
   };
 
-  const handleOpenProfileModal = React.useCallback(() => {
-    setProfileFullName(user?.fullName ?? "");
-    setProfileModalOpen(true);
-  }, [user?.fullName]);
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = profileFullName.trim();
-    if (!trimmed || trimmed.length > 100) {
-      toast("Họ và tên là bắt buộc và tối đa 100 ký tự", "error");
-      return;
-    }
-    setIsSavingProfile(true);
-    try {
-      const updated = await authApi.updateProfile(trimmed);
-      setUser(updated);
-      setProfileModalOpen(false);
-      toast("Đã cập nhật hồ sơ cá nhân", "success");
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Không thể cập nhật hồ sơ", "error");
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
+  const handleOpenSettings = React.useCallback(() => {
+    router.push("/app/settings");
+  }, [router]);
 
   const currentRole: TenantRole =
     user?.tenants?.find((t) => t.id === selectedTenantId)?.role ?? "Employee";
@@ -119,6 +89,7 @@ function AppLayoutShell({
     { href: "/app/contracts", label: "Hợp đồng", icon: FileText },
     { href: "/app/templates", label: "Mẫu hợp đồng", icon: FilePenLine },
     { href: "/app/billing", label: "Gói và thanh toán", icon: CreditCard },
+    { href: "/app/settings", label: "Cài đặt", icon: Settings },
   ];
 
   const secondaryNav: ShellNavItem[] = [
@@ -153,7 +124,7 @@ function AppLayoutShell({
         user,
         activeTenantId: selectedTenantId,
         currentRole,
-        openProfileModal: handleOpenProfileModal,
+        openProfileModal: handleOpenSettings,
         refreshUser: loadUser,
       }}
     >
@@ -191,17 +162,14 @@ function AppLayoutShell({
           <UserMenu name={user.fullName} email={user.email}>
             {(close) => (
               <>
-                <button
-                  type="button"
+                <Link
+                  href="/app/settings"
+                  onClick={close}
                   className={menuItemClass}
-                  onClick={() => {
-                    close();
-                    handleOpenProfileModal();
-                  }}
                 >
-                  <UserCog className="w-4 h-4 text-muted" aria-hidden="true" />
-                  Sửa hồ sơ cá nhân
-                </button>
+                  <Settings className="w-4 h-4 text-muted" aria-hidden="true" />
+                  Cài đặt tài khoản
+                </Link>
                 {user.role === "Admin" && (
                   <Link href="/admin" onClick={close} className={menuItemClass}>
                     <Shield className="w-4 h-4 text-muted" aria-hidden="true" />
@@ -223,39 +191,6 @@ function AppLayoutShell({
         }
       >
         <div key={selectedTenantId}>{children}</div>
-
-        <Dialog
-          open={profileModalOpen}
-          onClose={() => setProfileModalOpen(false)}
-          title="Sửa hồ sơ cá nhân"
-          footer={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setProfileModalOpen(false)}
-                disabled={isSavingProfile}
-              >
-                Hủy
-              </Button>
-              <Button type="submit" form="profile-form" variant="primary" isLoading={isSavingProfile}>
-                Lưu thay đổi
-              </Button>
-            </>
-          }
-        >
-          <form id="profile-form" onSubmit={handleSaveProfile} className="flex flex-col gap-4">
-            <Input label="Email đăng nhập" type="email" value={user.email} disabled />
-            <Input
-              label="Họ và tên"
-              required
-              maxLength={100}
-              value={profileFullName}
-              onChange={(e) => setProfileFullName(e.target.value)}
-              helperText="Họ và tên của bạn sẽ được hiển thị khi ký các biên bản và hợp đồng."
-            />
-          </form>
-        </Dialog>
       </AppShell>
     </WorkspaceContext.Provider>
   );

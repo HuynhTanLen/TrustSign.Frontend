@@ -3,27 +3,41 @@
 import * as React from "react";
 import Link from "next/link";
 import { authApi } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, KeyRound, Mail } from "lucide-react";
+import { CheckCircle2, CircleAlert, KeyRound, Mail } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [email, setEmail] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [correlationId, setCorrelationId] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setCorrelationId(null);
     setIsLoading(true);
 
     try {
       await authApi.forgotPassword(email.trim());
       setIsSubmitted(true);
       toast("Đã gửi hướng dẫn đặt lại mật khẩu", "success");
-    } catch {
-      setIsSubmitted(true);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setCorrelationId(err.correlationId);
+        if (err.status === 429) {
+          setErrorMessage("Quá nhiều yêu cầu trong thời gian ngắn. Vui lòng thử lại sau 1 phút.");
+        } else {
+          setErrorMessage(err.message || "Không thể gửi yêu cầu đặt lại mật khẩu.");
+        }
+      } else {
+        setErrorMessage("Không kết nối được máy chủ API. Vui lòng kiểm tra backend đang chạy.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -68,6 +82,21 @@ export default function ForgotPasswordPage() {
       </header>
 
       <div className="p-6">
+        {errorMessage && (
+          <div
+            role="alert"
+            className="mb-5 p-3.5 rounded-lg border border-danger/25 bg-badge-declined-bg text-sm text-danger flex items-start gap-3"
+          >
+            <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">{errorMessage}</p>
+              {correlationId && (
+                <p className="mt-1 font-mono text-xs text-muted">Mã theo dõi: {correlationId}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="text-sm text-muted mb-5 leading-relaxed">
           Nhập địa chỉ email đăng ký tài khoản để nhận liên kết xác thực đặt lại mật khẩu mới.
         </p>

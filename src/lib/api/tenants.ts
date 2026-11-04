@@ -12,6 +12,9 @@ export interface TenantDto {
   status: string;
   role: TenantRole;
   createdAt: string;
+  representativeName?: string | null;
+  representativeTitle?: string | null;
+  phone?: string | null;
 }
 
 export interface TenantSessionResponse {
@@ -26,6 +29,19 @@ export interface CreateTenantRequest {
   taxCode?: string;
   address?: string;
   contactEmail?: string;
+  representativeName?: string;
+  representativeTitle?: string;
+  phone?: string;
+}
+
+export interface UpdateTenantRequest {
+  name: string;
+  taxCode?: string;
+  address?: string;
+  contactEmail?: string;
+  phone?: string;
+  representativeName?: string;
+  representativeTitle?: string;
 }
 
 export interface TenantMemberDto {
@@ -58,6 +74,19 @@ export const tenantsApi = {
 
   async mine(): Promise<TenantDto[]> {
     return apiFetch<TenantDto[]>("/api/tenants/mine");
+  },
+
+  /** Lấy thông tin chi tiết đầy đủ của doanh nghiệp hiện tại */
+  async getCurrent(): Promise<TenantDto> {
+    return apiFetch<TenantDto>("/api/tenants/current");
+  },
+
+  /** Cập nhật thông tin doanh nghiệp (chỉ Chủ doanh nghiệp) */
+  async updateCurrent(data: UpdateTenantRequest): Promise<TenantDto> {
+    return apiFetch<TenantDto>("/api/tenants/current", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
   },
 
   async switchTenant(tenantId: string): Promise<AuthResponse> {

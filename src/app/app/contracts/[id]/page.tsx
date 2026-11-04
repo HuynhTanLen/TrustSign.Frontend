@@ -435,7 +435,7 @@ export default function ContractDetailPage() {
           <Card
             title={
               <span className="flex items-center gap-2">
-                <span>Tiến trình các bên ký</span>
+                <span>Tiến trình các bên ký & duyệt</span>
                 <span className="text-xs font-normal text-muted">
                   ({signedCount}/{totalSigners})
                 </span>
@@ -470,6 +470,31 @@ export default function ContractDetailPage() {
             <ol className="relative divide-y divide-line">
               {contract.signers.map((s) => {
                 const config = SIGNER_STATUS_CONFIG[s.status];
+                const isApprover = s.role === "Approver";
+                const isCc = s.role === "Cc";
+
+                const roleBadge = isApprover ? (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/20">
+                    Người duyệt
+                  </span>
+                ) : isCc ? (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-line">
+                    Nhận bản sao (Cc)
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    Người ký
+                  </span>
+                );
+
+                const statusLabel =
+                  isApprover && s.status === "Signed"
+                    ? "Đã duyệt"
+                    : isApprover && s.status === "Current"
+                      ? "Đang chờ duyệt"
+                      : isCc
+                        ? "Đã nhận bản sao"
+                        : config.label;
 
                 return (
                   <li
@@ -494,17 +519,31 @@ export default function ContractDetailPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-fg truncate">{s.fullName}</p>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-bold text-fg truncate">{s.fullName}</p>
+                          {roleBadge}
+                        </div>
                         <Badge tone={config.badgeTone} size="sm">
-                          {config.label}
+                          {statusLabel}
                         </Badge>
                       </div>
 
-                      <p className="text-xs text-muted truncate mt-0.5">{s.email}</p>
+                      {(s.title || s.organization) && (
+                        <p className="text-xs text-fg mt-1 font-medium">
+                          {[s.title, s.organization].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
 
-                      {/* Tọa độ ô ký dạng chip nhẹ nhàng */}
-                      {s.pageNumber !== undefined &&
+                      <p className="text-xs text-muted truncate mt-0.5">
+                        {s.email}
+                        {s.phone ? ` · ${s.phone}` : ""}
+                      </p>
+
+                      {/* Tọa độ ô ký dạng chip nhẹ nhàng (chỉ người ký mới có ô ký) */}
+                      {!isApprover &&
+                        !isCc &&
+                        s.pageNumber !== undefined &&
                         s.boxX !== undefined &&
                         s.boxY !== undefined && (
                           <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-strip border border-line text-[11px] font-mono text-slate-600">
@@ -518,7 +557,9 @@ export default function ContractDetailPage() {
                       {s.signedAt && (
                         <p className="mt-1.5 text-xs text-emerald-700 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>Ký lúc {formatDateTime(s.signedAt)}</span>
+                          <span>
+                            {isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
+                          </span>
                         </p>
                       )}
 
