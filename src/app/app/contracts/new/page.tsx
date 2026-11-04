@@ -34,6 +34,7 @@ import {
   slugifyVariableName,
   VARIABLE_LABELS,
   type FieldSection,
+  type TemplateClauseItem,
   type TemplateFieldItem,
 } from "@/lib/contract-format";
 import { useWorkspace } from "@/lib/workspace-context";
@@ -583,8 +584,10 @@ export default function NewContractPage() {
   const [templateDetail, setTemplateDetail] = React.useState<TemplateDetail | null>(null);
 
   const [extraFields, setExtraFields] = React.useState<TemplateFieldItem[]>([]);
+  const [removedFieldKeys, setRemovedFieldKeys] = React.useState<string[]>([]);
+  const [customClauses, setCustomClauses] = React.useState<TemplateClauseItem[] | null>(null);
   const [newFieldLabel, setNewFieldLabel] = React.useState("");
-  const [newFieldSection, setNewFieldSection] = React.useState<FieldSection>("transaction");
+  const [newFieldSection, setNewFieldSection] = React.useState<FieldSection | "clause">("transaction");
 
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [endDateIso, setEndDateIso] = React.useState<string>(() => {
@@ -683,6 +686,8 @@ export default function NewContractPage() {
       });
       setTitle(refBp.name);
       setExtraFields([]);
+      setRemovedFieldKeys([]);
+      setCustomClauses(null);
       setValues(smartDefaults);
 
       // Tự động focus vào trường đầu tiên chưa có dữ liệu (thường là Tên đối tác Bên B)
@@ -703,6 +708,8 @@ export default function NewContractPage() {
           setTemplateDetail(detail);
           setTitle(detail.name);
           setExtraFields([]);
+          setRemovedFieldKeys([]);
+          setCustomClauses(null);
           setValues(smartDefaults);
 
           const firstEmptyVar =
@@ -757,23 +764,26 @@ export default function NewContractPage() {
         combinedFields.push(ef);
       }
     }
+    const visibleFields = combinedFields.filter((f) => !removedFieldKeys.includes(f.key));
     const orderedFields = [
-      ...combinedFields.filter((f) => f.section === "partyA"),
-      ...combinedFields.filter((f) => f.section === "partyB"),
-      ...combinedFields.filter((f) => f.section === "transaction"),
+      ...visibleFields.filter((f) => f.section === "partyA"),
+      ...visibleFields.filter((f) => f.section === "partyB"),
+      ...visibleFields.filter((f) => f.section === "transaction"),
     ];
+    const activeClauses = customClauses ?? base.clauses;
     const compiledContent = buildFormattedContractFromBlueprint({
       name: title || templateDetail.name,
       partyATitle: base.partyATitle,
       partyBTitle: base.partyBTitle,
       fields: orderedFields,
-      clauses: base.clauses,
+      clauses: activeClauses,
     });
     return {
       orderedFields,
+      activeClauses,
       compiledContent,
     };
-  }, [templateDetail, title, extraFields]);
+  }, [templateDetail, title, extraFields, removedFieldKeys, customClauses]);
 
   const activeVariables = React.useMemo(
     () => mergedBlueprint?.orderedFields.map((f) => f.key) ?? [],
@@ -787,12 +797,82 @@ export default function NewContractPage() {
   const totalTemplatePages = Math.max(1, contractPages.length);
   const maxPageLimit = source === "upload" ? 50 : totalTemplatePages;
 
+  const handleRemoveField = (key: string, label: string) => {
+    if ((mergedBlueprint?.orderedFields.length ?? 0) <= 1) {
+      toast("Hợp đồng cần giữ lại ít nhất 1 trường thông tin.", "error");
+      return;
+    }
+    setExtraFields((prev) => prev.filter((f) => f.key !== key));
+    setRemovedFieldKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    setCreatedDraftId(null);
+    toast(`Đã xóa mục "${label}" khỏi hợp đồng.`, "info");
+  };
+
+  const handleAddClause = (customTitle?: string, customBody?: string) => {
+    const currentList = mergedBlueprint?.activeClauses ?? [];
+    const nextNum = currentList.length + 1;
+    const rawTitle = (customTitle ?? "").trim();
+    const formattedTitle = rawTitle
+      ? /^ĐIỀU\s+\d+/i.test(rawTitle)
+        ? rawTitle.toUpperCase()
+        : `ĐIỀU ${nextNum}. ${rawTitle.toUpperCase()}`
+      : `ĐIỀU ${nextNum}. ĐIỀU KHOẢN THỎA THUẬN BỔ SUNG`;
+
+    const nextClauses: TemplateClauseItem[] = [
+      ...currentList,
+      {
+        title: formattedTitle,
+        body:
+          customBody?.trim() ||
+          "Hai bên thống nhất thực hiện đầy đủ nghĩa vụ và cam kết theo nội dung điều khoản này.",
+      },
+    ];
+    setCustomClauses(nextClauses);
+    setCreatedDraftId(null);
+    toast(`Đã thêm "${formattedTitle}" vào hợp đồng.`, "success");
+  };
+
+  const handleUpdateClause = (idx: number, patch: Partial<TemplateClauseItem>) => {
+    const currentList = mergedBlueprint?.activeClauses ?? [];
+    const nextClauses = currentList.map((c, i) => (i === idx ? { ...c, ...patch } : c));
+    setCustomClauses(nextClauses);
+    setCreatedDraftId(null);
+  };
+
+  const handleRemoveClause = (idx: number) => {
+    const currentList = mergedBlueprint?.activeClauses ?? [];
+    if (currentList.length <= 1) {
+      toast("Hợp đồng cần có ít nhất 1 điều khoản.", "error");
+      return;
+    }
+    const removedTitle = currentList[idx]?.title ?? `Điều ${idx + 1}`;
+    // Xóa và tự động đánh lại số thứ tự ĐIỀU 1, ĐIỀU 2...
+    const nextClauses = currentList
+      .filter((_, i) => i !== idx)
+      .map((c, newIdx) => ({
+        ...c,
+        title: c.title.replace(/^ĐIỀU\s+\d+/i, `ĐIỀU ${newIdx + 1}`),
+      }));
+    setCustomClauses(nextClauses);
+    setCreatedDraftId(null);
+    toast(`Đã xóa "${removedTitle}" và đánh lại thứ tự điều khoản.`, "info");
+  };
+
   const handleAddInlineField = () => {
     const clean = newFieldLabel.trim();
     if (!clean) {
-      toast("Nhập tên thông tin muốn thêm (VD: Biển số xe, Số tiền đặt cọc).", "error");
+      toast("Nhập tên mục thông tin hoặc điều khoản muốn thêm.", "error");
       return;
     }
+
+    // Nếu người dùng chọn "Mục IV · Điều khoản" hoặc gõ bắt đầu bằng "Điều..." -> Tự động thêm vào Điều khoản hợp đồng!
+    if (newFieldSection === "clause" || /^điều(\s+\d+|\s*:|\s*\.)/i.test(clean)) {
+      const cleanedTitle = clean.replace(/^điều\s*\d*\s*[.:-]?\s*/i, "").trim();
+      handleAddClause(cleanedTitle || "ĐIỀU KHOẢN BỔ SUNG");
+      setNewFieldLabel("");
+      return;
+    }
+
     const baseKey = slugifyVariableName(clean);
     if (!baseKey) return;
     const prefix =
@@ -801,6 +881,7 @@ export default function NewContractPage() {
       baseKey.includes("ben_a") || baseKey.includes("ben_b") ? baseKey : `${prefix}${baseKey}`;
 
     VARIABLE_LABELS[key] = clean;
+    setRemovedFieldKeys((prev) => prev.filter((k) => k !== key));
     setExtraFields((prev) =>
       prev.some((f) => f.key === key) ? prev : [...prev, { key, label: clean, section: newFieldSection }],
     );
@@ -1007,7 +1088,12 @@ export default function NewContractPage() {
       } else {
         let realTemplateId = selectedChoice;
         const compiledContent = mergedBlueprint?.compiledContent ?? templateDetail?.content ?? "";
-        if (selectedChoice.startsWith("ref:") || extraFields.length > 0) {
+        if (
+          selectedChoice.startsWith("ref:") ||
+          extraFields.length > 0 ||
+          removedFieldKeys.length > 0 ||
+          customClauses !== null
+        ) {
           const createdTpl = await templatesApi.create({
             name: title.trim(),
             content: compiledContent,
@@ -1376,30 +1462,40 @@ export default function NewContractPage() {
                             <span className="text-[11px] text-muted">Đã tự điền Bên A & Ngày hôm nay</span>
                           </div>
 
-                          <div className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto pr-1">
+                          <div className="flex flex-col gap-2.5 max-h-[420px] overflow-y-auto pr-1">
                             {mergedBlueprint.orderedFields.map((f, idx) => {
                               const isFocused = focusedVar === f.key;
                               return (
                                 <div
                                   key={f.key}
-                                  className={`p-3 rounded-md border transition-colors ${
+                                  className={`relative p-3 rounded-md border transition-colors ${
                                     isFocused
                                       ? "border-primary bg-selected/60 shadow-2xs"
                                       : "border-line bg-surface"
                                   }`}
                                 >
-                                  {renderSmartFieldControl(f, idx)}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveField(f.key, f.label)}
+                                    title={`Xóa mục "${f.label}" khỏi hợp đồng`}
+                                    aria-label={`Xóa mục ${f.label}`}
+                                    className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[11px] font-medium text-muted hover:text-danger hover:bg-badge-declined-bg transition-colors cursor-pointer z-10"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Xóa
+                                  </button>
+                                  <div className="pr-12">{renderSmartFieldControl(f, idx)}</div>
                                 </div>
                               );
                             })}
                           </div>
 
-                          {/* Khung tự thêm mục thông tin mới mà không cần {} */}
+                          {/* Khung tự thêm mục thông tin mới hoặc điều khoản mới */}
                           <div className="pt-3 border-t border-line flex flex-col gap-2">
                             <span className="text-xs font-bold text-fg">
-                              + Cần thêm mục thông tin khác vào hợp đồng?
+                              + Cần thêm mục thông tin hoặc điều khoản mới?
                             </span>
-                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_165px] gap-2">
                               <input
                                 type="text"
                                 value={newFieldLabel}
@@ -1410,17 +1506,24 @@ export default function NewContractPage() {
                                     handleAddInlineField();
                                   }
                                 }}
-                                placeholder="VD: Biển số xe, Tiền đặt cọc..."
+                                placeholder={
+                                  newFieldSection === "clause"
+                                    ? "VD: Phạt vi phạm & Bồi thường..."
+                                    : "VD: Biển số xe, Tiền đặt cọc..."
+                                }
                                 className="h-9 px-2.5 rounded-md border border-line-strong bg-surface text-xs text-fg placeholder:text-muted focus:outline-none focus:border-primary"
                               />
                               <select
                                 value={newFieldSection}
-                                onChange={(e) => setNewFieldSection(e.target.value as FieldSection)}
+                                onChange={(e) =>
+                                  setNewFieldSection(e.target.value as FieldSection | "clause")
+                                }
                                 className="h-9 px-2 rounded-md border border-line-strong bg-surface text-xs text-fg focus:outline-none focus:border-primary"
                               >
                                 <option value="transaction">Mục III · Giao dịch</option>
                                 <option value="partyA">Mục I · Bên A</option>
                                 <option value="partyB">Mục II · Bên B</option>
+                                <option value="clause">Mục IV · Điều khoản</option>
                               </select>
                             </div>
                             <Button
@@ -1430,8 +1533,66 @@ export default function NewContractPage() {
                               onClick={handleAddInlineField}
                             >
                               <Plus className="w-3.5 h-3.5" />
-                              Thêm mục này & Tự động dàn trang lại
+                              {newFieldSection === "clause"
+                                ? `Thêm Điều ${mergedBlueprint.activeClauses.length + 1} vào hợp đồng`
+                                : "Thêm mục này & Tự động dàn trang lại"}
                             </Button>
+                          </div>
+                        </div>
+
+                        {/* Khung quản lý Mục IV · Các điều khoản hợp đồng (ĐIỀU 1, ĐIỀU 2, ĐIỀU 3...) */}
+                        <div className="p-4 rounded-md border border-line bg-page flex flex-col gap-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-fg">
+                              Các điều khoản hợp đồng ({mergedBlueprint.activeClauses.length} điều)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAddClause()}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-sm bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm Điều {mergedBlueprint.activeClauses.length + 1}
+                            </button>
+                          </div>
+
+                          <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+                            {mergedBlueprint.activeClauses.map((cl, idx) => (
+                              <div
+                                key={idx}
+                                className="p-3 rounded-md border border-line bg-surface flex flex-col gap-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <input
+                                    type="text"
+                                    value={cl.title}
+                                    onChange={(e) =>
+                                      handleUpdateClause(idx, { title: e.target.value })
+                                    }
+                                    className="flex-1 font-bold text-xs text-fg bg-transparent border-b border-transparent focus:border-primary focus:outline-none py-0.5"
+                                    placeholder={`ĐIỀU ${idx + 1}. TIÊU ĐỀ ĐIỀU KHOẢN`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveClause(idx)}
+                                    title="Xóa điều khoản này"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[11px] font-medium text-muted hover:text-danger hover:bg-badge-declined-bg transition-colors cursor-pointer shrink-0"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Xóa
+                                  </button>
+                                </div>
+                                <textarea
+                                  rows={2}
+                                  value={cl.body}
+                                  onChange={(e) =>
+                                    handleUpdateClause(idx, { body: e.target.value })
+                                  }
+                                  className="w-full rounded-sm border border-line bg-page p-2 text-xs text-fg focus:outline-none focus:border-primary leading-relaxed"
+                                  placeholder="Nhập nội dung chi tiết của điều khoản..."
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
