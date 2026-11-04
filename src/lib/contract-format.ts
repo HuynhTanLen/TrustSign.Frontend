@@ -81,6 +81,11 @@ export function slugifyVariableName(input: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
+/** Đăng ký nhãn hiển thị cho biến động do người dùng tự thêm */
+export function registerVariableLabel(key: string, label: string): void {
+  VARIABLE_LABELS[key] = label;
+}
+
 /**
  * 8 Mẫu hợp đồng thông dụng nhất tại Việt Nam để người dùng tham khảo và chọn dùng ngay.
  */

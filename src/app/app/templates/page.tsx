@@ -22,6 +22,7 @@ import {
   buildFormattedContractFromBlueprint,
   parseTemplateIntoBlueprint,
   REFERENCE_TEMPLATES,
+  registerVariableLabel,
   slugifyVariableName,
   VARIABLE_LABELS,
   type ContractBlueprint,
@@ -223,7 +224,7 @@ export default function TemplatesPage() {
       return;
     }
 
-    VARIABLE_LABELS[candidateKey] = cleanLabel;
+    registerVariableLabel(candidateKey, cleanLabel);
     setFields((prev) => [...prev, { key: candidateKey, label: cleanLabel, section }]);
     setNewFieldText((prev) => ({ ...prev, [section]: "" }));
   };

@@ -1,29 +1,52 @@
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 export interface SelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
-  helperText?: string;
+  helperText?: React.ReactNode;
   options?: SelectOption[];
+  placeholder?: string;
+  containerClassName?: string;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className = "", label, error, helperText, options, id, children, ...props }, ref) => {
+  (
+    {
+      className = "",
+      containerClassName = "",
+      label,
+      error,
+      helperText,
+      options,
+      placeholder,
+      id,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
     const autoId = React.useId();
     const selectId = id ?? autoId;
     const messageId = `${selectId}-message`;
 
     return (
-      <div className="w-full flex flex-col gap-1.5">
+      <div className={cn("w-full flex flex-col gap-1.5", containerClassName)}>
         {label && (
           <label htmlFor={selectId} className="text-[13px] font-semibold text-fg">
-            {label} {props.required && <span className="text-danger">*</span>}
+            {label}
+            {props.required && (
+              <span aria-hidden="true" className="text-danger ml-0.5">
+                *
+              </span>
+            )}
           </label>
         )}
         <div className="relative">
@@ -32,16 +55,24 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             id={selectId}
             aria-invalid={error ? true : undefined}
             aria-describedby={error || helperText ? messageId : undefined}
-            className={`w-full h-control appearance-none rounded-md border bg-surface pl-3.5 pr-9 text-sm font-medium text-fg shadow-xs cursor-pointer focus:outline-none focus:ring-3 disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted ${
+            className={cn(
+              "w-full h-control appearance-none rounded-md border bg-surface pl-3.5 pr-9 text-sm font-medium text-fg shadow-xs cursor-pointer",
+              "focus:outline-none focus:ring-3 disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted",
               error
                 ? "border-danger focus:border-danger focus:ring-danger/15"
-                : "border-line-strong hover:border-muted/60 focus:border-primary focus:ring-primary/15"
-            } ${className}`}
+                : "border-line-strong hover:border-muted/60 focus:border-primary focus:ring-primary/15",
+              className,
+            )}
             {...props}
           >
+            {placeholder && (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            )}
             {options
               ? options.map((o) => (
-                  <option key={o.value} value={o.value}>
+                  <option key={o.value} value={o.value} disabled={o.disabled}>
                     {o.label}
                   </option>
                 ))
@@ -53,7 +84,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           />
         </div>
         {error && (
-          <p id={messageId} className="text-xs font-medium text-danger">
+          <p id={messageId} role="alert" className="text-xs font-medium text-danger">
             {error}
           </p>
         )}

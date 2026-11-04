@@ -1,6 +1,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+export interface PageHeaderProps {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  back?: { href: string; label: string };
+  className?: string;
+}
 
 /** Hàng tiêu đề trang chuẩn SaaS: đường dẫn quay lại tùy chọn, tiêu đề sắc nét, mô tả và cụm nút bên phải. */
 export function PageHeader({
@@ -8,14 +17,15 @@ export function PageHeader({
   description,
   actions,
   back,
-}: {
-  title: React.ReactNode;
-  description?: React.ReactNode;
-  actions?: React.ReactNode;
-  back?: { href: string; label: string };
-}) {
+  className = "",
+}: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <header
+      className={cn(
+        "flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+        className,
+      )}
+    >
       <div className="min-w-0">
         {back && (
           <Link
@@ -26,10 +36,10 @@ export function PageHeader({
             {back.label}
           </Link>
         )}
-        <h1 className="text-2xl font-bold tracking-tight text-fg">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-fg break-words">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted max-w-2xl">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2.5 shrink-0">{actions}</div>}
-    </div>
+    </header>
   );
 }

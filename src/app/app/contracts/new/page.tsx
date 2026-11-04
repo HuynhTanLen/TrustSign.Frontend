@@ -600,7 +600,6 @@ export default function NewContractPage() {
   const [focusedVar, setFocusedVar] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [uploadedTotalPages, setUploadedTotalPages] = React.useState(1);
-  const [filePreviewUrl, setFilePreviewUrl] = React.useState<string | null>(null);
   const [signers, setSigners] = React.useState<NewSigner[]>([
     { fullName: user.fullName || "", email: user.email || "", ...defaultBoxForOrder(0, 2) },
     { fullName: "", email: "", ...defaultBoxForOrder(1, 2) },
@@ -754,18 +753,6 @@ export default function NewContractPage() {
       }, 120);
     }
   }, [step]);
-
-  React.useEffect(() => {
-    if (!file) {
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    Promise.resolve().then(() => setFilePreviewUrl(url));
-    return () => {
-      URL.revokeObjectURL(url);
-      setFilePreviewUrl(null);
-    };
-  }, [file]);
 
   const mergedBlueprint = React.useMemo(() => {
     if (!templateDetail) return null;

@@ -2,7 +2,16 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { CircleCheck, CircleX, Clock, FileText, Lock, PenTool, Users } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleX,
+  Clock,
+  ExternalLink,
+  FileText,
+  Lock,
+  PenTool,
+  Users,
+} from "lucide-react";
 import { signingApi, type SigningSession, type SigningState } from "@/lib/api/signing";
 import { ApiError } from "@/lib/api";
 import { USE_MOCK } from "@/lib/mock";
@@ -84,40 +93,64 @@ function OtpInput({ value, onChange, disabled }: { value: string[]; onChange: (v
 }
 
 function ResultScreen({ state, session }: { state: SigningState; session?: SigningSession }) {
-  const content: Record<string, { icon: React.ReactNode; title: string; text: string }> = {
+  const content: Record<
+    string,
+    { icon: React.ReactNode; title: string; text: string; bgTone: string }
+  > = {
     Signed: {
-      icon: <CircleCheck className="w-10 h-10 text-success" />,
-      title: "Đã ký hợp đồng",
-      text: "Bản đã ký sẽ được gửi qua email khi tất cả các bên ký xong.",
+      icon: (
+        <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center ring-8 ring-emerald-50">
+          <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
+        </div>
+      ),
+      title: "Ký hợp đồng thành công!",
+      text: "Chữ ký số PAdES của bạn đã được chứng nhận và lưu trữ an toàn. Bản hợp đồng hoàn tất sẽ tự động gửi tới email của bạn sau khi tất cả các bên hoàn thành lượt ký.",
+      bgTone: "bg-surface",
     },
     Declined: {
-      icon: <CircleX className="w-10 h-10 text-danger" />,
-      title: "Đã từ chối ký",
-      text: "Bên gửi đã nhận được lý do từ chối.",
+      icon: (
+        <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center ring-8 ring-red-50">
+          <CircleX className="w-9 h-9" />
+        </div>
+      ),
+      title: "Đã ghi nhận từ chối ký",
+      text: "Lý do từ chối của bạn đã được thông báo tới người khởi tạo hợp đồng để rà soát lại thỏa thuận.",
+      bgTone: "bg-surface",
     },
     NotYourTurn: {
-      icon: <Clock className="w-10 h-10 text-warning" />,
-      title: "Chưa tới lượt ký",
-      text: "Link ký sẽ dùng được khi người ký trước đã ký xong. Hệ thống sẽ gửi email báo.",
+      icon: (
+        <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center ring-8 ring-amber-50">
+          <Clock className="w-9 h-9" />
+        </div>
+      ),
+      title: "Chưa tới lượt ký của bạn",
+      text: "Hợp đồng đang được điều phối cho bên ký trước theo thứ tự. Hệ thống sẽ tự động gửi email thông báo khi đến lượt bạn xác nhận ký.",
+      bgTone: "bg-surface",
     },
     Expired: {
-      icon: <Lock className="w-10 h-10 text-muted" />,
-      title: "Link ký không còn hiệu lực",
-      text: "Hợp đồng đã hết hạn ký hoặc đã bị hủy. Liên hệ bên gửi để nhận link mới.",
+      icon: (
+        <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center ring-8 ring-slate-50">
+          <Lock className="w-9 h-9" />
+        </div>
+      ),
+      title: "Liên kết ký không còn hiệu lực",
+      text: "Hợp đồng đã quá hạn ký hoặc người khởi tạo đã hủy yêu cầu. Vui lòng liên hệ bên gửi để phát hành liên kết mới.",
+      bgTone: "bg-surface",
     },
   };
   const c = content[state] ?? content.Expired;
   return (
-    <Card>
-      <div className="flex flex-col items-center text-center gap-2 py-8 motion-safe:animate-pop-in">
+    <Card className="shadow-card border-line">
+      <div className="flex flex-col items-center text-center gap-3 py-10 px-4 motion-safe:animate-pop-in max-w-lg mx-auto">
         {c.icon}
-        <h1 className="text-xl font-semibold text-fg">{c.title}</h1>
+        <h1 className="text-2xl font-bold text-fg mt-2">{c.title}</h1>
         {session && (
-          <p className="text-sm text-fg">
-            {session.contractTitle} <span className="font-mono text-muted">({session.contractCode})</span>
-          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-strip border border-line text-xs font-medium text-slate-700">
+            <span>{session.contractTitle}</span>
+            <span className="font-mono text-muted">({session.contractCode})</span>
+          </div>
         )}
-        <p className="text-sm text-muted max-w-md">{c.text}</p>
+        <p className="text-sm text-muted leading-relaxed mt-1">{c.text}</p>
       </div>
     </Card>
   );
@@ -262,11 +295,34 @@ function SignContent() {
               </Card>
             ) : (
               <>
-                <Card title="Tài liệu" icon={FileText} bodyClassName="p-0">
+                <Card
+                  title="Tài liệu hợp đồng điện tử"
+                  icon={FileText}
+                  bodyClassName="p-0"
+                  actions={
+                    session.documentUrl && (
+                      <a
+                        href={session.documentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary-hover"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Mở tab mới</span>
+                      </a>
+                    )
+                  }
+                >
                   {session.documentUrl ? (
-                    <iframe src={session.documentUrl} title="Tài liệu hợp đồng" className="w-full h-[560px]" />
+                    <iframe
+                      src={`${session.documentUrl}#toolbar=0&navpanes=0`}
+                      title="Tài liệu hợp đồng"
+                      className="w-full h-[620px] border-0 bg-slate-900/5"
+                    />
                   ) : (
-                    <p className="p-6 text-sm text-muted text-center bg-page">File PDF hiển thị ở đây khi máy chủ trả về đường dẫn tài liệu.</p>
+                    <div className="p-8 text-sm text-muted text-center bg-page">
+                      File PDF hiển thị ở đây khi máy chủ trả về đường dẫn tài liệu.
+                    </div>
                   )}
                 </Card>
 

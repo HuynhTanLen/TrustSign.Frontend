@@ -81,7 +81,11 @@ async function throwProblemError(response: Response): Promise<never> {
   );
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCount = 0): Promise<T> {
+async function executeAuthenticatedRequest(
+  path: string,
+  init: RequestInit = {},
+  retryCount = 0,
+): Promise<Response> {
   const headers = new Headers(init.headers);
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -106,7 +110,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCou
   ) {
     const newToken = await requestRefreshToken();
     if (newToken) {
-      return apiFetch<T>(path, init, 1);
+      return executeAuthenticatedRequest(path, init, 1);
     } else if (typeof window !== "undefined" && shouldRedirectOnUnauthorized(window.location.pathname)) {
       const target = `${window.location.pathname}${window.location.search}`;
       window.location.replace(`/login?redirect=${encodeURIComponent(target)}`);
@@ -117,35 +121,16 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCou
     await throwProblemError(response);
   }
 
+  return response;
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}, retryCount = 0): Promise<T> {
+  const response = await executeAuthenticatedRequest(path, init, retryCount);
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
 /** Tải dữ liệu nhị phân (PDF hóa đơn, hợp đồng) có tự động làm mới access token khi gặp 401. */
 export async function apiFetchBlob(path: string, init: RequestInit = {}, retryCount = 0): Promise<Blob> {
-  const headers = new Headers(init.headers);
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
-
-  if (response.status === 401 && retryCount === 0) {
-    const newToken = await requestRefreshToken();
-    if (newToken) {
-      return apiFetchBlob(path, init, 1);
-    } else if (typeof window !== "undefined" && shouldRedirectOnUnauthorized(window.location.pathname)) {
-      const target = `${window.location.pathname}${window.location.search}`;
-      window.location.replace(`/login?redirect=${encodeURIComponent(target)}`);
-    }
-  }
-
-  if (!response.ok) {
-    await throwProblemError(response);
-  }
-
+  const response = await executeAuthenticatedRequest(path, init, retryCount);
   return response.blob();
 }

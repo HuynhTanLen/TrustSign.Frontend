@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-/** Confirmation that requires a written reason (lock, revoke, decline). */
+/** Hộp thoại xác nhận yêu cầu nhập lý do bắt buộc (khóa, thu hồi, từ chối ký). */
 export function ReasonDialog({
   open,
   title,
@@ -25,15 +25,23 @@ export function ReasonDialog({
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
+  const formId = React.useId();
   const [reason, setReason] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  const handleClose = () => {
+    if (isSubmitting) return;
+    setReason("");
+    onClose();
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reason.trim()) return;
+    const trimmed = reason.trim();
+    if (!trimmed || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(reason.trim());
+      await onConfirm(trimmed);
       setReason("");
     } finally {
       setIsSubmitting(false);
@@ -43,22 +51,36 @@ export function ReasonDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
+      preventClose={isSubmitting}
       title={title}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="secondary" onClick={handleClose} disabled={isSubmitting}>
             Hủy
           </Button>
-          <Button type="submit" form="reason-form" variant={danger ? "danger" : "primary"} isLoading={isSubmitting} disabled={!reason.trim()}>
+          <Button
+            type="submit"
+            form={formId}
+            variant={danger ? "danger" : "primary"}
+            isLoading={isSubmitting}
+            disabled={!reason.trim()}
+          >
             {confirmLabel}
           </Button>
         </>
       }
     >
-      <form id="reason-form" onSubmit={submit} className="flex flex-col gap-4">
+      <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-sm text-fg">{message}</p>
-        <Input label={reasonLabel} required value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Input
+          data-autofocus
+          label={reasonLabel}
+          required
+          disabled={isSubmitting}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
       </form>
     </Dialog>
   );

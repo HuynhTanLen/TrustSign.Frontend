@@ -8,19 +8,39 @@ export const SIGNATURE_CANVAS = { width: 560, height: 200 };
 const CANVAS_W = SIGNATURE_CANVAS.width;
 const CANVAS_H = SIGNATURE_CANVAS.height;
 
-/** Draw-with-pointer canvas; exposes its content as a transparent PNG data URL. */
-export function SignaturePad({ ink, onChange }: { ink: string; onChange: (png: string | null) => void }) {
+/** Khung vẽ chữ ký tay bằng chuột hoặc cảm ứng; xuất ra chuỗi ảnh PNG nền trong suốt. */
+export function SignaturePad({
+  ink,
+  onChange,
+}: {
+  ink: string;
+  onChange: (png: string | null) => void;
+}) {
   const ref = React.useRef<HTMLCanvasElement>(null);
   const drawing = React.useRef(false);
+  const [hasStroke, setHasStroke] = React.useState(false);
 
   const point = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * CANVAS_W, y: ((e.clientY - r.top) / r.height) * CANVAS_H };
+    const width = r.width || 1;
+    const height = r.height || 1;
+    return {
+      x: ((e.clientX - r.left) / width) * CANVAS_W,
+      y: ((e.clientY - r.top) / height) * CANVAS_H,
+    };
   };
 
   const clear = () => {
     ref.current?.getContext("2d")?.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    setHasStroke(false);
     onChange(null);
+  };
+
+  const finishStroke = (canvas: HTMLCanvasElement) => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    setHasStroke(true);
+    onChange(canvas.toDataURL("image/png"));
   };
 
   return (
@@ -29,7 +49,8 @@ export function SignaturePad({ ink, onChange }: { ink: string; onChange: (png: s
         ref={ref}
         width={CANVAS_W}
         height={CANVAS_H}
-        aria-label="Khung vẽ chữ ký"
+        role="img"
+        aria-label="Khung vẽ chữ ký tay"
         className="w-full aspect-[56/20] rounded-md border border-line-strong transparent-checkerboard touch-none cursor-crosshair"
         onPointerDown={(e) => {
           const ctx = e.currentTarget.getContext("2d");
@@ -43,6 +64,8 @@ export function SignaturePad({ ink, onChange }: { ink: string; onChange: (png: s
           ctx.lineJoin = "round";
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
         }}
         onPointerMove={(e) => {
           if (!drawing.current) return;
@@ -51,14 +74,12 @@ export function SignaturePad({ ink, onChange }: { ink: string; onChange: (png: s
           ctx?.lineTo(p.x, p.y);
           ctx?.stroke();
         }}
-        onPointerUp={(e) => {
-          drawing.current = false;
-          onChange(e.currentTarget.toDataURL("image/png"));
-        }}
+        onPointerUp={(e) => finishStroke(e.currentTarget)}
+        onPointerCancel={(e) => finishStroke(e.currentTarget)}
       />
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-2">
         <span className="text-xs text-muted">Ký bằng chuột hoặc ngón tay trong khung.</span>
-        <Button variant="ghost" onClick={clear}>
+        <Button variant="ghost" size="sm" onClick={clear} disabled={!hasStroke}>
           <Eraser className="w-4 h-4" aria-hidden="true" />
           Xóa nét
         </Button>
@@ -66,4 +87,3 @@ export function SignaturePad({ ink, onChange }: { ink: string; onChange: (png: s
     </div>
   );
 }
-

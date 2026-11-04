@@ -2,41 +2,89 @@
 
 import * as React from "react";
 import { CircleCheck, CircleAlert, Info, X } from "lucide-react";
+import { cn } from "@/lib/cn";
 
-interface Toast {
+export type ToastType = "success" | "error" | "info";
+
+interface ToastItem {
   id: string;
   message: string;
-  type?: "success" | "error" | "info";
+  type: ToastType;
 }
 
 interface ToastContextType {
-  toast: (message: string, type?: "success" | "error" | "info") => void;
+  toast: (message: string, type?: ToastType) => void;
 }
+
+const MAX_TOASTS = 5;
+const TOAST_DURATION_MS = 4200;
 
 const ToastContext = React.createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = React.useState<Toast[]>([]);
+  const [toasts, setToasts] = React.useState<ToastItem[]>([]);
+  const timersRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const dismiss = React.useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const clearTimer = React.useCallback((id: string) => {
+    const timer = timersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timersRef.current.delete(id);
+    }
+  }, []);
+
+  const dismiss = React.useCallback(
+    (id: string) => {
+      clearTimer(id);
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    },
+    [clearTimer],
+  );
+
+  const scheduleDismiss = React.useCallback(
+    (id: string, delay = TOAST_DURATION_MS) => {
+      clearTimer(id);
+      const timer = setTimeout(() => {
+        timersRef.current.delete(id);
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, delay);
+      timersRef.current.set(id, timer);
+    },
+    [clearTimer],
+  );
+
+  React.useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
   }, []);
 
   const toast = React.useCallback(
-    (message: string, type: "success" | "error" | "info" = "success") => {
-      const id = Math.random().toString(36).substring(2, 9);
-      setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4200);
+    (message: string, type: ToastType = "success") => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setToasts((prev) => {
+        const next = [...prev, { id, message, type }];
+        if (next.length > MAX_TOASTS) {
+          const removed = next.shift();
+          if (removed) clearTimer(removed.id);
+        }
+        return next;
+      });
+      scheduleDismiss(id);
     },
-    [],
+    [clearTimer, scheduleDismiss],
   );
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-5 right-5 left-5 sm:left-auto z-50 flex flex-col items-end gap-2.5 pointer-events-none">
+      <div
+        aria-live="polite"
+        aria-relevant="additions text"
+        className="fixed bottom-5 right-5 left-5 sm:left-auto z-50 flex flex-col items-end gap-2.5 pointer-events-none"
+      >
         {toasts.map((t) => {
           const iconWrap =
             t.type === "error"
@@ -49,10 +97,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div
               key={t.id}
               role={t.type === "error" ? "alert" : "status"}
-              className="pointer-events-auto w-full sm:w-[380px] flex items-center gap-3 px-4 py-3.5 rounded-lg border border-line bg-surface shadow-menu text-sm font-medium text-fg motion-safe:animate-slide-in"
+              onMouseEnter={() => clearTimer(t.id)}
+              onMouseLeave={() => scheduleDismiss(t.id, 2000)}
+              className={cn(
+                "pointer-events-auto w-full sm:w-[380px] flex items-center gap-3 px-4 py-3.5 rounded-lg border border-line bg-surface shadow-menu text-sm font-medium text-fg motion-safe:animate-slide-in",
+              )}
             >
               <span
-                className={`inline-flex items-center justify-center w-7 h-7 rounded-full shrink-0 ${iconWrap}`}
+                className={cn(
+                  "inline-flex items-center justify-center w-7 h-7 rounded-full shrink-0",
+                  iconWrap,
+                )}
               >
                 {t.type === "error" ? (
                   <CircleAlert className="w-4 h-4" aria-hidden="true" />
@@ -62,7 +117,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   <CircleCheck className="w-4 h-4" aria-hidden="true" />
                 )}
               </span>
-              <span className="flex-1 min-w-0 leading-snug">{t.message}</span>
+              <span className="flex-1 min-w-0 leading-snug break-words">{t.message}</span>
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}

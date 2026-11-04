@@ -425,11 +425,11 @@ function BillingContent() {
             <Skeleton className="h-28 w-full rounded-lg" />
           </div>
         ) : (
-          <div className="flex flex-col gap-5 text-sm">
+          <div className="flex flex-col gap-4 sm:gap-5 text-sm">
             {/* VietQR Frame */}
             <div className="flex flex-col items-center gap-2">
-              <div className="relative p-2.5 rounded-2xl bg-white border border-line shadow-card">
-                <div className="w-48 h-48 rounded-xl bg-page flex items-center justify-center overflow-hidden">
+              <div className="relative p-2 rounded-2xl bg-white border border-line shadow-card">
+                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-xl bg-page flex items-center justify-center overflow-hidden">
                   {checkout.qrImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
