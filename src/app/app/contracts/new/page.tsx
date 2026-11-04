@@ -156,10 +156,11 @@ function formatDigitsToVnCurrency(raw: string): string {
 function defaultBoxForOrder(
   index: number,
   totalSigners = 2,
+  targetPage = 1,
 ): Pick<NewSigner, "pageNumber" | "boxX" | "boxY" | "boxWidth" | "boxHeight"> {
   if (totalSigners === 1) {
     return {
-      pageNumber: 1,
+      pageNumber: targetPage,
       boxX: 355,
       boxY: 55,
       boxWidth: DEFAULT_BOX_WIDTH,
@@ -169,12 +170,96 @@ function defaultBoxForOrder(
   const col = index % 2;
   const row = Math.floor(index / 2);
   return {
-    pageNumber: 1,
+    pageNumber: targetPage,
     boxX: col === 0 ? 65 : 355,
     boxY: Math.max(40, 55 - row * 72),
     boxWidth: DEFAULT_BOX_WIDTH,
     boxHeight: DEFAULT_BOX_HEIGHT,
   };
+}
+
+/**
+ * Tự động phân trang nội dung hợp đồng thành các trang A4 thực tế (Trang 1, Trang 2...)
+ * để khi bấm chuyển trang sẽ hiển thị đúng nội dung từng trang và đặt khối Ký tên ở trang cuối.
+ */
+function splitContractIntoA4Pages(structuredTemplate: string, title: string): string[][] {
+  const rawLines = structuredTemplate.replace(/\r\n/g, "\n").split("\n");
+  const normalizedTitle = (title || "").trim().toUpperCase();
+
+  // Loại bỏ dòng Quốc hiệu / Tiêu ngữ / Tiêu đề trùng lặp ở đầu vì Trang 1 đã có phần Header chuẩn
+  const bodyLines = rawLines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    const upper = trimmed.toUpperCase();
+    if (upper === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM") return false;
+    if (trimmed === "Độc lập - Tự do - Hạnh phúc") return false;
+    if (normalizedTitle && upper === normalizedTitle) return false;
+    return true;
+  });
+
+  // Gom từng điều khoản (ĐIỀU X...) cùng đoạn văn ngay sau nó thành 1 cụm để không bị đứt tiêu đề cuối trang
+  const blocks: { lines: string[]; weight: number }[] = [];
+  let i = 0;
+  while (i < bodyLines.length) {
+    const line = bodyLines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      blocks.push({ lines: [line], weight: 0.45 });
+      i++;
+      continue;
+    }
+
+    const isClauseHeading = /^ĐIỀU\s+\d+/i.test(trimmed);
+    const isSectionHeading = /^(I+\.|BÊN\s+[AB])/i.test(trimmed);
+
+    if (isClauseHeading && i + 1 < bodyLines.length && bodyLines[i + 1].trim() !== "") {
+      const nextLine = bodyLines[i + 1];
+      const nextWeight = Math.max(1, Math.ceil(nextLine.trim().length / 72));
+      blocks.push({
+        lines: [line, nextLine],
+        weight: 1.4 + nextWeight,
+      });
+      i += 2;
+      continue;
+    }
+
+    const lineWeight = isSectionHeading
+      ? 1.35
+      : Math.max(1, Math.ceil(trimmed.length / 75));
+    blocks.push({ lines: [line], weight: lineWeight });
+    i++;
+  }
+
+  const totalWeight = blocks.reduce((acc, b) => acc + b.weight, 0);
+  // Nếu tổng nội dung ngắn (<= 17 dòng quy đổi), toàn bộ nội dung + khối ký tên vừa gọn trong 1 trang A4
+  if (totalWeight <= 17) {
+    return [bodyLines];
+  }
+
+  const pages: string[][] = [];
+  let currentPage: string[] = [];
+  let currentWeight = 0;
+  // Trang 1 có Quốc hiệu + Tiêu ngữ + Tiêu đề nên chứa khoảng 18.5 dòng quy đổi; các trang sau chứa ~23 dòng
+  let pageCapacity = 18.5;
+
+  for (const block of blocks) {
+    if (currentPage.length > 0 && currentWeight + block.weight > pageCapacity) {
+      pages.push(currentPage);
+      currentPage = [...block.lines];
+      currentWeight = block.weight;
+      pageCapacity = 23;
+    } else {
+      currentPage.push(...block.lines);
+      currentWeight += block.weight;
+    }
+  }
+
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  return pages.length > 0 ? pages : [bodyLines];
 }
 
 function Stepper({ step }: { step: Step }) {
@@ -224,6 +309,8 @@ function InteractiveContractPaper({
   signers,
   interactiveFields = true,
   signatureSectionRef,
+  pageNumber,
+  onSwitchPage,
 }: {
   title: string;
   structuredTemplate: string;
@@ -233,6 +320,8 @@ function InteractiveContractPaper({
   signers?: NewSigner[];
   interactiveFields?: boolean;
   signatureSectionRef?: React.RefObject<HTMLDivElement | null>;
+  pageNumber?: number;
+  onSwitchPage?: (page: number) => void;
 }) {
   const tokenRefs = React.useRef<Record<string, HTMLElement | null>>({});
 
@@ -245,8 +334,20 @@ function InteractiveContractPaper({
     }
   }, [focusedVar]);
 
-  const hasHeader = structuredTemplate.toUpperCase().includes("CỘNG HÒA XÃ HỘI");
-  const lines = structuredTemplate.replace(/\r\n/g, "\n").split("\n");
+  const pages = React.useMemo(
+    () => splitContractIntoA4Pages(structuredTemplate, title),
+    [structuredTemplate, title],
+  );
+  const totalPages = pages.length;
+  const isPaginatedMode = typeof pageNumber === "number";
+  const clampedPage = isPaginatedMode
+    ? Math.max(1, Math.min(totalPages, pageNumber))
+    : 1;
+  const activeLines = isPaginatedMode
+    ? (pages[clampedPage - 1] ?? pages[0] ?? [])
+    : pages.flatMap((p) => p);
+  const showHeader = !isPaginatedMode || clampedPage === 1;
+  const showSignatureBlock = !isPaginatedMode || clampedPage === totalPages;
 
   const renderLineWithTokens = (line: string, lineIdx: number) => {
     const parts = line.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
@@ -297,63 +398,45 @@ function InteractiveContractPaper({
   return (
     <div className="bg-white text-slate-900 font-sans px-7 py-6 text-[12px] leading-[1.6] flex flex-col justify-between min-h-[780px]">
       <div>
-        {!hasHeader && (
-          <div className="text-center mb-3">
-            <p className="font-bold text-[12px] uppercase tracking-wide">
-              CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-            </p>
-            <p className="font-semibold text-[11.5px] underline underline-offset-4">
-              Độc lập - Tự do - Hạnh phúc
-            </p>
-          </div>
-        )}
+        {showHeader ? (
+          <>
+            <div className="text-center mb-3">
+              <p className="font-bold text-[12px] uppercase tracking-wide">
+                CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+              </p>
+              <p className="font-semibold text-[11.5px] underline underline-offset-4">
+                Độc lập - Tự do - Hạnh phúc
+              </p>
+            </div>
 
-        {!structuredTemplate.toUpperCase().includes((title || "").trim().toUpperCase()) && (
-          <div className="text-center my-2.5">
-            <p className="font-bold text-[14px] uppercase text-[#1f5fa8]">
-              {title.trim() || "HỢP ĐỒNG GIAO DỊCH"}
-            </p>
-            <p className="text-[10.5px] text-slate-500 mt-0.5">
-              Ngày lập: {values["ngay_hieu_luc"] || isoToVnDate(toIsoDateInput(new Date()))}
-            </p>
+            <div className="text-center my-2.5">
+              <p className="font-bold text-[14px] uppercase text-[#1f5fa8]">
+                {title.trim() || "HỢP ĐỒNG GIAO DỊCH"}
+              </p>
+              <p className="text-[10.5px] text-slate-500 mt-0.5">
+                Ngày lập: {values["ngay_hieu_luc"] || isoToVnDate(toIsoDateInput(new Date()))}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200 text-[10.5px] text-slate-500">
+            <span className="font-semibold uppercase text-slate-700 truncate">
+              {title.trim() || "HỢP ĐỒNG GIAO DỊCH"} (Tiếp theo)
+            </span>
+            <span className="font-mono shrink-0">
+              Trang {clampedPage} / {totalPages}
+            </span>
           </div>
         )}
 
         <div className="flex flex-col gap-1 mt-2">
-          {lines.map((line, idx) => {
+          {activeLines.map((line, idx) => {
             const trimmed = line.trim();
             if (!trimmed) return <div key={idx} className="h-1.5" />;
 
-            const isQuocHieu = trimmed.toUpperCase() === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM";
-            const isTieuNgu = trimmed === "Độc lập - Tự do - Hạnh phúc";
-            const isDocTitle = trimmed.toUpperCase() === (title || "").trim().toUpperCase();
             const isHeading =
               /^(ĐIỀU\s+\d+|I+\.|BÊN\s+[AB]|HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN)/i.test(trimmed);
 
-            if (isQuocHieu) {
-              return (
-                <p key={idx} className="text-center font-bold text-[12px] uppercase tracking-wide">
-                  {trimmed}
-                </p>
-              );
-            }
-            if (isTieuNgu) {
-              return (
-                <p
-                  key={idx}
-                  className="text-center font-semibold text-[11.5px] underline underline-offset-4 mb-2"
-                >
-                  {trimmed}
-                </p>
-              );
-            }
-            if (isDocTitle) {
-              return (
-                <p key={idx} className="text-center font-bold text-[14px] uppercase text-[#1f5fa8] my-1">
-                  {trimmed}
-                </p>
-              );
-            }
             return (
               <p
                 key={idx}
@@ -366,36 +449,53 @@ function InteractiveContractPaper({
         </div>
       </div>
 
-      {/* Khối đại diện ký ở cuối tờ hợp đồng A4 (Có khoảng trống 96px để đặt ô chữ ký) */}
-      <div
-        ref={signatureSectionRef}
-        className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
-      >
-        <div>
-          <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A (CHỦ DN)</p>
-          <p className="text-[10px] italic text-slate-500">(Nhận email xác nhận & ký số trước)</p>
-          <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
-            Vùng đặt ô chữ ký Bên A
+      {showSignatureBlock ? (
+        /* Khối đại diện ký ở trang cuối của hợp đồng A4 (Có khoảng trống 96px để đặt ô chữ ký) */
+        <div
+          ref={signatureSectionRef}
+          className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
+        >
+          <div>
+            <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A (CHỦ DN)</p>
+            <p className="text-[10px] italic text-slate-500">(Nhận email xác nhận & ký số trước)</p>
+            <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+              Vùng đặt ô chữ ký Bên A
+            </div>
+            <p className="font-semibold text-slate-900 truncate">
+              {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
+            </p>
           </div>
-          <p className="font-semibold text-slate-900 truncate">
-            {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
-          </p>
-        </div>
-        <div>
-          <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
-          <p className="text-[10px] italic text-slate-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
-          <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
-            Vùng đặt ô chữ ký Bên B
+          <div>
+            <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
+            <p className="text-[10px] italic text-slate-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
+            <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+              Vùng đặt ô chữ ký Bên B
+            </div>
+            <p className="font-semibold text-slate-900 truncate">
+              {signers?.[1]?.fullName ||
+                values["dai_dien_ben_b"] ||
+                values["ho_ten_nhan_vien"] ||
+                values["ten_ben_b"] ||
+                ""}
+            </p>
           </div>
-          <p className="font-semibold text-slate-900 truncate">
-            {signers?.[1]?.fullName ||
-              values["dai_dien_ben_b"] ||
-              values["ho_ten_nhan_vien"] ||
-              values["ten_ben_b"] ||
-              ""}
-          </p>
         </div>
-      </div>
+      ) : (
+        <div className="mt-6 pt-3 border-t border-dashed border-slate-300 flex items-center justify-between text-[11px] text-slate-500">
+          <span>
+            Trang {clampedPage} / {totalPages} · Còn tiếp các điều khoản và mục Đại diện ký tên ở Trang {clampedPage + 1}
+          </span>
+          {onSwitchPage && (
+            <button
+              type="button"
+              onClick={() => onSwitchPage(clampedPage + 1)}
+              className="px-2.5 py-1 rounded-sm bg-primary/10 text-primary font-semibold hover:bg-primary/20 transition-colors cursor-pointer shrink-0"
+            >
+              Sang Trang {clampedPage + 1} (Vùng ký tên) →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -619,6 +719,13 @@ export default function NewContractPage() {
     [mergedBlueprint],
   );
 
+  const contractPages = React.useMemo(
+    () => splitContractIntoA4Pages(mergedBlueprint?.compiledContent ?? "", title),
+    [mergedBlueprint?.compiledContent, title],
+  );
+  const totalTemplatePages = Math.max(1, contractPages.length);
+  const maxPageLimit = source === "upload" ? 50 : totalTemplatePages;
+
   const handleAddInlineField = () => {
     const clean = newFieldLabel.trim();
     if (!clean) {
@@ -714,26 +821,42 @@ export default function NewContractPage() {
       toast("Hạn ký phải sau thời điểm hiện tại.", "error");
       return;
     }
+    const targetSignPage = source === "upload" ? 1 : totalTemplatePages;
+    setSigners((prev) =>
+      prev.map((s) => ({
+        ...s,
+        pageNumber:
+          source === "upload"
+            ? s.pageNumber
+            : s.pageNumber === 1 || s.pageNumber > totalTemplatePages
+              ? targetSignPage
+              : s.pageNumber,
+      })),
+    );
     setActiveSignerIndex(0);
-    setActivePage(signers[0]?.pageNumber ?? 1);
+    setActivePage(targetSignPage);
     setStep(2);
   };
 
   const autoAlignSignatureBoxes = () => {
+    const targetSignPage = source === "upload" ? activePage : totalTemplatePages;
     setSigners((prev) =>
       prev.map((s, idx) => ({
         ...s,
-        ...defaultBoxForOrder(idx, prev.length),
+        ...defaultBoxForOrder(idx, prev.length, targetSignPage),
       })),
     );
-    setActivePage(1);
+    setActivePage(targetSignPage);
     if (placementScrollRef.current) {
       placementScrollRef.current.scrollTo({
         top: placementScrollRef.current.scrollHeight,
         behavior: "smooth",
       });
     }
-    toast("Đã tự động căn chỉnh vị trí ô ký vào khu vực Đại diện ký cuối trang.", "success");
+    toast(
+      `Đã tự động căn chỉnh vị trí ô ký vào khu vực Đại diện ký ở Trang ${targetSignPage}.`,
+      "success",
+    );
   };
 
   const updateSigner = (index: number, patch: Partial<NewSigner>) =>
@@ -1468,13 +1591,16 @@ export default function NewContractPage() {
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         <Input
-                          label="Trang PDF"
+                          label={`Trang PDF (1-${maxPageLimit})`}
                           type="number"
                           min={1}
-                          max={50}
+                          max={maxPageLimit}
                           value={String(signers[activeSignerIndex].pageNumber)}
                           onChange={(e) => {
-                            const p = Math.max(1, Number(e.target.value) || 1);
+                            const p = Math.max(
+                              1,
+                              Math.min(maxPageLimit, Number(e.target.value) || 1),
+                            );
                             updateSigner(activeSignerIndex, { pageNumber: p });
                             setActivePage(p);
                           }}
@@ -1540,12 +1666,40 @@ export default function NewContractPage() {
                   )}
                 </div>
 
-                {/* Cột phải: Khung cuộn mượt cho phép xem hết hợp đồng từ đầu tới mục Ký tên cuối trang */}
+                {/* Cột phải: Khung cuộn mượt cho phép xem từng trang A4 thực tế và đặt ô ký */}
                 <div className="lg:col-span-7 flex flex-col items-center gap-2">
-                  <div className="w-full max-w-[560px] flex items-center justify-between text-xs text-muted">
-                    <span>
-                      Trang đang hiển thị: <strong>Trang {activePage}</strong> (Lăn chuột để cuộn lên/xuống)
-                    </span>
+                  <div className="w-full max-w-[560px] flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span>
+                        Trang đang hiển thị:{" "}
+                        <strong className="text-fg">
+                          Trang {activePage} / {maxPageLimit}
+                        </strong>
+                      </span>
+                      {source === "template" && totalTemplatePages > 1 && (
+                        <div className="inline-flex items-center gap-1 ml-1">
+                          {Array.from({ length: totalTemplatePages }, (_, i) => i + 1).map((p) => {
+                            const isSignPage = p === totalTemplatePages;
+                            const isCurrentPage = p === activePage;
+                            return (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setActivePage(p)}
+                                className={`px-2 py-0.5 rounded-sm border text-[11px] font-semibold transition-colors cursor-pointer ${
+                                  isCurrentPage
+                                    ? "bg-primary text-white border-primary"
+                                    : "bg-page text-fg border-line hover:border-primary/50"
+                                }`}
+                              >
+                                Tr.{p}
+                                {isSignPage ? " (Ký tên)" : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
@@ -1554,7 +1708,11 @@ export default function NewContractPage() {
                       >
                         Trang trước
                       </Button>
-                      <Button variant="ghost" onClick={() => setActivePage((p) => p + 1)}>
+                      <Button
+                        variant="ghost"
+                        disabled={activePage >= maxPageLimit}
+                        onClick={() => setActivePage((p) => Math.min(maxPageLimit, p + 1))}
+                      >
                         Trang sau
                       </Button>
                     </div>
@@ -1584,6 +1742,8 @@ export default function NewContractPage() {
                           signers={signers}
                           interactiveFields={false}
                           signatureSectionRef={signatureSectionRef}
+                          pageNumber={activePage}
+                          onSwitchPage={(p) => setActivePage(p)}
                         />
                       )}
 
