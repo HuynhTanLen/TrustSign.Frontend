@@ -74,6 +74,10 @@ export function Dialog({
       focusables()[0] ??
       panel;
 
+    if (body) {
+      body.scrollTop = 0;
+    }
+
     autoFocusTarget?.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -124,7 +128,7 @@ export function Dialog({
       className="fixed inset-0 z-50 overflow-y-auto bg-overlay backdrop-blur-[2px] motion-safe:animate-fade-in p-4 sm:p-6"
       onMouseDown={handleBackdropMouseDown}
     >
-      <div className="flex min-h-full items-center justify-center">
+      <div className="flex min-h-full justify-center">
         <div
           ref={panelRef}
           role="dialog"

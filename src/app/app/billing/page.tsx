@@ -386,7 +386,8 @@ function BillingContent() {
         open={checkoutPlan !== null}
         onClose={closeCheckout}
         title={paid ? "Thanh toán thành công" : `Thanh toán VietQR – Gói ${checkoutPlan?.name ?? ""}`}
-        className="max-w-[520px]"
+        size="lg"
+        className="max-w-[660px]"
         footer={
           paid ? (
             <Button variant="primary" size="lg" className="w-full" onClick={closeCheckout}>
@@ -425,11 +426,11 @@ function BillingContent() {
             <Skeleton className="h-28 w-full rounded-lg" />
           </div>
         ) : (
-          <div className="flex flex-col gap-4 sm:gap-5 text-sm">
-            {/* VietQR Frame */}
-            <div className="flex flex-col items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-start text-sm">
+            {/* Cột trái: Mã VietQR + Trạng thái đếm ngược (chiếm 5/12) */}
+            <div className="sm:col-span-5 flex flex-col items-center gap-2.5">
               <div className="relative p-2 rounded-2xl bg-white border border-line shadow-card">
-                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-xl bg-page flex items-center justify-center overflow-hidden">
+                <div className="w-40 h-40 rounded-xl bg-page flex items-center justify-center overflow-hidden">
                   {checkout.qrImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -446,86 +447,88 @@ function BillingContent() {
               </div>
 
               {/* Status & Countdown Pill */}
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-selected border border-primary/15 text-xs text-primary font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span>Đang tự động đối soát SePay · còn {countdown}</span>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-selected border border-primary/15 text-xs text-primary font-medium text-center">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                <span className="truncate">Tự động đối soát · còn {countdown}</span>
               </div>
             </div>
 
-            {/* Transfer Details with 1-click Copy */}
-            <dl className="rounded-xl border border-line bg-surface shadow-xs divide-y divide-line overflow-hidden">
-              {[
-                { label: "Ngân hàng nhận", value: checkout.bankName, key: "bank" },
-                {
-                  label: "Số tài khoản",
-                  value: checkout.bankAccount,
-                  copyValue: checkout.bankAccount,
-                  key: "acc",
-                  mono: true,
-                  hint: "số tài khoản",
-                },
-                {
-                  label: "Số tiền chuyển",
-                  value: formatMoney(checkout.amount),
-                  copyValue: String(checkout.amount),
-                  key: "amt",
-                  mono: true,
-                  hint: "số tiền",
-                },
-                {
-                  label: "Nội dung chuyển khoản",
-                  value: checkout.invoiceCode,
-                  copyValue: checkout.invoiceCode,
-                  key: "memo",
-                  mono: true,
-                  hint: "nội dung chuyển khoản",
-                  highlight: true,
-                },
-              ].map((row) => (
-                <div
-                  key={row.label}
-                  className={`flex items-center justify-between gap-3 px-4 py-2.5 text-xs sm:text-sm ${
-                    row.highlight ? "bg-amber-500/5 font-semibold" : ""
-                  }`}
-                >
-                  <dt className="text-muted font-medium">{row.label}</dt>
-                  <dd className="flex items-center gap-2">
-                    <span className={`text-fg ${row.mono ? "font-mono font-bold" : "font-semibold"}`}>
-                      {row.value}
-                    </span>
-                    {row.copyValue && (
-                      <button
-                        type="button"
-                        onClick={() => copy(row.copyValue!, row.key, row.hint!)}
-                        className={`inline-flex items-center justify-center h-7 px-2 rounded-md border text-xs cursor-pointer transition-colors ${
-                          copiedKey === row.key
-                            ? "bg-badge-completed-bg text-success border-success/30 font-bold"
-                            : "bg-surface border-line text-muted hover:text-fg hover:bg-strip"
-                        }`}
-                        aria-label={`Sao chép ${row.hint}`}
-                      >
-                        {copiedKey === row.key ? (
-                          <>
-                            <Check className="w-3 h-3 mr-1" />
-                            Đã chép
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3 mr-1" />
-                            Chép
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            {/* Cột phải: Thông tin chuyển khoản & Hướng dẫn (chiếm 7/12) */}
+            <div className="sm:col-span-7 flex flex-col gap-2.5">
+              <dl className="rounded-xl border border-line bg-surface shadow-xs divide-y divide-line overflow-hidden">
+                {[
+                  { label: "Ngân hàng nhận", value: checkout.bankName, key: "bank" },
+                  {
+                    label: "Số tài khoản",
+                    value: checkout.bankAccount,
+                    copyValue: checkout.bankAccount,
+                    key: "acc",
+                    mono: true,
+                    hint: "số tài khoản",
+                  },
+                  {
+                    label: "Số tiền chuyển",
+                    value: formatMoney(checkout.amount),
+                    copyValue: String(checkout.amount),
+                    key: "amt",
+                    mono: true,
+                    hint: "số tiền",
+                  },
+                  {
+                    label: "Nội dung chuyển khoản",
+                    value: checkout.invoiceCode,
+                    copyValue: checkout.invoiceCode,
+                    key: "memo",
+                    mono: true,
+                    hint: "nội dung chuyển khoản",
+                    highlight: true,
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 text-xs sm:text-xs ${
+                      row.highlight ? "bg-amber-500/5 font-semibold" : ""
+                    }`}
+                  >
+                    <dt className="text-muted font-medium shrink-0">{row.label}</dt>
+                    <dd className="flex items-center gap-1.5 min-w-0">
+                      <span className={`truncate text-fg ${row.mono ? "font-mono font-bold" : "font-semibold"}`}>
+                        {row.value}
+                      </span>
+                      {row.copyValue && (
+                        <button
+                          type="button"
+                          onClick={() => copy(row.copyValue!, row.key, row.hint!)}
+                          className={`inline-flex items-center justify-center h-6 px-1.5 rounded-md border text-[11px] cursor-pointer transition-colors shrink-0 ${
+                            copiedKey === row.key
+                              ? "bg-badge-completed-bg text-success border-success/30 font-bold"
+                              : "bg-surface border-line text-muted hover:text-fg hover:bg-strip"
+                          }`}
+                          aria-label={`Sao chép ${row.hint}`}
+                        >
+                          {copiedKey === row.key ? (
+                            <>
+                              <Check className="w-3 h-3 mr-1" />
+                              Đã chép
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3 mr-1" />
+                              Chép
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
 
-            <div className="p-3 rounded-lg bg-strip border border-line text-xs text-muted leading-relaxed">
-              <span className="font-bold text-fg">Lưu ý quan trọng: </span>
-              Vui lòng chuyển khoản chính xác <span className="font-bold text-fg">Số tiền</span> và giữ nguyên{" "}
-              <span className="font-bold font-mono text-fg">{checkout.invoiceCode}</span> ở phần nội dung để hệ thống SePay tự động kích hoạt gói dịch vụ trong 10-30 giây.
+              <div className="p-2.5 rounded-lg bg-strip border border-line text-[11px] text-muted leading-relaxed">
+                <span className="font-bold text-fg">Lưu ý quan trọng: </span>
+                Vui lòng chuyển chính xác <span className="font-bold text-fg">Số tiền</span> và giữ nguyên mã{" "}
+                <span className="font-bold font-mono text-fg">{checkout.invoiceCode}</span> ở phần nội dung chuyển khoản để SePay kích hoạt gói tự động.
+              </div>
             </div>
           </div>
         )}
