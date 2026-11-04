@@ -135,22 +135,50 @@ function isDurationOrEndDateField(key: string): boolean {
   );
 }
 
-function isMoneyField(key: string): boolean {
+function isMoneyField(key: string, label?: string): boolean {
+  const k = key.toLowerCase();
+  const l = (label ?? "").toLowerCase();
+  if (
+    k.includes("mst") ||
+    k.includes("cccd") ||
+    k.includes("sdt") ||
+    k.includes("stk") ||
+    k.includes("dien_tich")
+  ) {
+    return false;
+  }
   return (
-    key === "gia_tri_hop_dong" ||
-    key === "muc_luong_chinh" ||
-    key === "gia_thue_hang_thang" ||
-    key === "tien_dat_coc" ||
-    key.includes("gia_tri") ||
-    key.includes("muc_luong") ||
-    key.includes("tien_")
+    k === "gia_tri_hop_dong" ||
+    k === "muc_luong_chinh" ||
+    k === "gia_thue_hang_thang" ||
+    k === "tien_dat_coc" ||
+    k.includes("gia_tri") ||
+    k.includes("gia_ban") ||
+    k.includes("gia_mua") ||
+    k.includes("gia_thue") ||
+    k.includes("don_gia") ||
+    k.includes("muc_luong") ||
+    k.includes("tien_") ||
+    k.includes("_tien") ||
+    k.includes("chi_phi") ||
+    k.includes("dat_coc") ||
+    l.includes("giá trị") ||
+    l.includes("giá bán") ||
+    l.includes("giá thuê") ||
+    l.includes("số tiền") ||
+    l.includes("tổng tiền") ||
+    l.includes("mức lương") ||
+    l.includes("đặt cọc") ||
+    l.includes("vnđ") ||
+    l.includes("vnd")
   );
 }
 
 function formatDigitsToVnCurrency(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return raw;
-  return Number(digits).toLocaleString("vi-VN");
+  const normalized = digits.replace(/^0+(?=\d)/, "");
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function defaultBoxForOrder(
@@ -356,9 +384,13 @@ function InteractiveContractPaper({
     return parts.map((part, partIdx) => {
       if (/^\{\{.+\}\}$/.test(part)) {
         const key = part.slice(2, -2);
-        const val = values[key]?.trim();
-        const isFocused = focusedVar === key;
+        const rawVal = values[key]?.trim();
         const label = formatVariableLabel(key);
+        const val =
+          rawVal && isMoneyField(key, label)
+            ? formatDigitsToVnCurrency(rawVal)
+            : rawVal;
+        const isFocused = focusedVar === key;
         const isFirstRef = !seenVarInLine[key];
         seenVarInLine[key] = true;
 
@@ -936,7 +968,17 @@ export default function NewContractPage() {
           });
           realTemplateId = createdTpl.id;
         }
-        const res = await contractsApi.createFromTemplate(realTemplateId, title.trim(), values);
+        const normalizedValues: Record<string, string> = {};
+        for (const [k, v] of Object.entries(values)) {
+          normalizedValues[k] = isMoneyField(k, formatVariableLabel(k))
+            ? formatDigitsToVnCurrency(v)
+            : v;
+        }
+        const res = await contractsApi.createFromTemplate(
+          realTemplateId,
+          title.trim(),
+          normalizedValues,
+        );
         contractId = res.contractId;
       }
       setCreatedDraftId(contractId);
@@ -1118,25 +1160,46 @@ export default function NewContractPage() {
       );
     }
 
-    // 3. Trường Tiền tệ (Giá trị hợp đồng / Mức lương / Tiền cọc) -> Tự động thêm dấu chấm phân cách hàng nghìn
-    if (isMoneyField(f.key)) {
+    // 3. Trường Tiền tệ (Giá trị hợp đồng / Mức lương / Tiền cọc) -> Tự động thêm dấu chấm phân cách hàng nghìn (1.000.000)
+    if (isMoneyField(f.key, f.label)) {
+      const displayMoney = val ? formatDigitsToVnCurrency(val) : "";
       return (
-        <Input
-          ref={(el) => {
-            inputRefs.current[f.key] = el;
-          }}
-          label={`${idx + 1}. ${f.label}`}
-          required
-          value={val}
-          onFocus={() => setFocusedVar(f.key)}
-          onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
-          onChange={(e) => {
-            const formatted = formatDigitsToVnCurrency(e.target.value);
-            setValues((prev) => ({ ...prev, [f.key]: formatted }));
-            setCreatedDraftId(null);
-          }}
-          placeholder="VD: 100.000.000"
-        />
+        <div className="flex flex-col gap-1.5">
+          <Input
+            ref={(el) => {
+              inputRefs.current[f.key] = el;
+            }}
+            label={`${idx + 1}. ${f.label}`}
+            required
+            inputMode="numeric"
+            value={displayMoney}
+            onFocus={() => setFocusedVar(f.key)}
+            onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+            onChange={(e) => {
+              const formatted = formatDigitsToVnCurrency(e.target.value);
+              setValues((prev) => ({ ...prev, [f.key]: formatted }));
+              setCreatedDraftId(null);
+            }}
+            placeholder="VD: 100.000.000"
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-muted">Chọn nhanh:</span>
+            {["10.000.000", "50.000.000", "100.000.000", "500.000.000"].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setValues((prev) => ({ ...prev, [f.key]: preset }));
+                  setFocusedVar(f.key);
+                  setCreatedDraftId(null);
+                }}
+                className="px-2 py-0.5 rounded-sm border border-line bg-surface hover:border-primary/50 hover:text-primary text-[11px] font-mono text-fg cursor-pointer transition-colors"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        </div>
       );
     }
 
