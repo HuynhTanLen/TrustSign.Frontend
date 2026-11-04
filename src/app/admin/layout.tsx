@@ -99,20 +99,22 @@ function AdminLayoutShell({
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex flex-col bg-page text-fg">
-        <div className="h-16 navy-panel" />
-        <div className="max-w-content w-full mx-auto p-6 sm:p-8 flex flex-col gap-6">
+      <AppShell homeHref="/admin" wordmarkSuffix="Quản trị" nav={nav}>
+        <div className="flex flex-col gap-6">
           <Skeleton className="h-8 w-64 rounded-lg" />
           <Skeleton className="h-44 w-full rounded-xl" />
         </div>
-      </div>
+        <div className="hidden" aria-hidden="true">
+          {children}
+        </div>
+      </AppShell>
     );
   }
 
   if (isForbidden) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page p-4">
-        <div className="max-w-md w-full bg-surface border border-line rounded-xl p-6 sm:p-8 flex flex-col gap-4 shadow-card">
+      <AppShell homeHref="/admin" wordmarkSuffix="Quản trị" nav={nav}>
+        <div className="max-w-md w-full bg-surface border border-line rounded-xl p-6 sm:p-8 flex flex-col gap-4 shadow-card mx-auto my-12">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-badge-declined-bg text-danger">
             <Shield className="w-6 h-6" />
           </div>
@@ -134,7 +136,10 @@ function AdminLayoutShell({
             </Button>
           </div>
         </div>
-      </div>
+        <div className="hidden" aria-hidden="true">
+          {children}
+        </div>
+      </AppShell>
     );
   }
 

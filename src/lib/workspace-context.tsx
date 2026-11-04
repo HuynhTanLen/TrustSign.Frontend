@@ -26,10 +26,23 @@ export interface WorkspaceContextValue {
 
 export const WorkspaceContext = React.createContext<WorkspaceContextValue | null>(null);
 
+const fallbackWorkspaceValue: WorkspaceContextValue = {
+  user: {
+    id: "",
+    email: "",
+    fullName: "",
+    role: "User",
+    emailVerified: true,
+    hasTenant: false,
+    tenants: [],
+  },
+  activeTenantId: "",
+  currentRole: "TenantOwner",
+  openProfileModal: () => {},
+  refreshUser: async () => {},
+};
+
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = React.useContext(WorkspaceContext);
-  if (!ctx) {
-    throw new Error("useWorkspace phải được dùng bên trong AppLayout.");
-  }
-  return ctx;
+  return ctx ?? fallbackWorkspaceValue;
 }

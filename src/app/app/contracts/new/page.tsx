@@ -31,6 +31,7 @@ import {
   normalizeTemplateStructure,
   parseTemplateIntoBlueprint,
   REFERENCE_TEMPLATES,
+  registerVariableLabel,
   slugifyVariableName,
   VARIABLE_LABELS,
   type FieldSection,
@@ -50,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { PdfPageViewer } from "@/components/pdf-page-viewer";
 
 const MAX_SIGNERS = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -597,6 +599,7 @@ export default function NewContractPage() {
   });
   const [focusedVar, setFocusedVar] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
+  const [uploadedTotalPages, setUploadedTotalPages] = React.useState(1);
   const [filePreviewUrl, setFilePreviewUrl] = React.useState<string | null>(null);
   const [signers, setSigners] = React.useState<NewSigner[]>([
     { fullName: user.fullName || "", email: user.email || "", ...defaultBoxForOrder(0, 2) },
@@ -664,9 +667,15 @@ export default function NewContractPage() {
 
   // Khi chọn mẫu (mẫu tham khảo hoặc mẫu DB) -> nạp nội dung & tự điền ngày hôm nay + thông tin Bên A
   React.useEffect(() => {
+    let cancelled = false;
+
     if (!selectedChoice) {
-      setTemplateDetail(null);
-      return;
+      Promise.resolve().then(() => {
+        if (!cancelled) setTemplateDetail(null);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
     if (selectedChoice.startsWith("ref:")) {
@@ -676,30 +685,34 @@ export default function NewContractPage() {
       const vars = refBp.fields.map((f) => f.key);
       const smartDefaults = buildSmartDefaultValues(vars);
 
-      setTemplateDetail({
-        id: selectedChoice,
-        name: refBp.name,
-        content: compiled,
-        variables: vars,
-        authorName: "Mẫu chuẩn hệ thống",
-        updatedAt: new Date().toISOString(),
-      });
-      setTitle(refBp.name);
-      setExtraFields([]);
-      setRemovedFieldKeys([]);
-      setCustomClauses(null);
-      setValues(smartDefaults);
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        setTemplateDetail({
+          id: selectedChoice,
+          name: refBp.name,
+          content: compiled,
+          variables: vars,
+          authorName: "Mẫu chuẩn hệ thống",
+          updatedAt: new Date().toISOString(),
+        });
+        setTitle(refBp.name);
+        setExtraFields([]);
+        setRemovedFieldKeys([]);
+        setCustomClauses(null);
+        setValues(smartDefaults);
 
-      // Tự động focus vào trường đầu tiên chưa có dữ liệu (thường là Tên đối tác Bên B)
-      const firstEmptyVar = vars.find((v) => !smartDefaults[v]) ?? vars[0];
-      if (firstEmptyVar) {
-        setFocusedVar(firstEmptyVar);
-        setTimeout(() => inputRefs.current[firstEmptyVar]?.focus(), 80);
-      }
-      return;
+        // Tự động focus vào trường đầu tiên chưa có dữ liệu (thường là Tên đối tác Bên B)
+        const firstEmptyVar = vars.find((v) => !smartDefaults[v]) ?? vars[0];
+        if (firstEmptyVar) {
+          setFocusedVar(firstEmptyVar);
+          setTimeout(() => inputRefs.current[firstEmptyVar]?.focus(), 80);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     templatesApi
       .get(selectedChoice)
       .then((detail) => {
@@ -744,12 +757,14 @@ export default function NewContractPage() {
 
   React.useEffect(() => {
     if (!file) {
-      setFilePreviewUrl(null);
       return;
     }
     const url = URL.createObjectURL(file);
-    setFilePreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    Promise.resolve().then(() => setFilePreviewUrl(url));
+    return () => {
+      URL.revokeObjectURL(url);
+      setFilePreviewUrl(null);
+    };
   }, [file]);
 
   const mergedBlueprint = React.useMemo(() => {
@@ -795,7 +810,8 @@ export default function NewContractPage() {
     [mergedBlueprint?.compiledContent, title],
   );
   const totalTemplatePages = Math.max(1, contractPages.length);
-  const maxPageLimit = source === "upload" ? 50 : totalTemplatePages;
+  const maxPageLimit =
+    source === "upload" ? Math.max(1, uploadedTotalPages) : totalTemplatePages;
 
   const handleRemoveField = (key: string, label: string) => {
     if ((mergedBlueprint?.orderedFields.length ?? 0) <= 1) {
@@ -880,7 +896,7 @@ export default function NewContractPage() {
     const key =
       baseKey.includes("ben_a") || baseKey.includes("ben_b") ? baseKey : `${prefix}${baseKey}`;
 
-    VARIABLE_LABELS[key] = clean;
+    registerVariableLabel(key, clean);
     setRemovedFieldKeys((prev) => prev.filter((k) => k !== key));
     setExtraFields((prev) =>
       prev.some((f) => f.key === key) ? prev : [...prev, { key, label: clean, section: newFieldSection }],
@@ -978,19 +994,25 @@ export default function NewContractPage() {
       toast("Hạn ký phải sau thời điểm hiện tại.", "error");
       return;
     }
-    const targetSignPage = source === "upload" ? 1 : totalTemplatePages;
+    const targetSignPage =
+      source === "upload" ? Math.max(1, uploadedTotalPages) : totalTemplatePages;
     setActiveSignerIndex(0);
     setActivePage(targetSignPage);
     setStep(2);
 
     setTimeout(() => {
-      const measuredY = computeSignatureZoneBoxY();
+      const measuredY = source === "upload" ? 55 : computeSignatureZoneBoxY();
       setSigners((prev) =>
         prev.map((s, idx) => ({
           ...s,
-          pageNumber: source === "upload" ? s.pageNumber : targetSignPage,
+          pageNumber:
+            source === "upload"
+              ? s.pageNumber > targetSignPage || s.pageNumber === 1
+                ? targetSignPage
+                : s.pageNumber
+              : targetSignPage,
           boxX: idx % 2 === 0 ? 65 : 355,
-          boxY: measuredY,
+          boxY: source === "upload" ? (s.boxY > 20 ? s.boxY : measuredY) : measuredY,
         })),
       );
     }, 60);
@@ -1000,7 +1022,7 @@ export default function NewContractPage() {
     const targetSignPage = source === "upload" ? activePage : totalTemplatePages;
     setActivePage(targetSignPage);
     setTimeout(() => {
-      const measuredY = computeSignatureZoneBoxY();
+      const measuredY = source === "upload" ? 55 : computeSignatureZoneBoxY();
       setSigners((prev) =>
         prev.map((s, idx) => ({
           ...s,
@@ -1013,7 +1035,7 @@ export default function NewContractPage() {
       }
     }, 50);
     toast(
-      `Đã tự động căn chỉnh vị trí ô ký khớp vào khung Đại diện ký ở Trang ${targetSignPage}.`,
+      `Đã tự động căn chỉnh vị trí ô ký vào khu vực Đại diện ký ở Trang ${targetSignPage}.`,
       "success",
     );
   };
@@ -1946,17 +1968,17 @@ export default function NewContractPage() {
                           Trang {activePage} / {maxPageLimit}
                         </strong>
                       </span>
-                      {source === "template" && totalTemplatePages > 1 && (
-                        <div className="inline-flex items-center gap-1 ml-1">
-                          {Array.from({ length: totalTemplatePages }, (_, i) => i + 1).map((p) => {
-                            const isSignPage = p === totalTemplatePages;
+                      {maxPageLimit > 1 && (
+                        <div className="inline-flex items-center gap-1 ml-1 overflow-x-auto max-w-[280px] py-0.5">
+                          {Array.from({ length: maxPageLimit }, (_, i) => i + 1).map((p) => {
+                            const isSignPage = p === maxPageLimit;
                             const isCurrentPage = p === activePage;
                             return (
                               <button
                                 key={p}
                                 type="button"
                                 onClick={() => setActivePage(p)}
-                                className={`px-2 py-0.5 rounded-sm border text-[11px] font-semibold transition-colors cursor-pointer ${
+                                className={`px-2 py-0.5 rounded-sm border text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
                                   isCurrentPage
                                     ? "bg-primary text-white border-primary"
                                     : "bg-page text-fg border-line hover:border-primary/50"
@@ -1998,11 +2020,13 @@ export default function NewContractPage() {
                       ref={canvasRef}
                       className="relative w-full min-h-[780px] rounded-sm bg-white shadow-md select-none"
                     >
-                      {source === "upload" && filePreviewUrl ? (
-                        <iframe
-                          src={`${filePreviewUrl}#page=${activePage}&toolbar=0&navpanes=0`}
-                          title="Xem trước PDF"
-                          className="w-full h-[780px] pointer-events-none opacity-95"
+                      {source === "upload" && file ? (
+                        <PdfPageViewer
+                          file={file}
+                          pageNumber={activePage}
+                          onLoaded={(pages) => {
+                            setUploadedTotalPages(pages);
+                          }}
                         />
                       ) : (
                         <InteractiveContractPaper

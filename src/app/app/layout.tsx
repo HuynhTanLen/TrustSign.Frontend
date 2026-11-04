@@ -5,12 +5,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authApi, UserDto } from "@/lib/api/auth";
-import { tenantsApi, type TenantRole } from "@/lib/api/tenants";
+import { type TenantRole } from "@/lib/api/tenants";
 import { ApiError } from "@/lib/api";
 import { TENANT_ROLE_LABELS, WorkspaceContext } from "@/lib/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -25,7 +24,6 @@ import {
   Shield,
   Tag,
   UserCog,
-  Users,
 } from "lucide-react";
 
 function AppLayoutShell({
@@ -43,7 +41,6 @@ function AppLayoutShell({
   const [user, setUser] = React.useState<UserDto | null>(null);
   const [selectedTenantId, setSelectedTenantId] = React.useState<string>("");
   const [isInitializing, setIsInitializing] = React.useState(true);
-  const [isSwitchingTenant, setIsSwitchingTenant] = React.useState(false);
 
   const loadUser = React.useCallback(async () => {
     const data = await authApi.me();
@@ -79,29 +76,6 @@ function AppLayoutShell({
       isMounted = false;
     };
   }, [pathname, router]);
-
-  const handleSwitchTenant = async (newTenantId: string) => {
-    if (newTenantId === "__create_new__") {
-      router.push("/onboarding");
-      return;
-    }
-    if (!newTenantId || newTenantId === selectedTenantId) return;
-
-    setIsSwitchingTenant(true);
-    try {
-      const res = await tenantsApi.switchTenant(newTenantId);
-      setUser(res.user);
-      setSelectedTenantId(newTenantId);
-      toast("Đã chuyển không gian doanh nghiệp", "success");
-    } catch (err) {
-      toast(
-        err instanceof ApiError ? err.message : "Không thể chuyển không gian làm việc",
-        "error",
-      );
-    } finally {
-      setIsSwitchingTenant(false);
-    }
-  };
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -156,9 +130,8 @@ function AppLayoutShell({
 
   if (isInitializing || !user) {
     return (
-      <div className="min-h-screen flex flex-col bg-page text-fg">
-        <div className="h-16 navy-panel" />
-        <div className="max-w-content w-full mx-auto p-6 sm:p-8 flex flex-col gap-6">
+      <AppShell homeHref="/app" nav={nav} secondaryNav={secondaryNav}>
+        <div className="flex flex-col gap-6">
           <Skeleton className="h-8 w-64 rounded-lg" />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <Skeleton className="h-28 rounded-xl" />
@@ -167,7 +140,10 @@ function AppLayoutShell({
           </div>
           <Skeleton className="h-64 rounded-xl" />
         </div>
-      </div>
+        <div className="hidden" aria-hidden="true">
+          {children}
+        </div>
+      </AppShell>
     );
   }
 
