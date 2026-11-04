@@ -12,6 +12,7 @@ import {
   Eye,
   FilePenLine,
   FileText,
+  MailCheck,
   Move,
   Plus,
   Save,
@@ -23,10 +24,21 @@ import {
 } from "lucide-react";
 import { contractsApi, type NewSigner } from "@/lib/api/contracts";
 import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
-import { normalizeTemplateStructure, VARIABLE_LABELS } from "@/lib/contract-format";
+import {
+  buildFormattedContractFromBlueprint,
+  normalizeTemplateStructure,
+  parseTemplateIntoBlueprint,
+  REFERENCE_TEMPLATES,
+  slugifyVariableName,
+  VARIABLE_LABELS,
+  type FieldSection,
+  type TemplateFieldItem,
+} from "@/lib/contract-format";
+import { useWorkspace } from "@/lib/workspace-context";
 import { ApiError } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatDateTime } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -61,7 +73,7 @@ const SIGNER_BOX_STYLES = [
 
 const STEPS = [
   "Nguồn & Điền hợp đồng",
-  "Người ký",
+  "Người ký (Chủ DN & Đối tác)",
   "Đặt vị trí ô ký",
   "Kiểm tra & gửi",
 ];
@@ -130,13 +142,6 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
-/**
- * Hiển thị tờ hợp đồng chuẩn A4 như một văn bản pháp lý thật:
- * - Tự động có Quốc hiệu, Tiêu ngữ, Tên hợp đồng.
- * - Các trường {{bien}} được hiển thị như các ô tương tác trên tờ giấy:
- *   + Đang focus ô nào ở cột trái -> trường đó trên tờ giấy A4 sáng xanh và tự cuộn tới!
- *   + Bấm trực tiếp vào trường trên tờ giấy A4 -> tự động focus vào ô nhập liệu bên trái!
- */
 function InteractiveContractPaper({
   title,
   structuredTemplate,
@@ -170,7 +175,7 @@ function InteractiveContractPaper({
 
   const renderLineWithTokens = (line: string, lineIdx: number) => {
     const parts = line.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
-    let seenVarInLine: Record<string, boolean> = {};
+    const seenVarInLine: Record<string, boolean> = {};
 
     return parts.map((part, partIdx) => {
       if (/^\{\{.+\}\}$/.test(part)) {
@@ -194,11 +199,7 @@ function InteractiveContractPaper({
             key={`${lineIdx}-${partIdx}`}
             type="button"
             ref={(el) => {
-              if (isFirstRef && !tokenRefs.current[key]) {
-                tokenRefs.current[key] = el;
-              } else if (isFirstRef) {
-                tokenRefs.current[key] = el;
-              }
+              if (isFirstRef) tokenRefs.current[key] = el;
             }}
             onClick={() => onSelectVar?.(key)}
             className={`inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-sm font-sans text-xs transition-all cursor-pointer ${
@@ -262,7 +263,10 @@ function InteractiveContractPaper({
             }
             if (isTieuNgu) {
               return (
-                <p key={idx} className="text-center font-semibold text-[11.5px] underline underline-offset-4 mb-2">
+                <p
+                  key={idx}
+                  className="text-center font-semibold text-[11.5px] underline underline-offset-4 mb-2"
+                >
                   {trimmed}
                 </p>
               );
@@ -282,16 +286,16 @@ function InteractiveContractPaper({
       {/* Khối đại diện ký ở cuối tờ hợp đồng A4 */}
       <div className="mt-6 pt-4 border-t border-neutral-200 grid grid-cols-2 gap-4 text-center font-sans text-[10.5px] text-neutral-700">
         <div>
-          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN A</p>
-          <p className="text-[9.5px] italic text-neutral-500">(Ký số và đóng dấu điện tử)</p>
+          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN A (CHỦ DOANH NGHIỆP)</p>
+          <p className="text-[9.5px] italic text-neutral-500">(Nhận email xác nhận & ký số trước)</p>
           <div className="h-16" />
           <p className="font-semibold text-black truncate">
             {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
           </p>
         </div>
         <div>
-          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN B</p>
-          <p className="text-[9.5px] italic text-neutral-500">(Ký số và đóng dấu điện tử)</p>
+          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
+          <p className="text-[9.5px] italic text-neutral-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
           <div className="h-16" />
           <p className="font-semibold text-black truncate">
             {signers?.[1]?.fullName ||
@@ -310,19 +314,29 @@ export default function NewContractPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user } = useWorkspace();
   const templates = useApi("templates", templatesApi.list);
 
   const [step, setStep] = React.useState<Step>(0);
   const [source, setSource] = React.useState<"template" | "upload">("template");
   const [title, setTitle] = React.useState("");
-  const [templateId, setTemplateId] = React.useState(searchParams.get("templateId") ?? "");
+  const [selectedChoice, setSelectedChoice] = React.useState(
+    searchParams.get("templateId") ?? `ref:${REFERENCE_TEMPLATES[0].id}`,
+  );
   const [templateDetail, setTemplateDetail] = React.useState<TemplateDetail | null>(null);
+
+  // Cho phép người dùng tự thêm trường thông tin mới ngay lúc soạn hợp đồng và tự động format lại đúng trình tự!
+  const [extraFields, setExtraFields] = React.useState<TemplateFieldItem[]>([]);
+  const [newFieldLabel, setNewFieldLabel] = React.useState("");
+  const [newFieldSection, setNewFieldSection] = React.useState<FieldSection>("transaction");
+
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [focusedVar, setFocusedVar] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = React.useState<string | null>(null);
   const [signers, setSigners] = React.useState<NewSigner[]>([
-    { fullName: "", email: "", ...defaultBoxForOrder(0, 1) },
+    { fullName: user.fullName || "", email: user.email || "", ...defaultBoxForOrder(0, 2) },
+    { fullName: "", email: "", ...defaultBoxForOrder(1, 2) },
   ]);
   const [activeSignerIndex, setActiveSignerIndex] = React.useState(0);
   const [activePage, setActivePage] = React.useState(1);
@@ -347,20 +361,44 @@ export default function NewContractPage() {
     startBoxY: number;
   } | null>(null);
 
-  const template = templates.data?.find((t) => t.id === templateId);
-
+  // Xử lý chọn mẫu (có thể là mẫu tham khảo có sẵn `ref:...` hoặc mẫu đã lưu trong DB)
   React.useEffect(() => {
-    if (!templateId) {
+    if (!selectedChoice) {
       setTemplateDetail(null);
       return;
     }
+
+    if (selectedChoice.startsWith("ref:")) {
+      const refId = selectedChoice.slice(4);
+      const refBp = REFERENCE_TEMPLATES.find((r) => r.id === refId) ?? REFERENCE_TEMPLATES[0];
+      const compiled = buildFormattedContractFromBlueprint(refBp);
+      const vars = refBp.fields.map((f) => f.key);
+      setTemplateDetail({
+        id: selectedChoice,
+        name: refBp.name,
+        content: compiled,
+        variables: vars,
+        authorName: "Mẫu chuẩn hệ thống",
+        updatedAt: new Date().toISOString(),
+      });
+      setTitle(refBp.name);
+      setExtraFields([]);
+      const firstVar = vars[0];
+      if (firstVar) {
+        setFocusedVar(firstVar);
+        setTimeout(() => inputRefs.current[firstVar]?.focus(), 80);
+      }
+      return;
+    }
+
     let cancelled = false;
     templatesApi
-      .get(templateId)
+      .get(selectedChoice)
       .then((detail) => {
         if (!cancelled) {
           setTemplateDetail(detail);
-          if (!title.trim()) setTitle(detail.name);
+          setTitle(detail.name);
+          setExtraFields([]);
           const firstVar = detail.variables[0];
           if (firstVar) {
             setFocusedVar(firstVar);
@@ -374,7 +412,7 @@ export default function NewContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [templateId]);
+  }, [selectedChoice]);
 
   React.useEffect(() => {
     if (!file) {
@@ -386,10 +424,65 @@ export default function NewContractPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const structuredTemplateContent = React.useMemo(() => {
-    if (!templateDetail) return "";
-    return normalizeTemplateStructure(templateDetail.content, title || templateDetail.name);
-  }, [templateDetail, title]);
+  // Hợp nhất cấu trúc gốc của mẫu + các mục thông tin người dùng tự thêm vào đúng trình tự Mục I -> II -> III -> Điều khoản
+  const mergedBlueprint = React.useMemo(() => {
+    if (!templateDetail) return null;
+    const base = parseTemplateIntoBlueprint(
+      title || templateDetail.name,
+      normalizeTemplateStructure(templateDetail.content, title || templateDetail.name),
+    );
+    const combinedFields = [...base.fields];
+    for (const ef of extraFields) {
+      if (!combinedFields.some((f) => f.key === ef.key)) {
+        combinedFields.push(ef);
+      }
+    }
+    // Sắp xếp lại đúng trình tự: Bên A -> Bên B -> Nội dung giao dịch
+    const orderedFields = [
+      ...combinedFields.filter((f) => f.section === "partyA"),
+      ...combinedFields.filter((f) => f.section === "partyB"),
+      ...combinedFields.filter((f) => f.section === "transaction"),
+    ];
+    const compiledContent = buildFormattedContractFromBlueprint({
+      name: title || templateDetail.name,
+      partyATitle: base.partyATitle,
+      partyBTitle: base.partyBTitle,
+      fields: orderedFields,
+      clauses: base.clauses,
+    });
+    return {
+      orderedFields,
+      compiledContent,
+    };
+  }, [templateDetail, title, extraFields]);
+
+  const activeVariables = React.useMemo(
+    () => mergedBlueprint?.orderedFields.map((f) => f.key) ?? [],
+    [mergedBlueprint],
+  );
+
+  const handleAddInlineField = () => {
+    const clean = newFieldLabel.trim();
+    if (!clean) {
+      toast("Nhập tên thông tin muốn thêm (VD: Biển số xe, Số tiền đặt cọc).", "error");
+      return;
+    }
+    const baseKey = slugifyVariableName(clean);
+    if (!baseKey) return;
+    const prefix =
+      newFieldSection === "partyA" ? "ben_a_" : newFieldSection === "partyB" ? "ben_b_" : "";
+    const key =
+      baseKey.includes("ben_a") || baseKey.includes("ben_b") ? baseKey : `${prefix}${baseKey}`;
+
+    VARIABLE_LABELS[key] = clean;
+    setExtraFields((prev) =>
+      prev.some((f) => f.key === key) ? prev : [...prev, { key, label: clean, section: newFieldSection }],
+    );
+    setNewFieldLabel("");
+    setCreatedDraftId(null);
+    setTimeout(() => focusVariableInput(key), 60);
+    toast(`Đã thêm "${clean}" và tự động sắp xếp lại hợp đồng.`, "success");
+  };
 
   const focusVariableInput = (varKey: string) => {
     setFocusedVar(varKey);
@@ -401,11 +494,11 @@ export default function NewContractPage() {
   };
 
   const handleVariableKeyDown = (currentVar: string, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter" || !template) return;
+    if (e.key !== "Enter") return;
     e.preventDefault();
-    const idx = template.variables.indexOf(currentVar);
-    if (idx >= 0 && idx < template.variables.length - 1) {
-      const nextVar = template.variables[idx + 1];
+    const idx = activeVariables.indexOf(currentVar);
+    if (idx >= 0 && idx < activeVariables.length - 1) {
+      const nextVar = activeVariables[idx + 1];
       focusVariableInput(nextVar);
     }
   };
@@ -423,27 +516,32 @@ export default function NewContractPage() {
     title.trim() !== "" &&
     (source === "upload"
       ? file !== null
-      : !!template && template.variables.every((v) => (values[v] ?? "").trim() !== ""));
+      : activeVariables.length > 0 && activeVariables.every((v) => (values[v] ?? "").trim() !== ""));
 
   const step2Valid =
     signers.every((s) => s.fullName.trim() && /\S+@\S+\.\S+/.test(s.email)) && dueAt !== "";
 
   const goToSignersStep = () => {
-    // Tự động gợi ý tên người ký từ dữ liệu đã điền trên hợp đồng nếu ô người ký còn trống
+    const repA = values["dai_dien_ben_a"] || values["ten_ben_a"] || user.fullName || "";
+    const repB =
+      values["dai_dien_ben_b"] || values["ho_ten_nhan_vien"] || values["ten_ben_b"] || "";
+
     setSigners((prev) => {
-      if (prev.length === 1 && !prev[0].fullName.trim()) {
-        const repA = values["dai_dien_ben_a"] || values["ten_ben_a"] || "";
-        const repB = values["dai_dien_ben_b"] || values["ho_ten_nhan_vien"] || values["ten_ben_b"] || "";
-        if (repA && repB) {
-          return [
-            { fullName: repA, email: "", ...defaultBoxForOrder(0, 2) },
-            { fullName: repB, email: "", ...defaultBoxForOrder(1, 2) },
-          ];
-        } else if (repA || repB) {
-          return [{ fullName: repA || repB, email: "", ...defaultBoxForOrder(0, 1) }];
-        }
+      const next = [...prev];
+      if (next[0] && (!next[0].fullName.trim() || next[0].fullName === user.fullName)) {
+        next[0] = {
+          ...next[0],
+          fullName: repA || next[0].fullName,
+          email: next[0].email || user.email || "",
+        };
       }
-      return prev;
+      if (next[1] && !next[1].fullName.trim() && repB) {
+        next[1] = {
+          ...next[1],
+          fullName: repB,
+        };
+      }
+      return next;
     });
     setStep(1);
   };
@@ -451,7 +549,7 @@ export default function NewContractPage() {
   const goToPlacement = () => {
     const normalizedEmails = signers.map((s) => s.email.trim().toLowerCase());
     if (new Set(normalizedEmails).size !== normalizedEmails.length) {
-      toast("Email các người ký không được trùng nhau.", "error");
+      toast("Email giữa Chủ doanh nghiệp và Đối tác không được trùng nhau.", "error");
       return;
     }
     if (new Date(dueAt).getTime() <= Date.now()) {
@@ -538,11 +636,23 @@ export default function NewContractPage() {
   const ensureDraftAndSigners = async (): Promise<string> => {
     let contractId = createdDraftId;
     if (!contractId) {
-      const res =
-        source === "upload" && file
-          ? await contractsApi.upload(file, title.trim())
-          : await contractsApi.createFromTemplate(templateId, title.trim(), values);
-      contractId = res.contractId;
+      if (source === "upload" && file) {
+        const res = await contractsApi.upload(file, title.trim());
+        contractId = res.contractId;
+      } else {
+        // Nếu người dùng chọn mẫu tham khảo hoặc có thêm trường thông tin mới, lưu/cập nhật mẫu trước khi sinh PDF
+        let realTemplateId = selectedChoice;
+        const compiledContent = mergedBlueprint?.compiledContent ?? templateDetail?.content ?? "";
+        if (selectedChoice.startsWith("ref:") || extraFields.length > 0) {
+          const createdTpl = await templatesApi.create({
+            name: title.trim(),
+            content: compiledContent,
+          });
+          realTemplateId = createdTpl.id;
+        }
+        const res = await contractsApi.createFromTemplate(realTemplateId, title.trim(), values);
+        contractId = res.contractId;
+      }
       setCreatedDraftId(contractId);
     }
     await contractsApi.setSigners(contractId, signers);
@@ -567,13 +677,18 @@ export default function NewContractPage() {
     try {
       const contractId = await ensureDraftAndSigners();
       await contractsApi.send(contractId, new Date(dueAt).toISOString());
-      toast("Đã gửi hợp đồng cho người ký đầu tiên.", "success");
+      toast(
+        "Đã gửi email xác nhận ký hợp đồng cho Chủ doanh nghiệp (Lượt #1).",
+        "success",
+      );
       router.push(`/app/contracts/${contractId}`);
     } catch (err) {
       setConfirmOpen(false);
       if (
         err instanceof ApiError &&
-        (err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded" || err.status === 403)
+        (err.code === "Subscription.QuotaExceeded" ||
+          err.code === "Quota.Exceeded" ||
+          err.status === 403)
       ) {
         setBlocked(
           err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded"
@@ -602,8 +717,8 @@ export default function NewContractPage() {
                   {
                     id: "template" as const,
                     icon: FilePenLine,
-                    title: "Từ mẫu hợp đồng",
-                    text: "Điền thông tin trực quan và xem trực tiếp trên trang hợp đồng A4.",
+                    title: "Từ mẫu hợp đồng thông dụng",
+                    text: "Chọn mẫu có sẵn, điền thông tin và thêm mục tùy ý — tự động dàn trang A4 chuẩn.",
                   },
                   {
                     id: "upload" as const,
@@ -645,29 +760,36 @@ export default function NewContractPage() {
                     setTitle(e.target.value);
                     setCreatedDraftId(null);
                   }}
-                  placeholder="Ví dụ: Hợp đồng mua bán xe"
+                  placeholder="Ví dụ: Hợp đồng mua bán xe ô tô"
                 />
 
                 {source === "template" && (
                   <Select
-                    label="Chọn mẫu hợp đồng"
+                    label="Chọn mẫu hợp đồng tham khảo hoặc đã lưu"
                     required
-                    value={templateId}
-                    disabled={templates.isLoading}
+                    value={selectedChoice}
                     onChange={(e) => {
-                      setTemplateId(e.target.value);
+                      setSelectedChoice(e.target.value);
                       setValues({});
                       setCreatedDraftId(null);
-                      const picked = templates.data?.find((t) => t.id === e.target.value);
-                      if (picked) setTitle(picked.name);
                     }}
                   >
-                    <option value="">{templates.isLoading ? "Đang tải…" : "— Chọn mẫu hợp đồng —"}</option>
-                    {templates.data?.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.variables.length} trường thông tin)
-                      </option>
-                    ))}
+                    <optgroup label="Kho 8 mẫu hợp đồng thông dụng (Có sẵn)">
+                      {REFERENCE_TEMPLATES.map((r) => (
+                        <option key={`ref:${r.id}`} value={`ref:${r.id}`}>
+                          ★ {r.name} ({r.fields.length} mục)
+                        </option>
+                      ))}
+                    </optgroup>
+                    {(templates.data ?? []).length > 0 && (
+                      <optgroup label="Mẫu đã lưu của doanh nghiệp">
+                        {templates.data?.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.variables.length} mục)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </Select>
                 )}
               </div>
@@ -676,25 +798,25 @@ export default function NewContractPage() {
                 templates.error ? (
                   <ErrorState error={templates.error} onRetry={templates.reload} />
                 ) : (
-                  <>
-                    {template && (
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start motion-safe:animate-fade-in pt-2">
-                        {/* Cột trái: Các ô nhập liệu tự động focus theo thứ tự */}
-                        <div className="lg:col-span-5 flex flex-col gap-3 p-4 rounded-md border border-line bg-page">
+                  mergedBlueprint && (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start motion-safe:animate-fade-in pt-2">
+                      {/* Cột trái: Các ô nhập liệu + Thêm mục thông tin mới không cần {} */}
+                      <div className="lg:col-span-5 flex flex-col gap-4">
+                        <div className="p-4 rounded-md border border-line bg-page flex flex-col gap-3">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider text-fg">
-                              Điền thông tin ({template.variables.filter((v) => (values[v] ?? "").trim()).length}/
-                              {template.variables.length})
+                              Điền thông tin ({activeVariables.filter((v) => (values[v] ?? "").trim()).length}/
+                              {activeVariables.length})
                             </span>
                             <span className="text-[11px] text-muted">Nhấn Enter để qua ô kế tiếp</span>
                           </div>
 
-                          <div className="flex flex-col gap-3">
-                            {template.variables.map((v, idx) => {
-                              const isFocused = focusedVar === v;
+                          <div className="flex flex-col gap-2.5 max-h-[440px] overflow-y-auto pr-1">
+                            {mergedBlueprint.orderedFields.map((f, idx) => {
+                              const isFocused = focusedVar === f.key;
                               return (
                                 <div
-                                  key={v}
+                                  key={f.key}
                                   className={`p-2.5 rounded-md border transition-colors ${
                                     isFocused
                                       ? "border-primary bg-selected/60 shadow-2xs"
@@ -703,57 +825,89 @@ export default function NewContractPage() {
                                 >
                                   <Input
                                     ref={(el) => {
-                                      inputRefs.current[v] = el;
+                                      inputRefs.current[f.key] = el;
                                     }}
-                                    label={`${idx + 1}. ${formatVariableLabel(v)}`}
+                                    label={`${idx + 1}. ${f.label}`}
                                     required
-                                    value={values[v] ?? ""}
-                                    onFocus={() => setFocusedVar(v)}
-                                    onKeyDown={(e) => handleVariableKeyDown(v, e)}
+                                    value={values[f.key] ?? ""}
+                                    onFocus={() => setFocusedVar(f.key)}
+                                    onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
                                     onChange={(e) => {
-                                      setValues((prev) => ({ ...prev, [v]: e.target.value }));
+                                      setValues((prev) => ({ ...prev, [f.key]: e.target.value }));
                                       setCreatedDraftId(null);
                                     }}
-                                    placeholder={`Nhập ${formatVariableLabel(v).toLowerCase()}…`}
+                                    placeholder={`Nhập ${f.label.toLowerCase()}…`}
                                   />
                                 </div>
                               );
                             })}
                           </div>
-                        </div>
 
-                        {/* Cột phải: Tờ hợp đồng A4 tương tác trực tiếp */}
-                        <div className="lg:col-span-7 flex flex-col gap-2">
-                          <div className="flex items-center justify-between text-xs text-muted px-1">
-                            <span className="inline-flex items-center gap-1.5 font-semibold text-fg">
-                              <Eye className="w-3.5 h-3.5 text-primary" />
-                              Bản xem trước hợp đồng chuẩn A4
+                          {/* Khung tự thêm mục thông tin mới mà không cần {} */}
+                          <div className="pt-3 border-t border-line flex flex-col gap-2">
+                            <span className="text-xs font-bold text-fg">
+                              + Cần thêm mục thông tin khác vào hợp đồng?
                             </span>
-                            <span>Bấm vào bất kỳ ô màu nào trên giấy để sửa nhanh</span>
-                          </div>
-
-                          <div className="rounded-md border-2 border-line-strong bg-white shadow-md max-h-[560px] overflow-y-auto">
-                            <InteractiveContractPaper
-                              title={title}
-                              structuredTemplate={structuredTemplateContent}
-                              values={values}
-                              focusedVar={focusedVar}
-                              onSelectVar={focusVariableInput}
-                              interactiveFields={true}
-                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2">
+                              <input
+                                type="text"
+                                value={newFieldLabel}
+                                onChange={(e) => setNewFieldLabel(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleAddInlineField();
+                                  }
+                                }}
+                                placeholder="VD: Biển số xe, Tiền đặt cọc..."
+                                className="h-9 px-2.5 rounded-md border border-line-strong bg-surface text-xs text-fg placeholder:text-muted focus:outline-none focus:border-primary"
+                              />
+                              <select
+                                value={newFieldSection}
+                                onChange={(e) => setNewFieldSection(e.target.value as FieldSection)}
+                                className="h-9 px-2 rounded-md border border-line-strong bg-surface text-xs text-fg focus:outline-none focus:border-primary"
+                              >
+                                <option value="transaction">Mục III · Giao dịch</option>
+                                <option value="partyA">Mục I · Bên A</option>
+                                <option value="partyB">Mục II · Bên B</option>
+                              </select>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full text-xs"
+                              onClick={handleAddInlineField}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Thêm mục này & Tự động dàn trang lại
+                            </Button>
                           </div>
                         </div>
                       </div>
-                    )}
-                    {templates.data?.length === 0 && (
-                      <p className="text-sm text-muted">
-                        Chưa có mẫu nào.{" "}
-                        <Link href="/app/templates" className="text-primary underline underline-offset-2">
-                          Tạo mẫu hợp đồng
-                        </Link>
-                      </p>
-                    )}
-                  </>
+
+                      {/* Cột phải: Tờ hợp đồng A4 tương tác trực tiếp */}
+                      <div className="lg:col-span-7 flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-xs text-muted px-1">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-fg">
+                            <Eye className="w-3.5 h-3.5 text-primary" />
+                            Bản xem trước hợp đồng chuẩn A4 (Tự động dàn trang)
+                          </span>
+                          <span>Bấm vào bất kỳ ô màu nào trên giấy để sửa nhanh</span>
+                        </div>
+
+                        <div className="rounded-md border-2 border-line-strong bg-white shadow-md max-h-[600px] overflow-y-auto">
+                          <InteractiveContractPaper
+                            title={title}
+                            structuredTemplate={mergedBlueprint.compiledContent}
+                            values={values}
+                            focusedVar={focusedVar}
+                            onSelectVar={focusVariableInput}
+                            interactiveFields={true}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
                 )
               ) : (
                 <label
@@ -782,7 +936,7 @@ export default function NewContractPage() {
 
               <div className="flex justify-end pt-2 border-t border-line">
                 <Button variant="primary" disabled={!step1Valid} onClick={goToSignersStep}>
-                  Tiếp tục chọn người ký
+                  Tiếp tục thiết lập người ký
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </div>
@@ -792,7 +946,7 @@ export default function NewContractPage() {
 
         {step === 1 && (
           <Card
-            title={`Người ký theo thứ tự (${signers.length}/${MAX_SIGNERS})`}
+            title={`Quy trình gửi Email duyệt & ký theo thứ tự (${signers.length}/${MAX_SIGNERS})`}
             icon={Users}
             actions={
               <Button
@@ -809,69 +963,106 @@ export default function NewContractPage() {
                 }
               >
                 <Plus className="w-4 h-4" aria-hidden="true" />
-                Thêm người ký
+                Thêm bên liên quan
               </Button>
             }
           >
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted">
-                Hệ thống gửi link ký lần lượt theo thứ tự; người sau chỉ nhận link khi người trước đã ký xong.
-              </p>
+              <div className="p-3.5 rounded-md border border-primary/25 bg-selected/50 flex items-start gap-2.5 text-xs text-fg">
+                <MailCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <strong>Cơ chế xác nhận ký qua Email Chủ doanh nghiệp:</strong> Khi gửi hợp đồng, hệ thống sẽ gửi email kèm mã OTP đến <strong>Lượt ký #1 (Chủ doanh nghiệp / Đại diện Bên A)</strong> để kiểm tra và xác nhận ký tên trước. Sau khi Chủ doanh nghiệp ký xong, hệ thống mới tự động gửi email mời ký cho <strong>Lượt ký #2 (Đối tác / Khách hàng Bên B)</strong>.
+                </div>
+              </div>
+
               <ol className="flex flex-col gap-3">
-                {signers.map((s, i) => (
-                  <li
-                    key={i}
-                    className="flex flex-col md:flex-row md:items-end gap-3 p-3 rounded-md border border-line bg-page motion-safe:animate-fade-in"
-                  >
-                    <span
-                      className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold text-white shrink-0 ${SIGNER_COLORS[i]}`}
+                {signers.map((s, i) => {
+                  const roleTag =
+                    i === 0
+                      ? "Lượt 1 · Chủ doanh nghiệp (Bên A) — Nhận mail xác nhận & ký duyệt trước"
+                      : i === 1
+                        ? "Lượt 2 · Đối tác / Khách hàng (Bên B) — Nhận mail ký sau khi Chủ DN đã duyệt"
+                        : `Lượt ${i + 1} · Bên liên quan thứ ${i + 1}`;
+
+                  return (
+                    <li
+                      key={i}
+                      className="flex flex-col gap-2.5 p-3.5 rounded-md border border-line bg-page motion-safe:animate-fade-in"
                     >
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Input
-                        label="Họ và tên người ký"
-                        required
-                        value={s.fullName}
-                        onChange={(e) => updateSigner(i, { fullName: e.target.value })}
-                        placeholder="Nguyễn Văn A"
-                      />
-                      <Input
-                        label="Email nhận link ký"
-                        type="email"
-                        required
-                        value={s.email}
-                        onChange={(e) => updateSigner(i, { email: e.target.value })}
-                        placeholder="ten@congty.vn"
-                      />
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" aria-label="Lên trên" disabled={i === 0} onClick={() => moveSigner(i, -1)}>
-                        <ArrowUp className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        aria-label="Xuống dưới"
-                        disabled={i === signers.length - 1}
-                        onClick={() => moveSigner(i, 1)}
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        aria-label="Xóa người ký"
-                        disabled={signers.length === 1}
-                        onClick={() => setSigners((prev) => prev.filter((_, j) => j !== i))}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-6 h-6 rounded-sm flex items-center justify-center text-xs font-bold text-white shrink-0 ${SIGNER_COLORS[i]}`}
+                          >
+                            {i + 1}
+                          </span>
+                          <Badge
+                            className={
+                              i === 0
+                                ? "bg-selected text-primary"
+                                : "bg-badge-completed-bg text-badge-completed-fg"
+                            }
+                          >
+                            {roleTag}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            aria-label="Lên trên"
+                            disabled={i === 0}
+                            onClick={() => moveSigner(i, -1)}
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            aria-label="Xuống dưới"
+                            disabled={i === signers.length - 1}
+                            onClick={() => moveSigner(i, 1)}
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            aria-label="Xóa người ký"
+                            disabled={signers.length === 1}
+                            onClick={() => setSigners((prev) => prev.filter((_, j) => j !== i))}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input
+                          label={i === 0 ? "Họ tên Chủ doanh nghiệp / Đại diện Bên A" : "Họ và tên người ký"}
+                          required
+                          value={s.fullName}
+                          onChange={(e) => updateSigner(i, { fullName: e.target.value })}
+                          placeholder="Nguyễn Văn A"
+                        />
+                        <Input
+                          label={
+                            i === 0
+                              ? "Email Chủ doanh nghiệp (Nhận link xác nhận ký)"
+                              : "Email đối tác nhận link ký"
+                          }
+                          type="email"
+                          required
+                          value={s.email}
+                          onChange={(e) => updateSigner(i, { email: e.target.value })}
+                          placeholder="giamdoc@congty.vn"
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
+
               <div className="max-w-xs">
                 <Input
-                  label="Hạn ký"
+                  label="Hạn hoàn tất ký"
                   type="datetime-local"
                   required
                   value={dueAt}
@@ -906,10 +1097,9 @@ export default function NewContractPage() {
           >
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Cột trái: Danh sách người ký & thông số tọa độ */}
                 <div className="lg:col-span-5 flex flex-col gap-4">
                   <p className="text-sm text-muted">
-                    Ô chữ ký đã được đặt sẵn ở mục <strong>Đại diện Bên A / Bên B</strong> cuối trang. Bạn có thể kéo thả để đổi vị trí tùy ý.
+                    Ô chữ ký của <strong>Chủ doanh nghiệp (Bên A)</strong> và <strong>Đối tác (Bên B)</strong> đã được đặt sẵn ở cuối trang. Bạn có thể kéo thả để chỉnh lại vị trí.
                   </p>
 
                   <div className="flex flex-col gap-2">
@@ -936,7 +1126,9 @@ export default function NewContractPage() {
                               {idx + 1}
                             </span>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-fg truncate">{s.fullName}</p>
+                              <p className="text-sm font-semibold text-fg truncate">
+                                {idx === 0 ? `Chủ DN: ${s.fullName}` : `Đối tác: ${s.fullName}`}
+                              </p>
                               <p className="text-xs text-muted truncate">{s.email}</p>
                             </div>
                           </div>
@@ -951,7 +1143,7 @@ export default function NewContractPage() {
                   {signers[activeSignerIndex] && (
                     <div className="p-4 rounded-md border border-line bg-page flex flex-col gap-3">
                       <p className="text-xs font-bold uppercase tracking-wider text-muted">
-                        Tọa độ ô ký · Người ký #{activeSignerIndex + 1} ({signers[activeSignerIndex].fullName})
+                        Tọa độ ô ký · Lượt #{activeSignerIndex + 1} ({signers[activeSignerIndex].fullName})
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         <Input
@@ -1027,7 +1219,6 @@ export default function NewContractPage() {
                   )}
                 </div>
 
-                {/* Cột phải: Tờ hợp đồng A4 chuẩn có sẵn vùng chữ ký cuối trang */}
                 <div className="lg:col-span-7 flex flex-col items-center gap-2">
                   <div className="w-full max-w-[520px] flex items-center justify-between text-xs text-muted">
                     <span>
@@ -1051,7 +1242,6 @@ export default function NewContractPage() {
                     ref={canvasRef}
                     className="relative w-full max-w-[520px] aspect-[595/842] rounded-md border-2 border-line-strong bg-white shadow-md overflow-hidden select-none"
                   >
-                    {/* Nền tài liệu: PDF đã tải lên hoặc Tờ hợp đồng A4 chuẩn */}
                     {source === "upload" && filePreviewUrl ? (
                       <iframe
                         src={`${filePreviewUrl}#page=${activePage}&toolbar=0&navpanes=0`}
@@ -1062,7 +1252,7 @@ export default function NewContractPage() {
                       <div className="w-full h-full overflow-hidden pointer-events-none">
                         <InteractiveContractPaper
                           title={title}
-                          structuredTemplate={structuredTemplateContent}
+                          structuredTemplate={mergedBlueprint?.compiledContent ?? ""}
                           values={values}
                           signers={signers}
                           interactiveFields={false}
@@ -1070,7 +1260,6 @@ export default function NewContractPage() {
                       </div>
                     )}
 
-                    {/* Các ô chữ ký kéo thả trên trang hiện tại */}
                     {signers.map((s, idx) => {
                       if (s.pageNumber !== activePage) return null;
                       const leftPct = (s.boxX / PDF_PAGE_WIDTH) * 100;
@@ -1130,20 +1319,20 @@ export default function NewContractPage() {
         )}
 
         {step === 3 && (
-          <Card title="Kiểm tra trước khi lưu nháp hoặc gửi ký" icon={Send}>
+          <Card title="Kiểm tra trước khi lưu nháp hoặc gửi Email xác nhận ký" icon={Send}>
             <div className="flex flex-col gap-4">
-              <dl className="grid grid-cols-1 sm:grid-cols-[160px_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
+              <dl className="grid grid-cols-1 sm:grid-cols-[190px_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
                 <dt className="text-muted">Tên hợp đồng</dt>
                 <dd className="font-semibold text-fg">{title}</dd>
                 <dt className="text-muted">Nguồn tài liệu</dt>
                 <dd className="text-fg">
-                  {source === "upload" ? `File PDF: ${file?.name}` : `Mẫu: ${template?.name}`}
+                  {source === "upload" ? `File PDF: ${file?.name}` : `Mẫu: ${templateDetail?.name}`}
                 </dd>
                 <dt className="text-muted">Hạn ký</dt>
                 <dd className="text-fg">{formatDateTime(new Date(dueAt).toISOString())}</dd>
-                <dt className="text-muted">Danh sách người ký & vị trí ô ký</dt>
+                <dt className="text-muted">Trình tự gửi Email ký số</dt>
                 <dd>
-                  <ol className="flex flex-col gap-1.5">
+                  <ol className="flex flex-col gap-2">
                     {signers.map((s, i) => (
                       <li key={i} className="flex flex-wrap items-center gap-2">
                         <span
@@ -1151,10 +1340,13 @@ export default function NewContractPage() {
                         >
                           {i + 1}
                         </span>
+                        <span className="font-semibold text-fg">
+                          {i === 0 ? "Chủ DN (Duyệt & ký trước):" : "Đối tác (Ký sau):"}
+                        </span>
                         <span className="font-medium text-fg">{s.fullName}</span>
                         <span className="text-muted">({s.email})</span>
                         <span className="font-mono text-xs px-1.5 py-0.5 rounded-sm bg-page border border-line text-muted">
-                          Trang {s.pageNumber} · X={s.boxX}, Y={s.boxY} ({s.boxWidth}×{s.boxHeight} pt)
+                          Trang {s.pageNumber} · X={s.boxX}, Y={s.boxY}
                         </span>
                       </li>
                     ))}
@@ -1163,7 +1355,11 @@ export default function NewContractPage() {
               </dl>
 
               <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-line">
-                <Button variant="secondary" onClick={() => setStep(2)} disabled={isSavingDraft || isSending}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setStep(2)}
+                  disabled={isSavingDraft || isSending}
+                >
                   <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   Quay lại chỉnh ô ký
                 </Button>
@@ -1183,7 +1379,7 @@ export default function NewContractPage() {
                     disabled={isSavingDraft}
                   >
                     <Send className="w-4 h-4" aria-hidden="true" />
-                    Gửi ký ngay
+                    Gửi Email xác nhận ký
                   </Button>
                 </div>
               </div>
@@ -1195,20 +1391,20 @@ export default function NewContractPage() {
       <Dialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title="Gửi hợp đồng đi ký"
+        title="Gửi Email xác nhận ký cho Chủ doanh nghiệp"
         footer={
           <>
             <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={isSending}>
               Hủy
             </Button>
             <Button variant="primary" onClick={handleSend} isLoading={isSending}>
-              Xác nhận gửi ký
+              Xác nhận gửi
             </Button>
           </>
         }
       >
-        <p className="text-sm text-fg">
-          Gửi <span className="font-semibold">{title}</span> cho {signers.length} người ký theo thứ tự. Khi gửi ký, hệ thống sẽ trừ <strong>01 lượt hợp đồng</strong> trong hạn mức gói cước và khóa nội dung tài liệu bằng mã băm SHA-256.
+        <p className="text-sm text-fg leading-relaxed">
+          Hệ thống sẽ khóa nội dung hợp đồng <span className="font-semibold">{title}</span> bằng mã băm SHA-256, trừ <strong>01 lượt hợp đồng</strong> trong hạn mức gói cước, và gửi <strong>Email xác nhận ký kèm OTP</strong> đến Chủ doanh nghiệp (<strong>{signers[0]?.email}</strong>) trước. Sau khi Chủ doanh nghiệp ký xong, hệ thống sẽ tự động gửi tiếp cho Đối tác.
         </p>
       </Dialog>
 
