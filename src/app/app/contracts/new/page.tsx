@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Calendar,
   Check,
   Eye,
   FilePenLine,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { contractsApi, type NewSigner } from "@/lib/api/contracts";
 import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
+import { tenantsApi } from "@/lib/api/tenants";
 import {
   buildFormattedContractFromBlueprint,
   normalizeTemplateStructure,
@@ -64,11 +66,11 @@ const SIGNER_COLORS = [
 ];
 
 const SIGNER_BOX_STYLES = [
-  "border-primary bg-primary/12 text-primary",
-  "border-success bg-success/12 text-success",
-  "border-warning bg-warning/15 text-warning",
-  "border-badge-signing-fg bg-badge-signing-bg/70 text-badge-signing-fg",
-  "border-muted bg-strip/80 text-fg",
+  "border-primary bg-primary/15 text-primary",
+  "border-success bg-success/15 text-success",
+  "border-warning bg-warning/18 text-warning",
+  "border-badge-signing-fg bg-badge-signing-bg/80 text-badge-signing-fg",
+  "border-muted bg-strip/90 text-fg",
 ];
 
 const STEPS = [
@@ -84,6 +86,73 @@ function formatVariableLabel(key: string): string {
   return VARIABLE_LABELS[key] ?? key.replace(/_/g, " ");
 }
 
+/** Chuyển Date -> YYYY-MM-DD cho input[type="date"] */
+function toIsoDateInput(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Chuyển YYYY-MM-DD -> dd/MM/yyyy chuẩn hợp đồng Việt Nam */
+function isoToVnDate(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/** Chuyển dd/MM/yyyy -> YYYY-MM-DD cho input[type="date"] */
+function vnDateToIso(vn: string): string {
+  const m = vn.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return "";
+  return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
+/** Cộng thêm số tháng vào ngày dd/MM/yyyy và trả về chuỗi thời hạn chuẩn */
+function buildDurationValue(startVnDate: string, months: number): { text: string; endIso: string } {
+  const iso = vnDateToIso(startVnDate) || toIsoDateInput(new Date());
+  const d = new Date(`${iso}T00:00:00`);
+  d.setMonth(d.getMonth() + months);
+  const endIso = toIsoDateInput(d);
+  const endVn = isoToVnDate(endIso);
+  const label = months >= 12 && months % 12 === 0 ? `${months / 12} năm` : `${months} tháng`;
+  return {
+    text: `${label} (đến ngày ${endVn})`,
+    endIso,
+  };
+}
+
+function isStartDateField(key: string): boolean {
+  return key === "ngay_hieu_luc" || key.startsWith("ngay_");
+}
+
+function isDurationOrEndDateField(key: string): boolean {
+  return (
+    key === "thoi_han_hop_dong" ||
+    key === "thoi_gian_bao_hanh" ||
+    key.includes("thoi_han") ||
+    key.includes("ket_thuc")
+  );
+}
+
+function isMoneyField(key: string): boolean {
+  return (
+    key === "gia_tri_hop_dong" ||
+    key === "muc_luong_chinh" ||
+    key === "gia_thue_hang_thang" ||
+    key === "tien_dat_coc" ||
+    key.includes("gia_tri") ||
+    key.includes("muc_luong") ||
+    key.includes("tien_")
+  );
+}
+
+function formatDigitsToVnCurrency(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw;
+  return Number(digits).toLocaleString("vi-VN");
+}
+
 function defaultBoxForOrder(
   index: number,
   totalSigners = 2,
@@ -91,8 +160,8 @@ function defaultBoxForOrder(
   if (totalSigners === 1) {
     return {
       pageNumber: 1,
-      boxX: 360,
-      boxY: 95,
+      boxX: 355,
+      boxY: 55,
       boxWidth: DEFAULT_BOX_WIDTH,
       boxHeight: DEFAULT_BOX_HEIGHT,
     };
@@ -101,8 +170,8 @@ function defaultBoxForOrder(
   const row = Math.floor(index / 2);
   return {
     pageNumber: 1,
-    boxX: col === 0 ? 65 : 365,
-    boxY: Math.max(55, 115 - row * 78),
+    boxX: col === 0 ? 65 : 355,
+    boxY: Math.max(40, 55 - row * 72),
     boxWidth: DEFAULT_BOX_WIDTH,
     boxHeight: DEFAULT_BOX_HEIGHT,
   };
@@ -142,6 +211,10 @@ function Stepper({ step }: { step: Step }) {
   );
 }
 
+/**
+ * Tờ hợp đồng A4 dùng font-sans ("Segoe UI", Roboto, Arial) đồng bộ 100% với PDF của Backend
+ * giúp hiển thị tiếng Việt có dấu sắc nét, không bao giờ lỗi dấu.
+ */
 function InteractiveContractPaper({
   title,
   structuredTemplate,
@@ -150,6 +223,7 @@ function InteractiveContractPaper({
   onSelectVar,
   signers,
   interactiveFields = true,
+  signatureSectionRef,
 }: {
   title: string;
   structuredTemplate: string;
@@ -158,6 +232,7 @@ function InteractiveContractPaper({
   onSelectVar?: (varKey: string) => void;
   signers?: NewSigner[];
   interactiveFields?: boolean;
+  signatureSectionRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const tokenRefs = React.useRef<Record<string, HTMLElement | null>>({});
 
@@ -188,7 +263,7 @@ function InteractiveContractPaper({
 
         if (!interactiveFields) {
           return (
-            <span key={`${lineIdx}-${partIdx}`} className="font-semibold text-black">
+            <span key={`${lineIdx}-${partIdx}`} className="font-semibold text-slate-900">
               {val || `[${label}]`}
             </span>
           );
@@ -204,7 +279,7 @@ function InteractiveContractPaper({
             onClick={() => onSelectVar?.(key)}
             className={`inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-sm font-sans text-xs transition-all cursor-pointer ${
               isFocused
-                ? "bg-primary text-white font-bold ring-2 ring-primary/40 shadow-xs scale-[1.02]"
+                ? "bg-primary text-white font-bold ring-2 ring-primary/40 shadow-xs"
                 : val
                   ? "bg-emerald-50 text-emerald-900 border border-emerald-300 font-semibold hover:bg-emerald-100"
                   : "bg-amber-100 text-amber-950 border border-dashed border-amber-400 font-medium hover:bg-amber-200"
@@ -220,10 +295,10 @@ function InteractiveContractPaper({
   };
 
   return (
-    <div className="bg-white text-black font-serif px-7 py-6 text-[12.5px] leading-[1.65] flex flex-col justify-between min-h-full">
+    <div className="bg-white text-slate-900 font-sans px-7 py-6 text-[12px] leading-[1.6] flex flex-col justify-between min-h-[780px]">
       <div>
         {!hasHeader && (
-          <div className="text-center mb-4">
+          <div className="text-center mb-3">
             <p className="font-bold text-[12px] uppercase tracking-wide">
               CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
             </p>
@@ -234,23 +309,24 @@ function InteractiveContractPaper({
         )}
 
         {!structuredTemplate.toUpperCase().includes((title || "").trim().toUpperCase()) && (
-          <div className="text-center my-3">
+          <div className="text-center my-2.5">
             <p className="font-bold text-[14px] uppercase text-[#1f5fa8]">
               {title.trim() || "HỢP ĐỒNG GIAO DỊCH"}
             </p>
-            <p className="font-sans text-[10px] text-neutral-500 mt-0.5">
-              Lập ngày {new Date().toLocaleDateString("vi-VN")}
+            <p className="text-[10.5px] text-slate-500 mt-0.5">
+              Ngày lập: {values["ngay_hieu_luc"] || isoToVnDate(toIsoDateInput(new Date()))}
             </p>
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5 mt-2">
+        <div className="flex flex-col gap-1 mt-2">
           {lines.map((line, idx) => {
             const trimmed = line.trim();
             if (!trimmed) return <div key={idx} className="h-1.5" />;
 
             const isQuocHieu = trimmed.toUpperCase() === "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM";
             const isTieuNgu = trimmed === "Độc lập - Tự do - Hạnh phúc";
+            const isDocTitle = trimmed.toUpperCase() === (title || "").trim().toUpperCase();
             const isHeading =
               /^(ĐIỀU\s+\d+|I+\.|BÊN\s+[AB]|HỢP ĐỒNG|THỎA THUẬN|BIÊN BẢN)/i.test(trimmed);
 
@@ -271,10 +347,17 @@ function InteractiveContractPaper({
                 </p>
               );
             }
+            if (isDocTitle) {
+              return (
+                <p key={idx} className="text-center font-bold text-[14px] uppercase text-[#1f5fa8] my-1">
+                  {trimmed}
+                </p>
+              );
+            }
             return (
               <p
                 key={idx}
-                className={`${isHeading ? "font-bold text-[12.5px] mt-1.5" : "text-[12px]"}`}
+                className={`${isHeading ? "font-bold text-[12px] mt-1.5 text-slate-950" : "text-[11.5px] text-slate-800"}`}
               >
                 {renderLineWithTokens(line, idx)}
               </p>
@@ -283,21 +366,28 @@ function InteractiveContractPaper({
         </div>
       </div>
 
-      {/* Khối đại diện ký ở cuối tờ hợp đồng A4 */}
-      <div className="mt-6 pt-4 border-t border-neutral-200 grid grid-cols-2 gap-4 text-center font-sans text-[10.5px] text-neutral-700">
+      {/* Khối đại diện ký ở cuối tờ hợp đồng A4 (Có khoảng trống 96px để đặt ô chữ ký) */}
+      <div
+        ref={signatureSectionRef}
+        className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
+      >
         <div>
-          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN A (CHỦ DOANH NGHIỆP)</p>
-          <p className="text-[9.5px] italic text-neutral-500">(Nhận email xác nhận & ký số trước)</p>
-          <div className="h-16" />
-          <p className="font-semibold text-black truncate">
+          <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A (CHỦ DN)</p>
+          <p className="text-[10px] italic text-slate-500">(Nhận email xác nhận & ký số trước)</p>
+          <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+            Vùng đặt ô chữ ký Bên A
+          </div>
+          <p className="font-semibold text-slate-900 truncate">
             {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
           </p>
         </div>
         <div>
-          <p className="font-bold uppercase text-black">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
-          <p className="text-[9.5px] italic text-neutral-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
-          <div className="h-16" />
-          <p className="font-semibold text-black truncate">
+          <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
+          <p className="text-[10px] italic text-slate-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
+          <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+            Vùng đặt ô chữ ký Bên B
+          </div>
+          <p className="font-semibold text-slate-900 truncate">
             {signers?.[1]?.fullName ||
               values["dai_dien_ben_b"] ||
               values["ho_ten_nhan_vien"] ||
@@ -314,8 +404,14 @@ export default function NewContractPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user } = useWorkspace();
+  const { user, activeTenantId } = useWorkspace();
   const templates = useApi("templates", templatesApi.list);
+  const tenants = useApi("tenants:mine", tenantsApi.mine);
+
+  const activeTenant = React.useMemo(
+    () => tenants.data?.find((t) => t.id === activeTenantId) ?? tenants.data?.[0],
+    [tenants.data, activeTenantId],
+  );
 
   const [step, setStep] = React.useState<Step>(0);
   const [source, setSource] = React.useState<"template" | "upload">("template");
@@ -325,12 +421,16 @@ export default function NewContractPage() {
   );
   const [templateDetail, setTemplateDetail] = React.useState<TemplateDetail | null>(null);
 
-  // Cho phép người dùng tự thêm trường thông tin mới ngay lúc soạn hợp đồng và tự động format lại đúng trình tự!
   const [extraFields, setExtraFields] = React.useState<TemplateFieldItem[]>([]);
   const [newFieldLabel, setNewFieldLabel] = React.useState("");
   const [newFieldSection, setNewFieldSection] = React.useState<FieldSection>("transaction");
 
   const [values, setValues] = React.useState<Record<string, string>>({});
+  const [endDateIso, setEndDateIso] = React.useState<string>(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return toIsoDateInput(d);
+  });
   const [focusedVar, setFocusedVar] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = React.useState<string | null>(null);
@@ -353,6 +453,8 @@ export default function NewContractPage() {
 
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const canvasRef = React.useRef<HTMLDivElement>(null);
+  const placementScrollRef = React.useRef<HTMLDivElement>(null);
+  const signatureSectionRef = React.useRef<HTMLDivElement>(null);
   const dragStateRef = React.useRef<{
     signerIdx: number;
     startClientX: number;
@@ -361,7 +463,42 @@ export default function NewContractPage() {
     startBoxY: number;
   } | null>(null);
 
-  // Xử lý chọn mẫu (có thể là mẫu tham khảo có sẵn `ref:...` hoặc mẫu đã lưu trong DB)
+  /**
+   * Tự động điền thông tin mặc định thông minh:
+   * - Ngày bắt đầu hiệu lực (`ngay_hieu_luc`) = Ngày hôm nay (dd/MM/yyyy)
+   * - Thời hạn thực hiện (`thoi_han_hop_dong`) = 1 năm kể từ hôm nay
+   * - Thông tin Bên A = Tên DN, MST, Địa chỉ, Người đại diện của doanh nghiệp hiện tại
+   */
+  const buildSmartDefaultValues = React.useCallback(
+    (varKeys: string[]): Record<string, string> => {
+      const todayIso = toIsoDateInput(new Date());
+      const todayVn = isoToVnDate(todayIso);
+      const oneYear = buildDurationValue(todayVn, 12);
+
+      const defaults: Record<string, string> = {};
+      for (const k of varKeys) {
+        if (isStartDateField(k)) {
+          defaults[k] = todayVn;
+        } else if (k === "thoi_gian_bao_hanh") {
+          defaults[k] = "12 tháng";
+        } else if (isDurationOrEndDateField(k)) {
+          defaults[k] = oneYear.text;
+        } else if (k === "ten_ben_a" && activeTenant?.name) {
+          defaults[k] = activeTenant.name;
+        } else if (k === "mst_ben_a" && activeTenant?.taxCode) {
+          defaults[k] = activeTenant.taxCode;
+        } else if (k === "dia_chi_ben_a" && activeTenant?.address) {
+          defaults[k] = activeTenant.address;
+        } else if (k === "dai_dien_ben_a" && user.fullName) {
+          defaults[k] = user.fullName;
+        }
+      }
+      return defaults;
+    },
+    [activeTenant, user.fullName],
+  );
+
+  // Khi chọn mẫu (mẫu tham khảo hoặc mẫu DB) -> nạp nội dung & tự điền ngày hôm nay + thông tin Bên A
   React.useEffect(() => {
     if (!selectedChoice) {
       setTemplateDetail(null);
@@ -373,6 +510,8 @@ export default function NewContractPage() {
       const refBp = REFERENCE_TEMPLATES.find((r) => r.id === refId) ?? REFERENCE_TEMPLATES[0];
       const compiled = buildFormattedContractFromBlueprint(refBp);
       const vars = refBp.fields.map((f) => f.key);
+      const smartDefaults = buildSmartDefaultValues(vars);
+
       setTemplateDetail({
         id: selectedChoice,
         name: refBp.name,
@@ -383,10 +522,13 @@ export default function NewContractPage() {
       });
       setTitle(refBp.name);
       setExtraFields([]);
-      const firstVar = vars[0];
-      if (firstVar) {
-        setFocusedVar(firstVar);
-        setTimeout(() => inputRefs.current[firstVar]?.focus(), 80);
+      setValues(smartDefaults);
+
+      // Tự động focus vào trường đầu tiên chưa có dữ liệu (thường là Tên đối tác Bên B)
+      const firstEmptyVar = vars.find((v) => !smartDefaults[v]) ?? vars[0];
+      if (firstEmptyVar) {
+        setFocusedVar(firstEmptyVar);
+        setTimeout(() => inputRefs.current[firstEmptyVar]?.focus(), 80);
       }
       return;
     }
@@ -396,13 +538,17 @@ export default function NewContractPage() {
       .get(selectedChoice)
       .then((detail) => {
         if (!cancelled) {
+          const smartDefaults = buildSmartDefaultValues(detail.variables);
           setTemplateDetail(detail);
           setTitle(detail.name);
           setExtraFields([]);
-          const firstVar = detail.variables[0];
-          if (firstVar) {
-            setFocusedVar(firstVar);
-            setTimeout(() => inputRefs.current[firstVar]?.focus(), 80);
+          setValues(smartDefaults);
+
+          const firstEmptyVar =
+            detail.variables.find((v) => !smartDefaults[v]) ?? detail.variables[0];
+          if (firstEmptyVar) {
+            setFocusedVar(firstEmptyVar);
+            setTimeout(() => inputRefs.current[firstEmptyVar]?.focus(), 80);
           }
         }
       })
@@ -412,7 +558,21 @@ export default function NewContractPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedChoice]);
+  }, [selectedChoice, buildSmartDefaultValues]);
+
+  // Khi sang Bước 3 (Đặt vị trí ô ký), tự động cuộn khung A4 xuống phần ĐẠI DIỆN BÊN A / BÊN B ở cuối trang
+  React.useEffect(() => {
+    if (step === 2) {
+      setTimeout(() => {
+        if (placementScrollRef.current) {
+          placementScrollRef.current.scrollTo({
+            top: placementScrollRef.current.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      }, 120);
+    }
+  }, [step]);
 
   React.useEffect(() => {
     if (!file) {
@@ -424,7 +584,6 @@ export default function NewContractPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // Hợp nhất cấu trúc gốc của mẫu + các mục thông tin người dùng tự thêm vào đúng trình tự Mục I -> II -> III -> Điều khoản
   const mergedBlueprint = React.useMemo(() => {
     if (!templateDetail) return null;
     const base = parseTemplateIntoBlueprint(
@@ -437,7 +596,6 @@ export default function NewContractPage() {
         combinedFields.push(ef);
       }
     }
-    // Sắp xếp lại đúng trình tự: Bên A -> Bên B -> Nội dung giao dịch
     const orderedFields = [
       ...combinedFields.filter((f) => f.section === "partyA"),
       ...combinedFields.filter((f) => f.section === "partyB"),
@@ -528,11 +686,11 @@ export default function NewContractPage() {
 
     setSigners((prev) => {
       const next = [...prev];
-      if (next[0] && (!next[0].fullName.trim() || next[0].fullName === user.fullName)) {
+      if (next[0]) {
         next[0] = {
           ...next[0],
           fullName: repA || next[0].fullName,
-          email: next[0].email || user.email || "",
+          email: next[0].email || activeTenant?.contactEmail || user.email || "",
         };
       }
       if (next[1] && !next[1].fullName.trim() && repB) {
@@ -569,6 +727,12 @@ export default function NewContractPage() {
       })),
     );
     setActivePage(1);
+    if (placementScrollRef.current) {
+      placementScrollRef.current.scrollTo({
+        top: placementScrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
     toast("Đã tự động căn chỉnh vị trí ô ký vào khu vực Đại diện ký cuối trang.", "success");
   };
 
@@ -640,7 +804,6 @@ export default function NewContractPage() {
         const res = await contractsApi.upload(file, title.trim());
         contractId = res.contractId;
       } else {
-        // Nếu người dùng chọn mẫu tham khảo hoặc có thêm trường thông tin mới, lưu/cập nhật mẫu trước khi sinh PDF
         let realTemplateId = selectedChoice;
         const compiledContent = mergedBlueprint?.compiledContent ?? templateDetail?.content ?? "";
         if (selectedChoice.startsWith("ref:") || extraFields.length > 0) {
@@ -703,6 +866,177 @@ export default function NewContractPage() {
     }
   };
 
+  /** Render ô nhập thông minh tùy theo loại trường (Ngày bắt đầu, Thời hạn/Ngày kết thúc, Tiền tệ, hoặc Văn bản) */
+  const renderSmartFieldControl = (f: TemplateFieldItem, idx: number) => {
+    const val = values[f.key] ?? "";
+
+    // 1. Trường Ngày bắt đầu hiệu lực -> Bộ chọn lịch Date Picker + mặc định Hôm nay
+    if (isStartDateField(f.key)) {
+      const isoVal = vnDateToIso(val) || toIsoDateInput(new Date());
+      return (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold text-fg">
+              {idx + 1}. {f.label} <span className="text-danger">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const todayVn = isoToVnDate(toIsoDateInput(new Date()));
+                setValues((prev) => ({ ...prev, [f.key]: todayVn }));
+                setCreatedDraftId(null);
+              }}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+            >
+              Lấy ngày hôm nay
+            </button>
+          </div>
+          <div className="relative flex items-center gap-2">
+            <input
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              type="date"
+              value={isoVal}
+              onFocus={() => setFocusedVar(f.key)}
+              onChange={(e) => {
+                const pickedIso = e.target.value;
+                if (!pickedIso) return;
+                const pickedVn = isoToVnDate(pickedIso);
+                setValues((prev) => ({ ...prev, [f.key]: pickedVn }));
+                setCreatedDraftId(null);
+              }}
+              className="w-full h-10 px-3 rounded-md border border-line-strong bg-surface text-sm text-fg focus:outline-none focus:border-primary"
+            />
+            <span className="shrink-0 px-2.5 py-2 rounded-md bg-page border border-line text-xs font-mono text-fg">
+              {val || isoToVnDate(isoVal)}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Trường Thời hạn hợp đồng / Ngày kết thúc -> Nút chọn nhanh (3 tháng, 6 tháng, 1 năm...) + Lịch chọn ngày kết thúc
+    if (isDurationOrEndDateField(f.key)) {
+      const startVn = values["ngay_hieu_luc"] || isoToVnDate(toIsoDateInput(new Date()));
+      return (
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-fg">
+            {idx + 1}. {f.label} <span className="text-danger">*</span>
+          </label>
+
+          {/* Chọn nhanh thời hạn chỉ 1 cú nhấp */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { label: "3 tháng", months: 3 },
+              { label: "6 tháng", months: 6 },
+              { label: "1 năm", months: 12 },
+              { label: "2 năm", months: 24 },
+              { label: "3 năm", months: 36 },
+            ].map((preset) => (
+              <button
+                key={preset.months}
+                type="button"
+                onClick={() => {
+                  const computed = buildDurationValue(startVn, preset.months);
+                  setEndDateIso(computed.endIso);
+                  setValues((prev) => ({ ...prev, [f.key]: computed.text }));
+                  setFocusedVar(f.key);
+                  setCreatedDraftId(null);
+                }}
+                className="px-2.5 py-1 rounded-sm border border-primary/30 bg-surface hover:bg-selected text-xs font-semibold text-primary cursor-pointer transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Hoặc chọn ngày kết thúc cụ thể trên lịch */}
+          <div className="grid grid-cols-1 sm:grid-cols-[165px_1fr] gap-2 items-center">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-muted shrink-0" />
+              <input
+                type="date"
+                aria-label="Chọn ngày kết thúc"
+                value={endDateIso}
+                onChange={(e) => {
+                  const pickedEndIso = e.target.value;
+                  if (!pickedEndIso) return;
+                  setEndDateIso(pickedEndIso);
+                  const endVn = isoToVnDate(pickedEndIso);
+                  setValues((prev) => ({
+                    ...prev,
+                    [f.key]: `Đến ngày ${endVn}`,
+                  }));
+                  setFocusedVar(f.key);
+                  setCreatedDraftId(null);
+                }}
+                className="w-full h-9 px-2 rounded-md border border-line-strong bg-surface text-xs text-fg focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <input
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              type="text"
+              value={val}
+              onFocus={() => setFocusedVar(f.key)}
+              onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+              onChange={(e) => {
+                setValues((prev) => ({ ...prev, [f.key]: e.target.value }));
+                setCreatedDraftId(null);
+              }}
+              placeholder="VD: 1 năm (đến ngày 04/11/2027)"
+              className="w-full h-9 px-3 rounded-md border border-line-strong bg-surface text-xs font-medium text-fg focus:outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Trường Tiền tệ (Giá trị hợp đồng / Mức lương / Tiền cọc) -> Tự động thêm dấu chấm phân cách hàng nghìn
+    if (isMoneyField(f.key)) {
+      return (
+        <Input
+          ref={(el) => {
+            inputRefs.current[f.key] = el;
+          }}
+          label={`${idx + 1}. ${f.label}`}
+          required
+          value={val}
+          onFocus={() => setFocusedVar(f.key)}
+          onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+          onChange={(e) => {
+            const formatted = formatDigitsToVnCurrency(e.target.value);
+            setValues((prev) => ({ ...prev, [f.key]: formatted }));
+            setCreatedDraftId(null);
+          }}
+          placeholder="VD: 100.000.000"
+        />
+      );
+    }
+
+    // 4. Các trường văn bản thông thường
+    return (
+      <Input
+        ref={(el) => {
+          inputRefs.current[f.key] = el;
+        }}
+        label={`${idx + 1}. ${f.label}`}
+        required
+        value={val}
+        onFocus={() => setFocusedVar(f.key)}
+        onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+        onChange={(e) => {
+          setValues((prev) => ({ ...prev, [f.key]: e.target.value }));
+          setCreatedDraftId(null);
+        }}
+        placeholder={`Nhập ${f.label.toLowerCase()}…`}
+      />
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Soạn hợp đồng" back={{ href: "/app/contracts", label: "Danh sách hợp đồng" }} />
@@ -718,7 +1052,7 @@ export default function NewContractPage() {
                     id: "template" as const,
                     icon: FilePenLine,
                     title: "Từ mẫu hợp đồng thông dụng",
-                    text: "Chọn mẫu có sẵn, điền thông tin và thêm mục tùy ý — tự động dàn trang A4 chuẩn.",
+                    text: "Tự động điền sẵn ngày hôm nay & thông tin Bên A — tự động dàn trang A4 chuẩn.",
                   },
                   {
                     id: "upload" as const,
@@ -770,7 +1104,6 @@ export default function NewContractPage() {
                     value={selectedChoice}
                     onChange={(e) => {
                       setSelectedChoice(e.target.value);
-                      setValues({});
                       setCreatedDraftId(null);
                     }}
                   >
@@ -800,7 +1133,7 @@ export default function NewContractPage() {
                 ) : (
                   mergedBlueprint && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start motion-safe:animate-fade-in pt-2">
-                      {/* Cột trái: Các ô nhập liệu + Thêm mục thông tin mới không cần {} */}
+                      {/* Cột trái: Các ô nhập liệu thông minh + Thêm mục thông tin mới */}
                       <div className="lg:col-span-5 flex flex-col gap-4">
                         <div className="p-4 rounded-md border border-line bg-page flex flex-col gap-3">
                           <div className="flex items-center justify-between">
@@ -808,36 +1141,22 @@ export default function NewContractPage() {
                               Điền thông tin ({activeVariables.filter((v) => (values[v] ?? "").trim()).length}/
                               {activeVariables.length})
                             </span>
-                            <span className="text-[11px] text-muted">Nhấn Enter để qua ô kế tiếp</span>
+                            <span className="text-[11px] text-muted">Đã tự điền Bên A & Ngày hôm nay</span>
                           </div>
 
-                          <div className="flex flex-col gap-2.5 max-h-[440px] overflow-y-auto pr-1">
+                          <div className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto pr-1">
                             {mergedBlueprint.orderedFields.map((f, idx) => {
                               const isFocused = focusedVar === f.key;
                               return (
                                 <div
                                   key={f.key}
-                                  className={`p-2.5 rounded-md border transition-colors ${
+                                  className={`p-3 rounded-md border transition-colors ${
                                     isFocused
                                       ? "border-primary bg-selected/60 shadow-2xs"
                                       : "border-line bg-surface"
                                   }`}
                                 >
-                                  <Input
-                                    ref={(el) => {
-                                      inputRefs.current[f.key] = el;
-                                    }}
-                                    label={`${idx + 1}. ${f.label}`}
-                                    required
-                                    value={values[f.key] ?? ""}
-                                    onFocus={() => setFocusedVar(f.key)}
-                                    onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
-                                    onChange={(e) => {
-                                      setValues((prev) => ({ ...prev, [f.key]: e.target.value }));
-                                      setCreatedDraftId(null);
-                                    }}
-                                    placeholder={`Nhập ${f.label.toLowerCase()}…`}
-                                  />
+                                  {renderSmartFieldControl(f, idx)}
                                 </div>
                               );
                             })}
@@ -890,12 +1209,12 @@ export default function NewContractPage() {
                         <div className="flex items-center justify-between text-xs text-muted px-1">
                           <span className="inline-flex items-center gap-1.5 font-semibold text-fg">
                             <Eye className="w-3.5 h-3.5 text-primary" />
-                            Bản xem trước hợp đồng chuẩn A4 (Tự động dàn trang)
+                            Bản xem trước hợp đồng chuẩn A4 (Cuộn để xem toàn bộ)
                           </span>
                           <span>Bấm vào bất kỳ ô màu nào trên giấy để sửa nhanh</span>
                         </div>
 
-                        <div className="rounded-md border-2 border-line-strong bg-white shadow-md max-h-[600px] overflow-y-auto">
+                        <div className="rounded-md border-2 border-line-strong bg-white shadow-md max-h-[640px] overflow-y-auto">
                           <InteractiveContractPaper
                             title={title}
                             structuredTemplate={mergedBlueprint.compiledContent}
@@ -1036,7 +1355,9 @@ export default function NewContractPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Input
-                          label={i === 0 ? "Họ tên Chủ doanh nghiệp / Đại diện Bên A" : "Họ và tên người ký"}
+                          label={
+                            i === 0 ? "Họ tên Chủ doanh nghiệp / Đại diện Bên A" : "Họ và tên người ký"
+                          }
                           required
                           value={s.fullName}
                           onChange={(e) => updateSigner(i, { fullName: e.target.value })}
@@ -1067,7 +1388,7 @@ export default function NewContractPage() {
                   required
                   value={dueAt}
                   onChange={(e) => setDueAt(e.target.value)}
-                  helperText="Phải sau thời điểm hiện tại."
+                  helperText="Mặc định 7 ngày tới."
                 />
               </div>
               <div className="flex justify-between pt-2 border-t border-line">
@@ -1086,12 +1407,12 @@ export default function NewContractPage() {
 
         {step === 2 && (
           <Card
-            title="Đặt vị trí ô chữ ký trên tờ hợp đồng A4"
+            title="Đặt vị trí ô chữ ký trên tờ hợp đồng A4 (Cuộn lên/xuống tự do)"
             icon={Move}
             actions={
               <Button variant="secondary" onClick={autoAlignSignatureBoxes}>
                 <Sparkles className="w-4 h-4" aria-hidden="true" />
-                Tự căn vào mục Đại diện ký
+                Đặt chuẩn vào ô Đại diện ký cuối trang
               </Button>
             }
           >
@@ -1099,7 +1420,7 @@ export default function NewContractPage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-5 flex flex-col gap-4">
                   <p className="text-sm text-muted">
-                    Ô chữ ký của <strong>Chủ doanh nghiệp (Bên A)</strong> và <strong>Đối tác (Bên B)</strong> đã được đặt sẵn ở cuối trang. Bạn có thể kéo thả để chỉnh lại vị trí.
+                    Bạn có thể <strong>lăn chuột cuộn tờ hợp đồng lên/xuống</strong> ở bên phải và <strong>kéo thả 2 ô chữ ký</strong> vào đúng khung <em>ĐẠI DIỆN BÊN A</em> và <em>ĐẠI DIỆN BÊN B</em> ở cuối trang.
                   </p>
 
                   <div className="flex flex-col gap-2">
@@ -1219,10 +1540,11 @@ export default function NewContractPage() {
                   )}
                 </div>
 
+                {/* Cột phải: Khung cuộn mượt cho phép xem hết hợp đồng từ đầu tới mục Ký tên cuối trang */}
                 <div className="lg:col-span-7 flex flex-col items-center gap-2">
-                  <div className="w-full max-w-[520px] flex items-center justify-between text-xs text-muted">
+                  <div className="w-full max-w-[560px] flex items-center justify-between text-xs text-muted">
                     <span>
-                      Trang đang hiển thị: <strong>Trang {activePage}</strong>
+                      Trang đang hiển thị: <strong>Trang {activePage}</strong> (Lăn chuột để cuộn lên/xuống)
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -1238,68 +1560,74 @@ export default function NewContractPage() {
                     </div>
                   </div>
 
+                  {/* Khung cuộn bên ngoài */}
                   <div
-                    ref={canvasRef}
-                    className="relative w-full max-w-[520px] aspect-[595/842] rounded-md border-2 border-line-strong bg-white shadow-md overflow-hidden select-none"
+                    ref={placementScrollRef}
+                    className="w-full max-w-[560px] max-h-[640px] overflow-y-auto rounded-md border-2 border-line-strong bg-slate-100 p-3 shadow-inner"
                   >
-                    {source === "upload" && filePreviewUrl ? (
-                      <iframe
-                        src={`${filePreviewUrl}#page=${activePage}&toolbar=0&navpanes=0`}
-                        title="Xem trước PDF"
-                        className="w-full h-full pointer-events-none opacity-90"
-                      />
-                    ) : (
-                      <div className="w-full h-full overflow-hidden pointer-events-none">
+                    {/* Tờ A4 đầy đủ chiều cao để không bị cắt phần cuối */}
+                    <div
+                      ref={canvasRef}
+                      className="relative w-full min-h-[780px] rounded-sm bg-white shadow-md select-none"
+                    >
+                      {source === "upload" && filePreviewUrl ? (
+                        <iframe
+                          src={`${filePreviewUrl}#page=${activePage}&toolbar=0&navpanes=0`}
+                          title="Xem trước PDF"
+                          className="w-full h-[780px] pointer-events-none opacity-95"
+                        />
+                      ) : (
                         <InteractiveContractPaper
                           title={title}
                           structuredTemplate={mergedBlueprint?.compiledContent ?? ""}
                           values={values}
                           signers={signers}
                           interactiveFields={false}
+                          signatureSectionRef={signatureSectionRef}
                         />
-                      </div>
-                    )}
+                      )}
 
-                    {signers.map((s, idx) => {
-                      if (s.pageNumber !== activePage) return null;
-                      const leftPct = (s.boxX / PDF_PAGE_WIDTH) * 100;
-                      const topPct =
-                        ((PDF_PAGE_HEIGHT - s.boxY - s.boxHeight) / PDF_PAGE_HEIGHT) * 100;
-                      const widthPct = (s.boxWidth / PDF_PAGE_WIDTH) * 100;
-                      const heightPct = (s.boxHeight / PDF_PAGE_HEIGHT) * 100;
-                      const isCurrent = idx === activeSignerIndex;
+                      {signers.map((s, idx) => {
+                        if (s.pageNumber !== activePage) return null;
+                        const leftPct = (s.boxX / PDF_PAGE_WIDTH) * 100;
+                        const topPct =
+                          ((PDF_PAGE_HEIGHT - s.boxY - s.boxHeight) / PDF_PAGE_HEIGHT) * 100;
+                        const widthPct = (s.boxWidth / PDF_PAGE_WIDTH) * 100;
+                        const heightPct = (s.boxHeight / PDF_PAGE_HEIGHT) * 100;
+                        const isCurrent = idx === activeSignerIndex;
 
-                      return (
-                        <div
-                          key={idx}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Ô ký của ${s.fullName}`}
-                          onPointerDown={(e) => handleBoxPointerDown(idx, e)}
-                          onPointerMove={handleBoxPointerMove}
-                          onPointerUp={handleBoxPointerUp}
-                          style={{
-                            left: `${leftPct}%`,
-                            top: `${topPct}%`,
-                            width: `${widthPct}%`,
-                            height: `${heightPct}%`,
-                          }}
-                          className={`absolute rounded-sm border-2 border-dashed flex flex-col justify-between p-1.5 cursor-grab active:cursor-grabbing transition-shadow ${
-                            SIGNER_BOX_STYLES[idx]
-                          } ${isCurrent ? "ring-2 ring-primary shadow-md z-20" : "z-10"}`}
-                        >
-                          <div className="flex items-center justify-between gap-1 text-[10px] font-bold leading-tight">
-                            <span className="truncate">
-                              #{idx + 1} {s.fullName}
-                            </span>
-                            <Move className="w-3 h-3 shrink-0" />
+                        return (
+                          <div
+                            key={idx}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Ô ký của ${s.fullName}`}
+                            onPointerDown={(e) => handleBoxPointerDown(idx, e)}
+                            onPointerMove={handleBoxPointerMove}
+                            onPointerUp={handleBoxPointerUp}
+                            style={{
+                              left: `${leftPct}%`,
+                              top: `${topPct}%`,
+                              width: `${widthPct}%`,
+                              height: `${heightPct}%`,
+                            }}
+                            className={`absolute rounded-sm border-2 border-dashed flex flex-col justify-between p-1.5 cursor-grab active:cursor-grabbing transition-shadow ${
+                              SIGNER_BOX_STYLES[idx]
+                            } ${isCurrent ? "ring-2 ring-primary shadow-md z-20" : "z-10"}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 text-[10.5px] font-bold leading-tight">
+                              <span className="truncate">
+                                #{idx + 1} {s.fullName}
+                              </span>
+                              <Move className="w-3 h-3 shrink-0" />
+                            </div>
+                            <div className="text-[9.5px] font-mono opacity-85 truncate">
+                              Ký số tại ({s.boxX}, {s.boxY})
+                            </div>
                           </div>
-                          <div className="text-[9px] font-mono opacity-80 truncate">
-                            Ký số tại ({s.boxX}, {s.boxY})
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
