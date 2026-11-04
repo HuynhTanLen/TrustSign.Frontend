@@ -136,15 +136,12 @@ function AppLayoutShell({
   const currentRole: TenantRole =
     user?.tenants?.find((t) => t.id === selectedTenantId)?.role ?? "Employee";
 
-  // Navigation M1 + M2 + M3:
+  // Navigation M1 + M2 + M3 (Mô hình 1 người đại diện duy nhất cho mỗi doanh nghiệp):
   const nav: ShellNavItem[] = [
     { href: "/app", label: "Tổng quan", icon: LayoutDashboard, exact: true },
     { href: "/app/contracts", label: "Hợp đồng", icon: FileText },
     { href: "/app/templates", label: "Mẫu hợp đồng", icon: FilePenLine },
     { href: "/app/billing", label: "Gói và thanh toán", icon: CreditCard },
-    ...(currentRole === "TenantOwner"
-      ? [{ href: "/app/members", label: "Thành viên", icon: Users }]
-      : []),
   ];
 
   const secondaryNav: ShellNavItem[] = [
