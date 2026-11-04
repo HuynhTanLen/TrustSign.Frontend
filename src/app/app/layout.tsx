@@ -136,7 +136,10 @@ function AppLayoutShell({
   const currentRole: TenantRole =
     user?.tenants?.find((t) => t.id === selectedTenantId)?.role ?? "Employee";
 
-  // Navigation M1 + M2 + M3 (Mô hình 1 người đại diện duy nhất cho mỗi doanh nghiệp):
+  const activeTenantInfo =
+    user?.tenants?.find((t) => t.id === selectedTenantId) ?? user?.tenants?.[0];
+
+  // Navigation M1 + M2 + M3 (Mô hình 1 tài khoản = 1 doanh nghiệp duy nhất):
   const nav: ShellNavItem[] = [
     { href: "/app", label: "Tổng quan", icon: LayoutDashboard, exact: true },
     { href: "/app/contracts", label: "Hợp đồng", icon: FileText },
@@ -146,7 +149,6 @@ function AppLayoutShell({
 
   const secondaryNav: ShellNavItem[] = [
     { href: "/pricing", label: "Bảng giá dịch vụ", icon: Tag },
-    { href: "/onboarding", label: "Tạo doanh nghiệp mới", icon: Building2 },
     ...(user?.role === "Admin"
       ? [{ href: "/admin", label: "Quản trị nền tảng", icon: Shield }]
       : []),
@@ -186,21 +188,19 @@ function AppLayoutShell({
         sidebarTop={
           <div className="flex flex-col gap-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
-              Doanh nghiệp hiện tại
+              Doanh nghiệp của bạn
             </span>
-            <Select
-              value={selectedTenantId}
-              disabled={isSwitchingTenant}
-              onChange={(e) => handleSwitchTenant(e.target.value)}
-              className="font-semibold text-fg"
-            >
-              {user.tenants?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({TENANT_ROLE_LABELS[t.role] ?? t.role})
-                </option>
-              ))}
-              <option value="__create_new__">+ Tạo doanh nghiệp mới…</option>
-            </Select>
+            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-line bg-page">
+              <Building2 className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-fg truncate">
+                  {activeTenantInfo?.name ?? "Doanh nghiệp"}
+                </p>
+                <p className="text-[11px] text-muted truncate">
+                  {TENANT_ROLE_LABELS[currentRole] ?? "Chủ doanh nghiệp"}
+                </p>
+              </div>
+            </div>
           </div>
         }
         topbarLeft={
@@ -226,10 +226,6 @@ function AppLayoutShell({
                   <UserCog className="w-4 h-4 text-muted" aria-hidden="true" />
                   Sửa hồ sơ cá nhân
                 </button>
-                <Link href="/onboarding" onClick={close} className={menuItemClass}>
-                  <Building2 className="w-4 h-4 text-muted" aria-hidden="true" />
-                  Tạo doanh nghiệp mới
-                </Link>
                 {user.role === "Admin" && (
                   <Link href="/admin" onClick={close} className={menuItemClass}>
                     <Shield className="w-4 h-4 text-muted" aria-hidden="true" />

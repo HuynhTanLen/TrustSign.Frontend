@@ -44,6 +44,10 @@ export default function OnboardingPage() {
       .me()
       .then((data) => {
         if (!isMounted) return;
+        if (data.hasTenant && data.tenants && data.tenants.length > 0) {
+          router.replace("/app");
+          return;
+        }
         setCurrentUser(data);
         setIsCheckingSession(false);
       })
