@@ -248,44 +248,43 @@ function splitContractIntoA4Pages(structuredTemplate: string, title: string): st
     }
 
     const isClauseHeading = /^ĐIỀU\s+\d+/i.test(trimmed);
-    const isSectionHeading = /^(I+\.|BÊN\s+[AB])/i.test(trimmed);
+    const isSectionHeading = /^I+\./i.test(trimmed);
 
     if (isClauseHeading && i + 1 < bodyLines.length && bodyLines[i + 1].trim() !== "") {
       const nextLine = bodyLines[i + 1];
-      const nextWeight = Math.max(1, Math.ceil(nextLine.trim().length / 72));
+      const nextWeight = Math.max(1, Math.ceil(nextLine.trim().length / 78));
       blocks.push({
         lines: [line, nextLine],
-        weight: 1.4 + nextWeight,
+        weight: 1.3 + nextWeight,
       });
       i += 2;
       continue;
     }
 
     const lineWeight = isSectionHeading
-      ? 1.35
-      : Math.max(1, Math.ceil(trimmed.length / 75));
+      ? 1.25
+      : Math.max(1, Math.ceil(trimmed.length / 78));
     blocks.push({ lines: [line], weight: lineWeight });
     i++;
   }
 
   const totalWeight = blocks.reduce((acc, b) => acc + b.weight, 0);
-  // Nếu tổng nội dung ngắn (<= 17 dòng quy đổi), toàn bộ nội dung + khối ký tên vừa gọn trong 1 trang A4
-  if (totalWeight <= 17) {
+  // Nếu tổng nội dung <= 28 dòng quy đổi (hầu hết các mẫu 3-4 điều khoản ngắn gọn), giữ trọn vẹn trong 1 trang A4
+  if (totalWeight <= 28) {
     return [bodyLines];
   }
 
   const pages: string[][] = [];
   let currentPage: string[] = [];
   let currentWeight = 0;
-  // Trang 1 có Quốc hiệu + Tiêu ngữ + Tiêu đề nên chứa khoảng 18.5 dòng quy đổi; các trang sau chứa ~23 dòng
-  let pageCapacity = 18.5;
+  let pageCapacity = 25;
 
   for (const block of blocks) {
     if (currentPage.length > 0 && currentWeight + block.weight > pageCapacity) {
       pages.push(currentPage);
       currentPage = [...block.lines];
       currentWeight = block.weight;
-      pageCapacity = 23;
+      pageCapacity = 28;
     } else {
       currentPage.push(...block.lines);
       currentWeight += block.weight;
@@ -293,7 +292,12 @@ function splitContractIntoA4Pages(structuredTemplate: string, title: string): st
   }
 
   if (currentPage.length > 0) {
-    pages.push(currentPage);
+    // Nếu trang cuối chỉ còn quá ít dòng (< 6 dòng quy đổi), gộp luôn vào trang trước để không bị lẻ 1 điều ngắn
+    if (pages.length > 0 && currentWeight < 6) {
+      pages[pages.length - 1].push(...currentPage);
+    } else {
+      pages.push(currentPage);
+    }
   }
 
   return pages.length > 0 ? pages : [bodyLines];
@@ -437,7 +441,7 @@ function InteractiveContractPaper({
   };
 
   return (
-    <div className="bg-white text-slate-900 font-sans px-7 py-6 text-[12px] leading-[1.6] flex flex-col justify-between min-h-[780px]">
+    <div className="bg-white text-slate-900 font-sans px-7 py-6 text-[12px] leading-[1.6] flex flex-col justify-start min-h-[780px]">
       <div>
         {showHeader ? (
           <>
@@ -492,8 +496,7 @@ function InteractiveContractPaper({
               );
             }
 
-            const isHeading =
-              /^(ĐIỀU\s+\d+|I+\.|BÊN\s+[AB])/i.test(trimmed);
+            const isHeading = /^(ĐIỀU\s+\d+|I+\.)/i.test(trimmed);
 
             return (
               <p
@@ -508,10 +511,10 @@ function InteractiveContractPaper({
       </div>
 
       {showSignatureBlock ? (
-        /* Khối đại diện ký ở trang cuối của hợp đồng A4 (Có khoảng trống 96px để đặt ô chữ ký) */
+        /* Khối đại diện ký nằm ngay dưới điều khoản cuối cùng (không bị đẩy cách xa) */
         <div
           ref={signatureSectionRef}
-          className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
+          className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
         >
           <div>
             <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A (CHỦ DN)</p>
@@ -869,6 +872,21 @@ export default function NewContractPage() {
     setStep(1);
   };
 
+  const computeSignatureZoneBoxY = React.useCallback((): number => {
+    const canvasEl = canvasRef.current;
+    const sigEl = signatureSectionRef.current;
+    if (!canvasEl || !sigEl) return 55;
+    const canvasRect = canvasEl.getBoundingClientRect();
+    const sigRect = sigEl.getBoundingClientRect();
+    if (canvasRect.height <= 0) return 55;
+    // Khoảng cách từ đỉnh tờ A4 đến vùng khung nét đứt bên trong khối ĐẠI DIỆN BÊN A / BÊN B (~44px từ đỉnh sigSection)
+    const boxTopPx = Math.max(0, sigRect.top - canvasRect.top + 44);
+    const computedY = Math.round(
+      PDF_PAGE_HEIGHT - (boxTopPx / canvasRect.height) * PDF_PAGE_HEIGHT - DEFAULT_BOX_HEIGHT,
+    );
+    return Math.max(25, Math.min(PDF_PAGE_HEIGHT - DEFAULT_BOX_HEIGHT - 20, computedY));
+  }, []);
+
   const goToPlacement = () => {
     const normalizedEmails = signers.map((s) => s.email.trim().toLowerCase());
     if (new Set(normalizedEmails).size !== normalizedEmails.length) {
@@ -880,39 +898,41 @@ export default function NewContractPage() {
       return;
     }
     const targetSignPage = source === "upload" ? 1 : totalTemplatePages;
-    setSigners((prev) =>
-      prev.map((s) => ({
-        ...s,
-        pageNumber:
-          source === "upload"
-            ? s.pageNumber
-            : s.pageNumber === 1 || s.pageNumber > totalTemplatePages
-              ? targetSignPage
-              : s.pageNumber,
-      })),
-    );
     setActiveSignerIndex(0);
     setActivePage(targetSignPage);
     setStep(2);
+
+    setTimeout(() => {
+      const measuredY = computeSignatureZoneBoxY();
+      setSigners((prev) =>
+        prev.map((s, idx) => ({
+          ...s,
+          pageNumber: source === "upload" ? s.pageNumber : targetSignPage,
+          boxX: idx % 2 === 0 ? 65 : 355,
+          boxY: measuredY,
+        })),
+      );
+    }, 60);
   };
 
   const autoAlignSignatureBoxes = () => {
     const targetSignPage = source === "upload" ? activePage : totalTemplatePages;
-    setSigners((prev) =>
-      prev.map((s, idx) => ({
-        ...s,
-        ...defaultBoxForOrder(idx, prev.length, targetSignPage),
-      })),
-    );
     setActivePage(targetSignPage);
-    if (placementScrollRef.current) {
-      placementScrollRef.current.scrollTo({
-        top: placementScrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
+    setTimeout(() => {
+      const measuredY = computeSignatureZoneBoxY();
+      setSigners((prev) =>
+        prev.map((s, idx) => ({
+          ...s,
+          ...defaultBoxForOrder(idx, prev.length, targetSignPage),
+          boxY: measuredY,
+        })),
+      );
+      if (signatureSectionRef.current) {
+        signatureSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 50);
     toast(
-      `Đã tự động căn chỉnh vị trí ô ký vào khu vực Đại diện ký ở Trang ${targetSignPage}.`,
+      `Đã tự động căn chỉnh vị trí ô ký khớp vào khung Đại diện ký ở Trang ${targetSignPage}.`,
       "success",
     );
   };
