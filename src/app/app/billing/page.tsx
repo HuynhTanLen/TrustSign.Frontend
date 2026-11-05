@@ -173,7 +173,27 @@ function BillingContent() {
 
       {/* Current Subscription Card */}
       {current.error ? (
-        <ErrorState error={current.error} onRetry={current.reload} />
+        current.error instanceof ApiError && current.error.status === 404 ? (
+          <Card title="Gói thuê bao hiện tại" icon={CreditCard}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
+              <div>
+                <p className="text-base font-semibold text-fg">Doanh nghiệp chưa kích hoạt gói thuê bao</p>
+                <p className="mt-1 text-sm text-muted">
+                  Hệ thống chưa ghi nhận gói thuê bao cho tổ chức này. Vui lòng bấm &ldquo;Kích hoạt lại&rdquo; hoặc chọn một trong các gói bên dưới để bắt đầu sử dụng.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => current.reload()}
+              >
+                <RefreshCw className="w-4 h-4 mr-1.5" />
+                Kích hoạt lại
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <ErrorState error={current.error} onRetry={current.reload} />
+        )
       ) : (
         <Card title="Gói thuê bao hiện tại" icon={CreditCard}>
           {!sub ? (
