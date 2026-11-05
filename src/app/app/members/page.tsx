@@ -208,11 +208,6 @@ export default function MembersPage() {
               <p className="text-sm text-fg">
                 Chỉ <span className="font-bold">Chủ doanh nghiệp</span> mới có quyền quản lý thành viên và gửi lời mời tham gia.
               </p>
-              {forbiddenError.correlationId && (
-                <p className="mt-1 font-mono text-xs text-muted">
-                  Mã theo dõi: {forbiddenError.correlationId}
-                </p>
-              )}
             </div>
             <Link href="/app">
               <Button variant="secondary">Về trang tổng quan</Button>

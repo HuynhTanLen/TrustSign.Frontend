@@ -176,11 +176,6 @@ function VerifyEmailContent() {
             {verifiedState?.errorDetail ??
               "Liên kết xác minh không còn hiệu lực hoặc đã được sử dụng trước đó. Vui lòng nhập email để nhận liên kết mới."}
           </p>
-          {verifiedState?.correlationId && (
-            <p className="mt-1.5 font-mono text-xs text-muted">
-              Mã theo dõi: {verifiedState.correlationId}
-            </p>
-          )}
         </div>
 
         <form onSubmit={handleResend} className="flex flex-col gap-4">

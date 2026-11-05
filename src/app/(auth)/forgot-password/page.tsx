@@ -90,9 +90,6 @@ export default function ForgotPasswordPage() {
             <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold">{errorMessage}</p>
-              {correlationId && (
-                <p className="mt-1 font-mono text-xs text-muted">Mã theo dõi: {correlationId}</p>
-              )}
             </div>
           </div>
         )}

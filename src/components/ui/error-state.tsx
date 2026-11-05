@@ -71,11 +71,6 @@ export function ErrorState({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-fg">{title}</p>
         <p className="mt-0.5 text-sm text-muted break-words">{message}</p>
-        {api?.correlationId && (
-          <p className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-sm bg-strip border border-line font-mono text-xs text-muted">
-            Mã theo dõi: {api.correlationId}
-          </p>
-        )}
       </div>
       {onRetry && (
         <Button
