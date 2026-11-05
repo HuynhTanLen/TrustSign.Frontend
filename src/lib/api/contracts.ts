@@ -102,15 +102,15 @@ export const contractsApi = {
   },
 
   get(id: string): Promise<ContractDetail> {
-    if (USE_MOCK) {
+    if (USE_MOCK && id.startsWith("c-")) {
       const found = mockDb.contractDetails.find((c) => c.id === id);
-      return found ? mockResponse(found) : mockError(404, "Không tìm thấy hợp đồng");
+      if (found) return mockResponse(found);
     }
     return apiFetch<ContractDetail>(`/api/contracts/${encodeURIComponent(id)}`);
   },
 
   cancel(id: string): Promise<void> {
-    if (USE_MOCK) {
+    if (USE_MOCK && id.startsWith("c-")) {
       for (const c of [...mockDb.contracts, ...mockDb.contractDetails]) if (c.id === id) c.status = "Cancelled";
       return mockResponse(undefined);
     }

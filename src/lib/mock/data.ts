@@ -79,6 +79,76 @@ const contractDetails: ContractDetail[] = [
       { at: at(-6, 10), title: "Tạo và gửi ký", detail: "Tải lên file PDF", hash: hash("f1") },
     ],
   },
+  {
+    ...contracts[2],
+    documentUrl: null,
+    signers: [
+      { order: 1, fullName: "Ngô Thanh Tùng", email: "tung.ngo@vietsoft.example", status: "Signed", signedAt: at(-1, 8, 30), declineReason: null },
+      { order: 2, fullName: "Đỗ Minh Khôi", email: "khoi.do@example.com", status: "Current", signedAt: null, declineReason: null },
+    ],
+    signatures: [
+      { signerName: "Ngô Thanh Tùng", signerEmail: "tung.ngo@vietsoft.example", issuer: "TrustSign Issuing CA", serial: "3B:99:18:C2:04:F1", signedAt: at(-1, 8, 30), timestampAuthority: "FreeTSA (RFC 3161)", valid: true },
+    ],
+    events: [
+      { at: at(-1, 8, 31), title: "Gửi ký", detail: "Gửi lời mời ký tới Đỗ Minh Khôi", hash: hash("g2") },
+      { at: at(-1, 8, 30), title: "Ngô Thanh Tùng ký", detail: "Ký số người tạo", hash: hash("g1") },
+    ],
+  },
+  {
+    ...contracts[3],
+    documentUrl: null,
+    signers: [
+      { order: 1, fullName: "Lê Thu Hà", email: "ha.le@vietsoft.example", status: "Signed", signedAt: at(-3, 15), declineReason: null },
+      { order: 2, fullName: "Vũ Hải Yến", email: "yen.vu@hungthinh.example", status: "Current", signedAt: null, declineReason: null },
+    ],
+    signatures: [
+      { signerName: "Lê Thu Hà", signerEmail: "ha.le@vietsoft.example", issuer: "TrustSign Issuing CA", serial: "5F:2A:90:E4:11:B2", signedAt: at(-3, 15), timestampAuthority: "FreeTSA (RFC 3161)", valid: true },
+    ],
+    events: [
+      { at: at(-3, 15, 2), title: "Gửi ký", detail: "Đã gửi email mời ký tới đối tác", hash: hash("h2") },
+      { at: at(-3, 14, 50), title: "Tạo từ mẫu NDA", detail: "Điền biến thỏa thuận bảo mật", hash: hash("h1") },
+    ],
+  },
+  {
+    ...contracts[4],
+    documentUrl: null,
+    signers: [
+      { order: 1, fullName: "Ngô Thanh Tùng", email: "tung.ngo@vietsoft.example", status: "Signed", signedAt: at(-9, 9), declineReason: null },
+      { order: 2, fullName: "CTCP Vận tải Đông Bắc", email: "contact@dongbac.example", status: "Declined", signedAt: null, declineReason: "Sai sót về bảng đối chiếu công nợ tháng 10" },
+    ],
+    signatures: [],
+    events: [
+      { at: at(-8, 14, 10), title: "Từ chối ký", detail: "Lý do: Sai sót về bảng đối chiếu công nợ tháng 10", hash: hash("i3") },
+      { at: at(-9, 9, 5), title: "Gửi ký", detail: "Gửi email cho đối tác", hash: hash("i2") },
+      { at: at(-9, 9), title: "Tạo hợp đồng", detail: "Tạo biên bản thanh lý", hash: hash("i1") },
+    ],
+  },
+  {
+    ...contracts[5],
+    documentUrl: null,
+    signers: [
+      { order: 1, fullName: "Lê Thu Hà", email: "ha.le@vietsoft.example", status: "Waiting", signedAt: null, declineReason: null },
+      { order: 2, fullName: "Công ty TNHH Thiết bị Sao Mai", email: "sales@saomai.example", status: "Waiting", signedAt: null, declineReason: null },
+    ],
+    signatures: [],
+    events: [
+      { at: at(-4, 11), title: "Tạo bản nháp", detail: "Bản nháp hợp đồng mua bán thiết bị", hash: hash("j1") },
+    ],
+  },
+  {
+    ...contracts[6],
+    documentUrl: null,
+    signers: [
+      { order: 1, fullName: "Ngô Thanh Tùng", email: "tung.ngo@vietsoft.example", status: "Signed", signedAt: at(-20, 9), declineReason: null },
+      { order: 2, fullName: "Công ty Kiểm toán Phương Nam", email: "info@phuongnam.example", status: "Waiting", signedAt: null, declineReason: null },
+    ],
+    signatures: [],
+    events: [
+      { at: at(-13, 17, 1), title: "Hết hạn", detail: "Quá thời hạn xử lý hợp đồng", hash: hash("k3") },
+      { at: at(-20, 9, 2), title: "Gửi ký", detail: "Thời hạn 7 ngày", hash: hash("k2") },
+      { at: at(-20, 9), title: "Tạo hợp đồng", detail: "Hợp đồng tư vấn kế toán", hash: hash("k1") },
+    ],
+  },
 ];
 
 const templates: TemplateSummary[] = [
