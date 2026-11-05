@@ -14,6 +14,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { EkycCard } from "@/components/ekyc-card";
 import {
   Briefcase,
   Building2,
@@ -474,7 +475,12 @@ export default function SettingsPage() {
         <ProfileForm key={user.id} user={user} refreshUser={refreshUser} />
       )}
 
-      {activeTab === "security" && <SecurityForm />}
+      {activeTab === "security" && (
+        <>
+          <EkycCard />
+          <SecurityForm />
+        </>
+      )}
 
       {activeTab === "company" && (
         <CompanyTab isOwner={isOwner} refreshUser={refreshUser} />

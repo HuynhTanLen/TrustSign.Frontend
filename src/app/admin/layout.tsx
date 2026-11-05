@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  ScanFace,
   Shield,
   UserCog,
 } from "lucide-react";
@@ -95,6 +96,7 @@ function AdminLayoutShell({
   const nav: ShellNavItem[] = [
     { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
     { href: "/admin/plans", label: "Gói dịch vụ", icon: Package },
+    { href: "/admin/ekyc", label: "Xác minh eKYC", icon: ScanFace },
   ];
 
   if (isInitializing) {

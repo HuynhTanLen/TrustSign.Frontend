@@ -15,7 +15,8 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Không lộ ?token= của link ký/xác minh/đặt lại mật khẩu sang site khác qua Referer.
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // eKYC cần camera của chính site; vẫn chặn iframe bên thứ ba dùng camera.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
         ],
       },
     ];

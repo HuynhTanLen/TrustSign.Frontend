@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# eKYC face models, copied from node_modules by scripts/copy-face-models.mjs
+/public/models/
