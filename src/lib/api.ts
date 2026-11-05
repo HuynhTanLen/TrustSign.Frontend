@@ -73,11 +73,24 @@ async function throwProblemError(response: Response): Promise<never> {
   const correlationId =
     response.headers.get("X-Correlation-ID") ??
     (typeof problem?.correlationId === "string" ? problem.correlationId : null);
+
+  let message = problem?.detail ?? problem?.title ?? `Yêu cầu thất bại (${response.status})`;
+
+  // Nếu là lỗi validation từ ModelState của ASP.NET Core, trích xuất chi tiết lỗi cụ thể
+  if (problem?.errors && typeof problem.errors === "object") {
+    const errorMessages = Object.values(problem.errors)
+      .flatMap((v) => (Array.isArray(v) ? v : [String(v)]))
+      .filter(Boolean);
+    if (errorMessages.length > 0) {
+      message = errorMessages.join(". ");
+    }
+  }
+
   throw new ApiError(
     response.status,
     problem?.code,
     correlationId,
-    problem?.detail ?? problem?.title ?? `Yêu cầu thất bại (${response.status})`,
+    message,
   );
 }
 
