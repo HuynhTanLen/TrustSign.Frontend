@@ -81,8 +81,11 @@ export default function AdminPlansPage() {
         title="Quản lý Gói dịch vụ"
         description="Định giá, số ngày mỗi chu kỳ thuê bao, hạn mức hợp đồng gửi ký mỗi tháng và trạng thái mở bán (M2)"
         actions={
-          <Button variant="primary" onClick={() => setEditing({ id: null, form: EMPTY })}>
-            <Plus className="w-4 h-4 mr-1.5" aria-hidden="true" />
+          <Button
+            variant="primary"
+            leftIcon={<Plus className="w-4 h-4" aria-hidden="true" />}
+            onClick={() => setEditing({ id: null, form: EMPTY })}
+          >
             Tạo gói dịch vụ mới
           </Button>
         }

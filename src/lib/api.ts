@@ -58,6 +58,14 @@ async function requestRefreshToken(): Promise<string | null> {
   return refreshPromise;
 }
 
+/**
+ * Trang công khai và trang đăng nhập dùng để biết người dùng còn phiên hay không (access token mất khi tải lại trang,
+ * nhưng cookie refresh vẫn còn). Gọi thẳng refresh nên không bao giờ tự chuyển hướng về /login.
+ */
+export async function tryRestoreSession(): Promise<boolean> {
+  return (accessToken ?? (await requestRefreshToken())) !== null;
+}
+
 function shouldRedirectOnUnauthorized(pathname: string): boolean {
   return (
     !pathname.startsWith("/login") &&

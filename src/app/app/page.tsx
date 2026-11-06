@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Building2,
+  CheckCircle2,
   Clock,
   CreditCard,
   FileCheck2,
@@ -13,10 +14,12 @@ import {
   FileText,
   MailCheck,
   Plus,
+  Shield,
   ShieldCheck,
   Sparkles,
   UserCheck,
   UserCog,
+  Zap,
 } from "lucide-react";
 import { tenantsApi, type TenantDto } from "@/lib/api/tenants";
 import { subscriptionApi, type CurrentSubscription } from "@/lib/api/subscription";
@@ -46,6 +49,11 @@ function getGreeting(): string {
   return "Chào buổi tối";
 }
 
+/**
+ * DashboardPage — Phong cách Stripe & Mercury FinTech (2-Column Asymmetric Layout).
+ * Cột trái rộng rãi hiển thị dòng hợp đồng thời gian thực; Cột phải tích hợp thẻ thuê bao,
+ * thông tin pháp nhân và trung tâm bảo đảm pháp lý.
+ */
 export default function DashboardPage() {
   const router = useRouter();
   const { user, activeTenantId, openProfileModal } = useWorkspace();
@@ -73,7 +81,6 @@ export default function DashboardPage() {
   const quotaLimit = sub?.quotaLimit ?? 0;
   const quotaRatio = quotaLimit > 0 ? quotaUsed / quotaLimit : 0;
 
-  // Đếm nhanh trạng thái hợp đồng
   const completedContracts = data?.contracts.filter((c) => c.status === "Completed").length ?? 0;
   const pendingContracts =
     data?.contracts.filter((c) => c.status === "Pending" || c.status === "Signing").length ?? 0;
@@ -81,43 +88,57 @@ export default function DashboardPage() {
   const greeting = React.useMemo(() => getGreeting(), []);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* HERO HEADER CHUYÊN NGHIỆP */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-line">
+    <div className="flex flex-col gap-8">
+      {/* ==========================================================
+          HEADER STRIP: LỜI CHÀO & CÁC NÚT TÁC VỤ NHANH
+          ========================================================== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-selected text-primary text-xs font-semibold border border-primary/10">
-              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Không gian doanh nghiệp</span>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200/80 text-xs font-bold text-blue-700 shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+              <span>Trung tâm Điều hành Ký kết</span>
             </span>
             {activeTenant && (
-              <span className="text-xs text-muted font-medium truncate">
+              <span className="text-xs text-slate-500 font-semibold truncate">
                 · {activeTenant.name}
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg truncate">
-            {greeting}, {user.fullName || "Quý khách"}
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 truncate">
+            {greeting}, <span className="text-blue-700">{user.fullName || "Quý khách"}</span>
           </h1>
-          <p className="mt-0.5 text-xs text-muted max-w-2xl leading-relaxed">
-            Theo dõi tiến trình các hợp đồng điện tử, chứng thư PAdES và hạn mức ký kết của pháp nhân.
+          <p className="mt-1 text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Giám sát thời gian thực các luồng ký PAdES, chuỗi băm mật mã và quản trị pháp nhân điện tử.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Button type="button" variant="secondary" size="sm" onClick={openProfileModal}>
-            <UserCog className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={openProfileModal}
+            leftIcon={<UserCog className="w-3.5 h-3.5" />}
+          >
             Hồ sơ cá nhân
           </Button>
           <Link href="/app/templates">
-            <Button variant="secondary" size="sm">
-              <FilePenLine className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
-              Mẫu chuẩn
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<FilePenLine className="w-3.5 h-3.5" />}
+            >
+              Mẫu hợp đồng
             </Button>
           </Link>
           <Link href="/app/contracts/new">
-            <Button variant="primary" size="sm">
-              <Plus className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+            <Button
+              variant="primary"
+              size="sm"
+              glow
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
               Soạn hợp đồng mới
             </Button>
           </Link>
@@ -128,14 +149,30 @@ export default function DashboardPage() {
         <ErrorState error={error} onRetry={reload} />
       ) : (
         <>
-          {/* 4 THẺ CHỈ SỐ KPI CHÍNH */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* ==========================================================
+              4 THẺ KPI METRICS (STRIPE STYLE)
+              ========================================================== */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {isLoading || !data ? (
               Array.from({ length: 4 }, (_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl shadow-xs" />
+                <Skeleton key={i} className="h-32 rounded-xl" />
               ))
             ) : (
               <>
+                <StatCard
+                  label="Hạn mức gửi ký kỳ này"
+                  value={`${quotaUsed} / ${quotaLimit}`}
+                  icon={FileCheck2}
+                  tone={quotaRatio >= 0.85 ? "warning" : "primary"}
+                  hint={`Đã dùng ${Math.round(quotaRatio * 100)}% (${quotaLimit - quotaUsed} lượt còn lại)`}
+                />
+                <StatCard
+                  label="Hợp đồng đang ký"
+                  value={`${pendingContracts} luồng`}
+                  icon={Clock}
+                  tone={pendingContracts > 0 ? "warning" : "primary"}
+                  hint={`${completedContracts} hợp đồng đã ký hoàn tất`}
+                />
                 <StatCard
                   label="Gói dịch vụ hiện tại"
                   value={sub ? `Gói ${sub.planName}` : "Chưa kích hoạt"}
@@ -145,31 +182,17 @@ export default function DashboardPage() {
                     sub ? (
                       <span className="flex items-center gap-1.5">
                         <Badge subscriptionStatus={sub.status} className="scale-90 origin-left" />
-                        <span className={daysLeft <= 5 ? "text-amber-700 font-semibold" : ""}>
+                        <span className={daysLeft <= 5 ? "text-amber-700 font-extrabold" : "font-semibold text-slate-500"}>
                           {daysLeft > 0 ? `Còn ${daysLeft} ngày` : "Đã hết hạn"}
                         </span>
                       </span>
                     ) : (
-                      "Vui lòng chọn gói để bắt đầu"
+                      "Vui lòng chọn gói để kích hoạt"
                     )
                   }
                 />
                 <StatCard
-                  label="Hạn mức gửi ký kỳ này"
-                  value={`${quotaUsed} / ${quotaLimit}`}
-                  icon={FileCheck2}
-                  tone={quotaRatio >= 0.85 ? "warning" : "success"}
-                  hint={`Đã sử dụng ${Math.round(quotaRatio * 100)}% hạn mức (${quotaLimit - quotaUsed} lượt còn lại)`}
-                />
-                <StatCard
-                  label="Hợp đồng đang điều phối"
-                  value={`${pendingContracts} đang ký`}
-                  icon={Clock}
-                  tone={pendingContracts > 0 ? "warning" : "primary"}
-                  hint={`${completedContracts} hợp đồng đã ký hoàn tất`}
-                />
-                <StatCard
-                  label="Đại diện pháp lý"
+                  label="Người đại diện pháp lý"
                   value={user.fullName}
                   icon={ShieldCheck}
                   tone="success"
@@ -179,220 +202,283 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* BANNER GÓI THUÊ BAO VÀ HẠN MỨC KÝ KẾT */}
-          {sub && (
-            <div className="p-5 sm:p-6 rounded-xl bg-gradient-to-r from-surface via-surface to-strip border border-line shadow-card flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:shadow-card-hover">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Tiến độ sử dụng gói thuê bao
-                  </span>
-                  <Badge subscriptionStatus={sub.status} />
-                </div>
-                <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-xl font-bold text-fg">
-                    Gói {sub.planName} · {formatMoney(sub.price)} / {sub.durationDays} ngày
-                  </span>
-                  <span className="text-xs text-muted">
-                    Hạn dùng: {formatDate(sub.expiresAt)} ({daysLeft > 0 ? `còn ${daysLeft} ngày` : "hết hạn"})
-                  </span>
-                </div>
-                <div className="mt-3.5 max-w-xl">
-                  <div className="flex justify-between text-xs font-semibold text-fg mb-1">
-                    <span>Lượt gửi ký hợp đồng đã phát hành</span>
-                    <span className="tabular-nums font-bold">
-                      {sub.quotaUsed} / {sub.quotaLimit} lượt
+          {/* ==========================================================
+              BỐ CỤC 2 CỘT BẤT ĐỐI XỨNG (STRIPE / MERCURY ASYMMETRIC GRID)
+              Cột trái 68% (Main Feed) — Cột phải 32% (Utility & Control)
+              ========================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* ==========================================================
+                CỘT TRÁI (8/12 COLS): DÒNG HỢP ĐỒNG THỜI GIAN THỰC & LUỒNG KÝ
+                ========================================================== */}
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              {/* Bảng hợp đồng gần đây */}
+              <Card
+                title={
+                  <span className="flex items-center gap-2.5">
+                    <span>Hợp đồng gần đây</span>
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {data?.contracts.length ?? 0}
                     </span>
-                  </div>
-                  <Progress
-                    value={sub.quotaUsed}
-                    max={sub.quotaLimit}
-                    tone={quotaRatio >= 0.9 ? "danger" : quotaRatio >= 0.7 ? "warning" : "primary"}
-                    label="Hạn mức hợp đồng đã gửi"
-                  />
-                </div>
-              </div>
+                  </span>
+                }
+                icon={FileText}
+                interactive
+                actions={
+                  <Link
+                    href="/app/contracts"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors group"
+                  >
+                    <span>Xem tất cả danh sách</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                }
+                bodyClassName="p-0"
+              >
+                <Table
+                  bare
+                  loading={isLoading}
+                  refreshing={isRefreshing}
+                  rows={(data?.contracts ?? []).slice(0, 6)}
+                  getRowKey={(c) => c.id}
+                  empty={
+                    <div className="p-10">
+                      <EmptyState
+                        icon={<FileText />}
+                        compact
+                        title="Chưa có hợp đồng nào được tạo"
+                        description="Soạn hợp đồng ngay từ thư viện mẫu chuẩn để gửi đối tác ký kết trực tuyến."
+                        actionLabel="Soạn hợp đồng đầu tiên"
+                        onAction={() => router.push("/app/contracts/new")}
+                      />
+                    </div>
+                  }
+                  columns={[
+                    {
+                      key: "code",
+                      header: "Mã",
+                      render: (c) => (
+                        <span className="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 font-bold">
+                          {c.code}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "title",
+                      header: "Tên hợp đồng",
+                      primary: true,
+                      render: (c) => (
+                        <Link
+                          href={`/app/contracts/${c.id}`}
+                          className="font-extrabold text-slate-900 hover:text-blue-600 transition-colors underline-offset-2 hover:underline block truncate max-w-sm"
+                        >
+                          {c.title}
+                        </Link>
+                      ),
+                    },
+                    {
+                      key: "partner",
+                      header: "Đối tác ký (Bên B)",
+                      render: (c) => (
+                        <span className="font-semibold text-slate-700">{c.partner}</span>
+                      ),
+                    },
+                    {
+                      key: "status",
+                      header: "Trạng thái",
+                      render: (c) => <Badge contractStatus={c.status} size="sm" />,
+                    },
+                    {
+                      key: "sent",
+                      header: "Ngày gửi",
+                      align: "right",
+                      render: (c) => (
+                        <span className="text-xs text-slate-500 font-medium">
+                          {c.sentAt ? formatDateTime(c.sentAt) : "Chưa phát hành"}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
 
-              <div className="flex items-center gap-3 shrink-0">
-                <Link href="/app/billing">
-                  <Button variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                    Nâng cấp / Gia hạn gói
-                  </Button>
-                </Link>
+              {/* Thẻ hướng dẫn quy trình ký tuần tự 2 bên */}
+              <Card
+                title="Quy trình Ký kết Điện tử PAdES 2 Bên"
+                icon={UserCheck}
+                interactive
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-black text-xs mb-3">
+                        01
+                      </span>
+                      <p className="text-sm font-extrabold text-slate-900">Bên A Ký duyệt</p>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Chủ doanh nghiệp ký số trước qua mã OTP gửi về email định danh.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-black text-xs mb-3">
+                        02
+                      </span>
+                      <p className="text-sm font-extrabold text-slate-900">Bên B Ký ngoài</p>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Đối tác nhận liên kết bảo mật và ký xác thực OTP mà không cần tạo tài khoản.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 font-black text-xs mb-3">
+                        03
+                      </span>
+                      <p className="text-sm font-extrabold text-slate-900">Đóng dấu PAdES</p>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Tự động đóng chứng thư số Adobe PAdES và gắn chuỗi băm SHA-256 bất biến.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* ==========================================================
+                CỘT PHẢI (4/12 COLS): THẺ THUÊ BAO MERCURY & THÔNG TIN PHÁP NHÂN
+                ========================================================== */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              {/* Thẻ Thuê bao & Hạn mức kiểu Mercury Banking */}
+              {sub && (
+                <div className="relative rounded-2xl p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white border border-slate-800 shadow-xl shadow-slate-950/15 overflow-hidden flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/10 text-blue-200 border border-white/15">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        Gói thuê bao
+                      </span>
+                      <Badge subscriptionStatus={sub.status} />
+                    </div>
+
+                    <h2 className="text-xl font-black text-white tracking-tight">
+                      Gói {sub.planName}
+                    </h2>
+                    <p className="text-xs text-slate-300 mt-1">
+                      {formatMoney(sub.price)} · Chu kỳ {sub.durationDays} ngày
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Hết hạn: {formatDate(sub.expiresAt)} ({daysLeft > 0 ? `còn ${daysLeft} ngày` : "đã hết hạn"})
+                    </p>
+
+                    <div className="mt-5 pt-4 border-t border-white/10">
+                      <div className="flex justify-between text-xs font-bold text-slate-200 mb-1.5">
+                        <span>Hạn mức gửi ký</span>
+                        <span className="font-mono text-blue-300">
+                          {sub.quotaUsed} / {sub.quotaLimit} lượt
+                        </span>
+                      </div>
+                      <Progress
+                        value={sub.quotaUsed}
+                        max={sub.quotaLimit}
+                        tone={quotaRatio >= 0.9 ? "danger" : quotaRatio >= 0.7 ? "warning" : "primary"}
+                        label="Hạn mức hợp đồng đã gửi"
+                        className="h-2.5 bg-white/15 border-white/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-2">
+                    <Link href="/app/billing" className="block">
+                      <Button
+                        variant="accent"
+                        size="md"
+                        fullWidth
+                        rightIcon={<ArrowRight className="w-4 h-4" />}
+                      >
+                        Nâng cấp / Gia hạn gói
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {/* Thẻ Pháp nhân Doanh nghiệp */}
+              <Card
+                title="Pháp nhân Doanh nghiệp"
+                icon={Building2}
+                interactive
+                actions={
+                  activeTenant && (
+                    <Badge
+                      className={
+                        activeTenant.status === "Active"
+                          ? "bg-emerald-50 text-emerald-800 ring-emerald-300 font-bold"
+                          : "bg-rose-50 text-rose-800 ring-rose-300 font-bold"
+                      }
+                    >
+                      {activeTenant.status === "Active" ? "Đang hoạt động" : "Tạm khóa"}
+                    </Badge>
+                  )
+                }
+              >
+                {isLoading || !activeTenant ? (
+                  <div className="flex flex-col gap-3">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ) : (
+                  <dl className="flex flex-col gap-3 text-xs sm:text-sm">
+                    <div>
+                      <dt className="text-slate-500 font-semibold text-xs">Tên doanh nghiệp</dt>
+                      <dd className="font-extrabold text-slate-900 mt-0.5 break-words">
+                        {activeTenant.name}
+                      </dd>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <dt className="text-slate-500 font-semibold text-xs">Mã số thuế</dt>
+                      <dd className="font-mono text-slate-900 font-bold">
+                        {activeTenant.taxCode || "Chưa cập nhật"}
+                      </dd>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                      <dt className="text-slate-500 font-semibold text-xs">Email thông báo ký</dt>
+                      <dd className="text-slate-800 font-medium break-all mt-0.5">
+                        {activeTenant.contactEmail || user.email}
+                      </dd>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                      <dt className="text-slate-500 font-semibold text-xs">Địa chỉ trụ sở</dt>
+                      <dd className="text-slate-700 break-words mt-0.5">
+                        {activeTenant.address || "Chưa cập nhật"}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+              </Card>
+
+              {/* Thẻ Bảo đảm Pháp lý */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-2xs flex flex-col gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <ShieldCheck className="w-4.5 h-4.5 text-emerald-600" />
+                  <span>Tuân thủ Pháp lý & Bảo mật</span>
+                </div>
+                <p className="leading-relaxed">
+                  Toàn bộ tài liệu ký kết trên Chữ Tín được gắn dấu thời gian Timestamp chuẩn mở, đóng chứng thư số PAdES tương thích 100% Adobe Acrobat Reader và bảo chứng bởi chuỗi băm SHA-256 bất biến.
+                </p>
+                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                  <span>Luật Giao dịch điện tử 2023</span>
+                  <span className="text-emerald-700 font-bold">Hợp pháp 100%</span>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* THÔNG TIN PHÁP NHÂN VÀ QUY TRÌNH KÝ */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <Card
-              title="Thông tin pháp nhân doanh nghiệp"
-              icon={Building2}
-              className="lg:col-span-7"
-              actions={
-                activeTenant && (
-                  <Badge
-                    className={
-                      activeTenant.status === "Active"
-                        ? "bg-badge-completed-bg text-badge-completed-fg"
-                        : "bg-badge-declined-bg text-badge-declined-fg"
-                    }
-                  >
-                    {activeTenant.status === "Active" ? "Đang hoạt động" : "Tạm khóa"}
-                  </Badge>
-                )
-              }
-            >
-              {isLoading || !activeTenant ? (
-                <div className="flex flex-col gap-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              ) : (
-                <dl className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-x-4 gap-y-3.5 text-sm">
-                  <dt className="text-muted font-medium">Tên doanh nghiệp</dt>
-                  <dd className="font-bold text-fg break-words">{activeTenant.name}</dd>
-
-                  <dt className="text-muted font-medium">Mã số thuế</dt>
-                  <dd className="font-mono text-fg font-semibold">
-                    {activeTenant.taxCode || "Chưa cập nhật"}
-                  </dd>
-
-                  <dt className="text-muted font-medium">Email thông báo ký</dt>
-                  <dd className="text-fg font-medium break-all">
-                    {activeTenant.contactEmail || user.email}
-                  </dd>
-
-                  <dt className="text-muted font-medium">Địa chỉ trụ sở</dt>
-                  <dd className="text-fg break-words">{activeTenant.address || "Chưa cập nhật"}</dd>
-
-                  <dt className="text-muted font-medium">Ngày khởi tạo</dt>
-                  <dd className="text-fg">{formatDate(activeTenant.createdAt)}</dd>
-                </dl>
-              )}
-            </Card>
-
-            <Card
-              title="Người đại diện & Quy trình duyệt ký"
-              icon={UserCheck}
-              className="lg:col-span-5"
-              actions={
-                <button
-                  type="button"
-                  onClick={openProfileModal}
-                  className="text-xs font-bold text-primary underline underline-offset-2 hover:text-primary-hover cursor-pointer"
-                >
-                  Đổi họ tên
-                </button>
-              }
-            >
-              <dl className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-x-4 gap-y-3 text-sm">
-                <dt className="text-muted font-medium">Người đại diện</dt>
-                <dd className="font-bold text-fg">{user.fullName}</dd>
-
-                <dt className="text-muted font-medium">Email tài khoản</dt>
-                <dd className="text-fg break-all font-medium">{user.email}</dd>
-
-                <dt className="text-muted font-medium">Quy trình ký</dt>
-                <dd className="text-xs text-muted leading-relaxed">
-                  <span className="inline-flex items-center gap-1 font-semibold text-primary mb-1">
-                    <MailCheck className="w-3.5 h-3.5" />
-                    Xác thực OTP Email 2 Bên:
-                  </span>
-                  <br />
-                  Khi phát hành, hệ thống gửi email OTP cho <strong>Bên A (Chủ doanh nghiệp)</strong> xác nhận ký trước, sau đó tự động chuyển lượt ký bảo mật tới <strong>Bên B (Khách hàng/Đối tác)</strong>.
-                </dd>
-              </dl>
-            </Card>
           </div>
-
-          {/* BẢNG DANH SÁCH HỢP ĐỒNG GẦN ĐÂY */}
-          <Card
-            title={
-              <span className="flex items-center gap-2">
-                <span>Hợp đồng gần đây</span>
-                <span className="text-xs font-normal text-muted">
-                  ({data?.contracts.length ?? 0} hợp đồng)
-                </span>
-              </span>
-            }
-            icon={FileText}
-            actions={
-              <Link
-                href="/app/contracts"
-                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-hover transition-colors"
-              >
-                <span>Xem tất cả danh sách</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            }
-            bodyClassName="p-0"
-          >
-            <Table
-              bare
-              loading={isLoading}
-              refreshing={isRefreshing}
-              rows={(data?.contracts ?? []).slice(0, 5)}
-              getRowKey={(c) => c.id}
-              empty={
-                <div className="p-8">
-                  <EmptyState
-                    icon={<FileText />}
-                    compact
-                    title="Chưa có hợp đồng nào được tạo"
-                    description="Soạn hợp đồng ngay từ thư viện mẫu chuẩn để gửi đối tác ký kết trực tuyến."
-                    actionLabel="Soạn hợp đồng đầu tiên"
-                    onAction={() => router.push("/app/contracts/new")}
-                  />
-                </div>
-              }
-              columns={[
-                {
-                  key: "code",
-                  header: "Mã",
-                  render: (c) => (
-                    <span className="font-mono text-xs text-slate-600 bg-strip px-1.5 py-0.5 rounded border border-line">
-                      {c.code}
-                    </span>
-                  ),
-                },
-                {
-                  key: "title",
-                  header: "Tên hợp đồng",
-                  primary: true,
-                  render: (c) => (
-                    <Link
-                      href={`/app/contracts/${c.id}`}
-                      className="font-semibold text-fg hover:text-primary transition-colors underline-offset-2 hover:underline block truncate max-w-sm"
-                    >
-                      {c.title}
-                    </Link>
-                  ),
-                },
-                {
-                  key: "partner",
-                  header: "Đối tác ký (Bên B)",
-                  render: (c) => <span className="font-medium text-slate-700">{c.partner}</span>,
-                },
-                {
-                  key: "status",
-                  header: "Trạng thái",
-                  render: (c) => <Badge contractStatus={c.status} size="sm" />,
-                },
-                {
-                  key: "sent",
-                  header: "Ngày gửi",
-                  align: "right",
-                  render: (c) => (
-                    <span className="text-xs text-muted">
-                      {c.sentAt ? formatDateTime(c.sentAt) : "Chưa phát hành"}
-                    </span>
-                  ),
-                },
-              ]}
-            />
-          </Card>
         </>
       )}
     </div>

@@ -109,6 +109,12 @@ export const contractsApi = {
     return apiFetch<ContractDetail>(`/api/contracts/${encodeURIComponent(id)}`);
   },
 
+  /** Gửi lại email mời cho người đang tới lượt ký/duyệt. */
+  remind(id: string): Promise<void> {
+    if (USE_MOCK && id.startsWith("c-")) return mockResponse(undefined);
+    return apiFetch<void>(`/api/contracts/${encodeURIComponent(id)}/remind`, { method: "POST" });
+  },
+
   cancel(id: string): Promise<void> {
     if (USE_MOCK && id.startsWith("c-")) {
       for (const c of [...mockDb.contracts, ...mockDb.contractDetails]) if (c.id === id) c.status = "Cancelled";

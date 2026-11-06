@@ -308,27 +308,27 @@ function splitContractIntoA4Pages(structuredTemplate: string, title: string): st
 
 function Stepper({ step }: { step: Step }) {
   return (
-    <ol className="flex items-center gap-2 bg-surface border border-line rounded-md p-2">
+    <ol className="flex items-center gap-2 bg-surface border border-line rounded-xl p-3 shadow-sm">
       {STEPS.map((label, i) => (
-        <li key={label} className="flex items-center gap-2 flex-1 min-w-0">
+        <li key={label} className="flex items-center gap-2.5 flex-1 min-w-0">
           <span
-            className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold shrink-0 transition-colors duration-200 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-300 ${
               i < step
-                ? "bg-success text-white"
+                ? "bg-emerald-600 text-white shadow-xs"
                 : i === step
-                  ? "bg-primary text-white"
-                  : "bg-page text-muted border border-line"
+                  ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-600/30 scale-105 ring-2 ring-blue-300/50"
+                  : "bg-slate-100 text-muted border border-line"
             }`}
           >
-            {i < step ? <Check className="w-4 h-4" aria-hidden="true" /> : i + 1}
+            {i < step ? <Check className="w-4 h-4 stroke-[2.5]" aria-hidden="true" /> : i + 1}
           </span>
-          <span className={`text-sm truncate ${i === step ? "font-semibold text-fg" : "text-muted"}`}>
+          <span className={`text-xs sm:text-sm truncate transition-colors ${i === step ? "font-bold text-blue-700" : i < step ? "font-semibold text-fg" : "text-muted"}`}>
             {label}
           </span>
           {i < STEPS.length - 1 && (
-            <span className="hidden sm:block flex-1 h-px bg-line overflow-hidden">
+            <span className="hidden sm:block flex-1 h-[2px] bg-slate-200 overflow-hidden rounded-full">
               <span
-                className={`block h-full bg-success origin-left transition-transform duration-300 ${
+                className={`block h-full bg-emerald-500 origin-left transition-transform duration-300 ${
                   i < step ? "scale-x-100" : "scale-x-0"
                 }`}
               />

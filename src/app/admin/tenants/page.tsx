@@ -76,13 +76,20 @@ export default function AdminTenantsPage() {
                 align: "right",
                 render: (t) =>
                   t.isLocked ? (
-                    <Button variant="secondary" onClick={() => setUnlocking(t)}>
-                      <LockOpen className="w-4 h-4" aria-hidden="true" />
+                    <Button
+                      variant="secondary"
+                      leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}
+                      onClick={() => setUnlocking(t)}
+                    >
                       Mở khóa
                     </Button>
                   ) : (
-                    <Button variant="ghost" className="text-danger" onClick={() => setLocking(t)}>
-                      <Lock className="w-4 h-4" aria-hidden="true" />
+                    <Button
+                      variant="ghost"
+                      className="text-danger"
+                      leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+                      onClick={() => setLocking(t)}
+                    >
                       Khóa
                     </Button>
                   ),

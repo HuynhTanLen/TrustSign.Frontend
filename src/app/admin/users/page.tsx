@@ -75,13 +75,20 @@ export default function AdminUsersPage() {
                 align: "right",
                 render: (u) =>
                   u.isLocked ? (
-                    <Button variant="secondary" onClick={() => setUnlocking(u)}>
-                      <LockOpen className="w-4 h-4" aria-hidden="true" />
+                    <Button
+                      variant="secondary"
+                      leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}
+                      onClick={() => setUnlocking(u)}
+                    >
                       Mở khóa
                     </Button>
                   ) : (
-                    <Button variant="ghost" className="text-danger" onClick={() => setLocking(u)}>
-                      <Lock className="w-4 h-4" aria-hidden="true" />
+                    <Button
+                      variant="ghost"
+                      className="text-danger"
+                      leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+                      onClick={() => setLocking(u)}
+                    >
                       Khóa
                     </Button>
                   ),

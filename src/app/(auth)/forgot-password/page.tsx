@@ -45,8 +45,8 @@ export default function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <header className="px-6 py-5 bg-slate-50/90 border-b border-slate-200 flex items-center gap-3">
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-completed-bg text-success border border-success/15">
             <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
           </span>
@@ -70,8 +70,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+      <header className="px-6 py-5 bg-slate-50/90 border-b border-slate-200 flex items-center gap-3">
         <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
           <KeyRound className="w-4 h-4" aria-hidden="true" />
         </span>

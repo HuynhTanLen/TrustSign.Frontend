@@ -15,6 +15,7 @@ import {
   FileText,
   History,
   Lock,
+  Mail,
   MapPin,
   Send,
   ShieldCheck,
@@ -91,6 +92,7 @@ export default function ContractDetailPage() {
   const [isSending, setIsSending] = React.useState(false);
   const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
   const [copiedHash, setCopiedHash] = React.useState<string | null>(null);
+  const [isReminding, setIsReminding] = React.useState(false);
 
   const [dueAt, setDueAt] = React.useState(() => {
     const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -194,6 +196,19 @@ export default function ContractDetailPage() {
   const canCancel =
     contract.status === "Draft" || contract.status === "Pending" || contract.status === "Signing";
   const canSend = contract.status === "Draft" && contract.signers.length > 0;
+  const currentSigner = contract.signers.find((s) => s.status === "Current");
+
+  const handleRemind = async () => {
+    setIsReminding(true);
+    try {
+      await contractsApi.remind(id);
+      toast(`Đã gửi lại email mời tới ${currentSigner?.email}.`, "success");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Không gửi lại được email mời.", "error");
+    } finally {
+      setIsReminding(false);
+    }
+  };
 
   // Tính toán tiến độ ký kết
   const totalSigners = contract.signers.length;
@@ -561,6 +576,19 @@ export default function ContractDetailPage() {
                             {isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
                           </span>
                         </p>
+                      )}
+
+                      {s.status === "Current" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="mt-2"
+                          leftIcon={<Mail className="w-3.5 h-3.5" />}
+                          onClick={handleRemind}
+                          isLoading={isReminding}
+                        >
+                          Gửi lại email mời
+                        </Button>
                       )}
 
                       {s.declineReason && (

@@ -11,12 +11,6 @@ const LABELS: Record<Status, string> = {
   down: "Không kết nối được backend",
 };
 
-const DOT_COLORS: Record<Status, string> = {
-  checking: "bg-muted",
-  up: "bg-success",
-  down: "bg-danger",
-};
-
 export function GatewayStatus() {
   const [status, setStatus] = useState<Status>("checking");
 
@@ -33,10 +27,25 @@ export function GatewayStatus() {
   }, []);
 
   return (
-    <p className="flex items-center gap-2 text-xs text-muted">
-      <span className={`w-2 h-2 rounded-full ${DOT_COLORS[status]}`} />
-      {LABELS[status]}
-      <code className="font-mono text-xs">{API_URL}</code>
-    </p>
+    <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-surface border border-line shadow-xs text-xs text-muted">
+      <span className="relative flex h-2 w-2">
+        {status === "up" && (
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+        )}
+        <span
+          className={`relative inline-flex rounded-full h-2 w-2 ${
+            status === "up"
+              ? "bg-emerald-500"
+              : status === "down"
+              ? "bg-rose-500"
+              : "bg-slate-400"
+          }`}
+        />
+      </span>
+      <span className="font-semibold text-fg">{LABELS[status]}</span>
+      <code className="font-mono text-[11px] text-muted/80 bg-slate-100 px-1.5 py-0.5 rounded">
+        {API_URL}
+      </code>
+    </div>
   );
 }

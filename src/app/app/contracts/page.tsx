@@ -90,7 +90,7 @@ export default function ContractsListPage() {
         description="Tra cứu hợp đồng pháp lý, kiểm tra thứ tự luồng ký kết và tải bản PDF đã ký số"
         actions={
           <Link href="/app/contracts/new">
-            <Button variant="primary" leftIcon={<Plus className="w-4 h-4" />}>
+            <Button variant="accent" glow leftIcon={<Plus className="w-4 h-4" />}>
               Soạn hợp đồng mới
             </Button>
           </Link>

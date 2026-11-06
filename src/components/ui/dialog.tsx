@@ -125,7 +125,7 @@ export function Dialog({
 
   const dialogContent = (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-overlay backdrop-blur-[2px] motion-safe:animate-fade-in p-4 sm:p-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm motion-safe:animate-fade-in p-4 sm:p-6"
       onMouseDown={handleBackdropMouseDown}
     >
       <div className="flex min-h-full justify-center">
@@ -138,13 +138,13 @@ export function Dialog({
           tabIndex={-1}
           onMouseDown={(e) => e.stopPropagation()}
           className={cn(
-            "w-full my-auto flex flex-col rounded-xl bg-surface border border-line shadow-dialog overflow-hidden motion-safe:animate-pop-in focus:outline-none",
-            "max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)]",
+            "w-full my-auto flex flex-col rounded-2xl bg-surface border border-line shadow-2xl overflow-hidden motion-safe:animate-pop-in focus:outline-none",
+            "max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] ring-1 ring-black/5",
             dialogSizes[size],
             className,
           )}
         >
-          <div className="flex items-start justify-between gap-4 px-6 py-4 bg-strip/80 border-b border-line shrink-0">
+          <div className="flex items-start justify-between gap-4 px-6 py-4 bg-strip/80 backdrop-blur-xs border-b border-line shrink-0">
             <div className="min-w-0">
               <h2 id={titleId} className="text-base font-bold tracking-tight text-fg truncate">
                 {title}
@@ -160,7 +160,7 @@ export function Dialog({
               disabled={preventClose}
               onClick={() => !preventClose && onClose()}
               aria-label="Đóng hộp thoại"
-              className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted hover:bg-selected/60 hover:text-fg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-muted hover:bg-selected hover:text-fg hover:rotate-90 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               <X className="w-4 h-4" aria-hidden="true" />
             </button>

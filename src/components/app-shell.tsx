@@ -3,14 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, ShieldCheck, X, type LucideIcon } from "lucide-react";
+import { ChevronDown, Menu, ShieldCheck, Sparkles, X, type LucideIcon } from "lucide-react";
 import { Wordmark } from "@/components/wordmark";
 
 export interface ShellNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Chỉ khớp đường dẫn chính xác (dành cho trang gốc như /app hoặc /admin). */
   exact?: boolean;
   badge?: string;
 }
@@ -20,14 +19,17 @@ interface AppShellProps {
   wordmarkSuffix?: string;
   nav: ShellNavItem[];
   secondaryNav?: ShellNavItem[];
-  /** Hiển thị phía trên thanh điều hướng bên trái, ví dụ bộ chuyển đổi doanh nghiệp. */
   sidebarTop?: React.ReactNode;
-  /** Hiển thị bên trái thanh trên cùng (nền tối). */
   topbarLeft?: React.ReactNode;
   topbarRight?: React.ReactNode;
   children: React.ReactNode;
 }
 
+/**
+ * AppShell — Phong cách Stripe / Mercury FinTech (Top Navigation).
+ * Loại bỏ hoàn toàn thanh bên (Sidebar) 276px cồng kềnh, sử dụng thanh điều hướng ngang tinh gọn trên đỉnh
+ * giúp mở rộng 100% không gian làm việc cho văn bản hợp đồng và bảng điều khiển.
+ */
 export function AppShell({
   homeHref,
   wordmarkSuffix,
@@ -41,133 +43,224 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  const renderItem = (item: ShellNavItem) => {
-    const Icon = item.icon;
-    const isActive = item.exact
-      ? pathname === item.href
-      : pathname === item.href || pathname.startsWith(item.href + "/");
-    return (
-      <Link
-        key={item.href}
-        href={item.href}
-        onClick={() => setMobileMenuOpen(false)}
-        aria-current={isActive ? "page" : undefined}
-        className={`group flex items-center gap-3 h-10 px-3 rounded-md text-sm transition-colors ${
-          isActive
-            ? "bg-selected text-primary font-semibold shadow-[inset_3px_0_0_var(--color-primary)]"
-            : "text-muted font-medium hover:bg-strip hover:text-fg"
-        }`}
-      >
-        <Icon
-          className={`w-[18px] h-[18px] shrink-0 ${
-            isActive ? "text-primary" : "text-muted group-hover:text-fg"
-          }`}
-          aria-hidden="true"
-        />
-        <span className="flex-1 truncate">{item.label}</span>
-        {item.badge && (
-          <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
-            {item.badge}
-          </span>
-        )}
-      </Link>
-    );
-  };
-
   return (
-    <div className="min-h-screen flex flex-col bg-page text-fg">
-      <header className="h-16 navy-panel text-white sticky top-0 z-30 border-b border-white/10 shadow-xs">
-        <div className="h-full px-4 lg:px-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-fg">
+      {/* ==========================================================
+          LEVEL 1: PRIMARY TOPBAR (Brand + Organization + Profile)
+          ========================================================== */}
+      <header className="h-16 bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
+        <div className="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+          {/* Cụm trái: Logo + Doanh nghiệp hiện tại */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-white hover:bg-topbar-hover cursor-pointer"
+              className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 text-fg hover:bg-slate-200 transition-colors cursor-pointer"
               aria-label="Mở menu điều hướng"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Wordmark href={homeHref} suffix={wordmarkSuffix} tone="light" />
-            {topbarLeft && (
-              <div className="hidden md:flex items-center pl-4 border-l border-white/15 text-xs text-topbar-muted">
-                {topbarLeft}
+
+            <Wordmark href={homeHref} suffix={wordmarkSuffix} tone="dark" />
+
+            {/* Doanh nghiệp & Vai trò hiện tại (Stripe Workspace Switcher pill) */}
+            {sidebarTop && (
+              <div className="hidden md:flex items-center pl-3 border-l border-slate-200">
+                <div className="max-w-[280px]">{sidebarTop}</div>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2.5">{topbarRight}</div>
+
+          {/* Cụm giữa: Huy hiệu chuẩn bảo mật */}
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-600">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+            <span>PAdES · Luật Giao dịch điện tử 2023</span>
+          </div>
+
+          {/* Cụm phải: Tiện ích phụ + Menu tài khoản */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {secondaryNav && secondaryNav.length > 0 && (
+              <div className="hidden lg:flex items-center gap-1.5 mr-2">
+                {secondaryNav.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        isActive
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {topbarRight}
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
-        {mobileMenuOpen && (
+      {/* ==========================================================
+          LEVEL 2: STRIPE / MERCURY SUBNAV TABS (Horizontal Navigation)
+          ========================================================== */}
+      <nav
+        className="h-12 bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-16 z-30 shadow-2xs"
+        aria-label="Thanh điều hướng chính"
+      >
+        <div className="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          {/* Dãy Tab chính nằm ngang */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-1">
+            {nav.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.exact
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(item.href + "/");
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`group inline-flex items-center gap-2 h-9 px-3 sm:px-3.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-150 whitespace-nowrap select-none ${
+                    isActive
+                      ? "bg-slate-900 text-white font-bold shadow-xs hover:bg-slate-800"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+                  }`}
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-transform duration-150 ${
+                      isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-700"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                        isActive
+                          ? "bg-blue-500 text-white"
+                          : "bg-slate-200 text-slate-700 group-hover:bg-slate-300"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Shortcut bên phải subnav trên màn hình lớn */}
+          <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Ký số PAdES sẵn sàng</span>
+          </div>
+        </div>
+      </nav>
+
+      {/* ==========================================================
+          MOBILE SHEET MENU (Trượt mượt mà trên điện thoại)
+          ========================================================== */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 z-40 bg-overlay backdrop-blur-[2px] lg:hidden motion-safe:animate-fade-in"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm motion-safe:animate-fade-in"
             onClick={() => setMobileMenuOpen(false)}
           />
-        )}
-
-        <aside
-          className={`fixed inset-y-0 left-0 z-50 w-[272px] bg-surface border-r border-line flex flex-col transition-transform duration-200 ease-out lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:z-auto lg:translate-x-0 shrink-0 ${
-            mobileMenuOpen ? "translate-x-0 shadow-dialog" : "-translate-x-full"
-          }`}
-        >
-          <div className="lg:hidden h-16 px-4 navy-panel flex items-center justify-between border-b border-white/10">
-            <Wordmark href={homeHref} suffix={wordmarkSuffix} tone="light" />
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-md text-white hover:bg-topbar-hover cursor-pointer"
-              aria-label="Đóng menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {sidebarTop && (
-            <div className="p-4 bg-strip/60 border-b border-line">{sidebarTop}</div>
-          )}
-
-          <nav
-            className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5"
-            aria-label="Menu điều hướng"
-          >
-            <div>
-              <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted/85">
-                Không gian làm việc
-              </p>
-              <div className="flex flex-col gap-1">{nav.map(renderItem)}</div>
-            </div>
-
-            {secondaryNav && secondaryNav.length > 0 && (
-              <div className="pt-4 border-t border-line">
-                <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted/85">
-                  Tiện ích & Hệ thống
-                </p>
-                <div className="flex flex-col gap-1">{secondaryNav.map(renderItem)}</div>
+          <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white border-r border-slate-200 p-5 flex flex-col justify-between shadow-2xl motion-safe:animate-slide-in">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <Wordmark href={homeHref} suffix={wordmarkSuffix} tone="dark" />
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
+                  aria-label="Đóng menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            )}
-          </nav>
 
-          <div className="p-3.5 border-t border-line bg-strip/50">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <ShieldCheck className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-              <span className="truncate">Chuẩn Luật Giao dịch điện tử 2023</span>
+              {sidebarTop && <div className="pb-3 border-b border-slate-100">{sidebarTop}</div>}
+
+              <nav className="flex flex-col gap-1">
+                <p className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Điều hướng chính
+                </p>
+                {nav.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.exact
+                    ? pathname === item.href
+                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 h-10 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                        isActive
+                          ? "bg-slate-900 text-white font-bold"
+                          : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${isActive ? "text-blue-400" : "text-slate-400"}`} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {secondaryNav && secondaryNav.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 flex flex-col gap-1">
+                  <p className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Tiện ích
+                  </p>
+                  {secondaryNav.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 h-9 px-3 rounded-lg text-sm text-slate-600 hover:bg-slate-100 font-medium"
+                      >
+                        <Icon className="w-4 h-4 text-slate-400" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-500 font-medium">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Chuẩn Luật Giao dịch điện tử 2023</span>
             </div>
           </div>
-        </aside>
+        </div>
+      )}
 
-        <main
-          key={pathname}
-          className="flex-1 min-w-0 w-full max-w-content mx-auto p-4 sm:p-6 lg:p-8 motion-safe:animate-fade-up"
-        >
-          {children}
-        </main>
-      </div>
+      {/* ==========================================================
+          MAIN WORKSPACE: TOÀN MÀN HÌNH RỘNG RÃI (100% WIDTH)
+          ========================================================== */}
+      <main
+        key={pathname}
+        className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 motion-safe:animate-fade-up"
+      >
+        {children}
+      </main>
     </div>
   );
 }
 
-/** Nút tài khoản người dùng trên thanh trên cùng kèm menu thả xuống. */
 export function UserMenu({
   name,
   email,
@@ -201,15 +294,15 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2.5 h-10 pl-1.5 pr-3 rounded-full bg-white/10 border border-white/15 text-sm text-white hover:bg-white/18 cursor-pointer"
+        className="group flex items-center gap-2.5 h-10 pl-1.5 pr-3.5 rounded-full bg-slate-100/90 border border-slate-200 text-sm text-fg hover:bg-slate-200/70 transition-all duration-200 hover:scale-[1.02] cursor-pointer"
       >
-        <span className="w-7 h-7 rounded-full bg-white text-primary flex items-center justify-center text-xs font-bold shadow-xs">
+        <span className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs ring-2 ring-white">
           {name ? name.trim().slice(0, 1).toUpperCase() : "?"}
         </span>
-        <span className="hidden md:inline font-semibold max-w-[160px] truncate">{name}</span>
+        <span className="hidden md:inline font-bold max-w-[160px] truncate">{name}</span>
         <ChevronDown
-          className={`w-4 h-4 text-topbar-muted transition-transform duration-150 ${
-            open ? "rotate-180" : ""
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+            open ? "rotate-180 text-blue-600" : ""
           }`}
           aria-hidden="true"
         />
@@ -217,11 +310,11 @@ export function UserMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-68 origin-top-right rounded-lg bg-surface border border-line shadow-menu py-1.5 z-50 text-sm text-fg motion-safe:animate-drop-in"
+          className="absolute right-0 mt-2 w-68 origin-top-right rounded-2xl bg-white border border-slate-200 shadow-xl py-2 z-50 text-sm text-fg motion-safe:animate-drop-in overflow-hidden"
         >
-          <div className="px-4 py-3 border-b border-line bg-strip/60">
-            <p className="font-bold text-fg truncate">{name}</p>
-            <p className="text-xs text-muted truncate mt-0.5">{email}</p>
+          <div className="px-4.5 py-3 border-b border-slate-100 bg-slate-50/70">
+            <p className="font-extrabold text-fg truncate">{name}</p>
+            <p className="text-xs text-muted truncate mt-0.5 font-medium">{email}</p>
           </div>
           <div className="py-1">{children(() => setOpen(false))}</div>
         </div>
@@ -231,4 +324,4 @@ export function UserMenu({
 }
 
 export const menuItemClass =
-  "w-full flex items-center gap-2.5 px-4 h-9 text-left text-sm font-medium text-fg hover:bg-selected/60 cursor-pointer";
+  "w-full flex items-center gap-2.5 px-4 h-9 text-left text-sm font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer";

@@ -9,13 +9,14 @@ import {
   IdCard,
   Lightbulb,
   LoaderCircle,
+  QrCode,
   RotateCcw,
   ScanFace,
   ShieldCheck,
   Upload,
 } from "lucide-react";
 import { ApiError } from "@/lib/api";
-import { ekycApi, type MyEkyc } from "@/lib/api/ekyc";
+import { ekycApi, type MyEkyc, type SubmitEkycRequest } from "@/lib/api/ekyc";
 import {
   MAX_FACE_DISTANCE,
   canvasToJpeg,
@@ -221,7 +222,15 @@ function CaptureStep({
 
 /* ---------------- Bước 0 ---------------- */
 
-function PrepareStep({ consent, onConsent }: { consent: boolean; onConsent: (v: boolean) => void }) {
+function PrepareStep({
+  consent,
+  onConsent,
+  onUseOtherDevice,
+}: {
+  consent: boolean;
+  onConsent: (v: boolean) => void;
+  onUseOtherDevice?: () => void;
+}) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div className="flex flex-col gap-4">
@@ -248,6 +257,12 @@ function PrepareStep({ consent, onConsent }: { consent: boolean; onConsent: (v: 
             <li>Webcam máy tính khó đọc QR: có thể chụp bằng điện thoại rồi tải ảnh lên.</li>
           </ul>
         </div>
+        {onUseOtherDevice && (
+          <Button variant="secondary" onClick={onUseOtherDevice}>
+            <QrCode className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            eKYC trên thiết bị khác
+          </Button>
+        )}
       </div>
       <div className="flex flex-col gap-3">
         <h3 className="flex items-center gap-2 text-base font-semibold text-fg">
@@ -294,10 +309,15 @@ export function EkycDialog({
   open,
   onClose,
   onVerified,
+  submitFn = ekycApi.submit,
+  onUseOtherDevice,
 }: {
   open: boolean;
   onClose: () => void;
   onVerified: (result: MyEkyc) => void;
+  /** Trang điện thoại gửi qua link handoff thay vì phiên đăng nhập. */
+  submitFn?: (req: SubmitEkycRequest) => Promise<MyEkyc>;
+  onUseOtherDevice?: () => void;
 }) {
   const [step, setStep] = React.useState(0);
   const [consent, setConsent] = React.useState(false);
@@ -410,7 +430,7 @@ export function EkycDialog({
     setBusy(true);
     setError(null);
     try {
-      const saved = await ekycApi.submit({ qrText: cccd.raw, faceDistance: distance, selfie: selfie.blob, front: front.blob, back: back.blob });
+      const saved = await submitFn({ qrText: cccd.raw, faceDistance: distance, selfie: selfie.blob, front: front.blob, back: back.blob });
       setResult(saved);
       onVerified(saved);
     } catch (err) {
@@ -450,7 +470,7 @@ export function EkycDialog({
       <div className="flex flex-col gap-5">
         <Stepper current={result ? 5 : step} />
 
-        {step === 0 && <PrepareStep consent={consent} onConsent={setConsent} />}
+        {step === 0 && <PrepareStep consent={consent} onConsent={setConsent} onUseOtherDevice={onUseOtherDevice} />}
 
         {step === 1 && (
           <CaptureStep

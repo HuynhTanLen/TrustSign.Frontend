@@ -132,7 +132,8 @@ export default function VerifyPage() {
                 </div>
                 <Button
                   type="submit"
-                  variant="primary"
+                  variant="accent"
+                  glow
                   isLoading={isChecking}
                   disabled={!code.trim()}
                   className="sm:mb-6"
@@ -148,10 +149,10 @@ export default function VerifyPage() {
                     e.preventDefault();
                     setFile(e.dataTransfer.files[0] ?? null);
                   }}
-                  className="flex flex-col items-center justify-center gap-2 p-8 sm:p-10 rounded-xl border-2 border-dashed border-line-strong bg-strip hover:bg-selected/40 transition-colors text-center cursor-pointer group"
+                  className="flex flex-col items-center justify-center gap-2 p-8 sm:p-10 rounded-2xl border-2 border-dashed border-blue-300/80 bg-blue-50/30 hover:bg-blue-50/70 transition-colors text-center cursor-pointer group"
                 >
-                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-primary border border-line shadow-xs group-hover:scale-105 transition-transform">
-                    <Upload className="w-6 h-6" aria-hidden="true" />
+                  <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-blue-600 border border-blue-200 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+                    <Upload className="w-7 h-7" aria-hidden="true" />
                   </div>
                   <div>
                     <span className="text-sm font-bold text-fg block">
@@ -170,7 +171,8 @@ export default function VerifyPage() {
                 </label>
                 <div className="flex justify-end">
                   <Button
-                    variant="primary"
+                    variant="accent"
+                    glow
                     isLoading={isChecking}
                     disabled={!file}
                     onClick={() => file && check(() => verifyApi.byFile(file))}

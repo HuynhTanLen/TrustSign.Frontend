@@ -1,40 +1,41 @@
 @import "tailwindcss";
 
-/* Chữ Tín (TrustSign) — Modern Enterprise LegalTech & FinTech Design System */
+/* Chữ Tín (TrustSign) — Refined Enterprise FinTech Design System */
 @theme {
-  --font-sans: "Inter", "Be Vietnam Pro", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "Times New Roman", "Segoe UI", Roboto, Arial, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: "Inter", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Times New Roman", "Segoe UI", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Core Brand & Surface Palette */
-  --color-primary: #16355b;
-  --color-primary-hover: #0e2440;
-  --color-primary-subtle: #eff5fc;
-  --color-accent: #1d4ed8;
+  /* Sophisticated Enterprise Palette (No Neon, Pure Refined Blue & Slate) */
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1e40af;
+  --color-primary-subtle: #f0f6ff;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
   --color-fg: #0f172a;
-  --color-muted: #526071;
+  --color-muted: #64748b;
   --color-line: #e2e8f0;
   --color-line-strong: #cbd5e1;
-  --color-page: #f6f8fb;
+  --color-page: #f8fafc;
   --color-surface: #ffffff;
-  --color-selected: #e8f1fb;
-  --color-primary-light: #e8f1fb;
+  --color-selected: #eff6ff;
+  --color-primary-light: #eff6ff;
 
-  /* Semantic Feedback */
+  /* Semantic Feedback (Standard Corporate) */
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   --color-success: #15803d;
   --color-warning: #b45309;
   --color-skeleton: #e2e8f0;
-  --color-overlay: rgba(15, 23, 42, 0.48);
+  --color-overlay: rgba(15, 23, 42, 0.45);
 
-  /* Brand Vermilion Seal & Topbar */
+  /* Brand Vermilion Seal */
   --color-seal: #c92a2a;
-  --color-topbar-muted: #cbd5e1;
-  --color-topbar-hover: rgba(255, 255, 255, 0.12);
+  --color-topbar-muted: #64748b;
+  --color-topbar-hover: rgba(15, 23, 42, 0.04);
   --color-strip: #f8fafc;
 
-  /* Refined Semantic Status Badges */
+  /* Semantic Status Badges */
   --color-badge-draft-bg: #f1f5f9;
   --color-badge-draft-fg: #334155;
   --color-badge-pending-bg: #fef3c7;
@@ -45,61 +46,65 @@
   --color-badge-completed-fg: #166534;
   --color-badge-declined-bg: #fee2e2;
   --color-badge-declined-fg: #991b1b;
-  --color-badge-cancelled-bg: #e2e8f0;
-  --color-badge-cancelled-fg: #334155;
+  --color-badge-cancelled-bg: #f1f5f9;
+  --color-badge-cancelled-fg: #475569;
   --color-badge-expired-bg: #ffedd5;
   --color-badge-expired-fg: #9a3412;
 
   --text-table: 12px;
   --text-table--line-height: 16px;
 
-  /* Tactile SaaS Geometry & Spacing */
+  /* Geometry & Spacing */
   --spacing-control: 40px;
   --spacing-row: 48px;
   --container-content: 1240px;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
 
-  /* Layered Elevation Shadows */
+  /* Natural Shadows (No glowing neon rings) */
   --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
-  --shadow-card-hover: 0 12px 28px -6px rgba(15, 23, 42, 0.08), 0 4px 10px -4px rgba(15, 23, 42, 0.04);
-  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.14), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
-  --shadow-menu: 0 14px 32px -6px rgba(15, 23, 42, 0.14), 0 4px 12px -3px rgba(15, 23, 42, 0.06);
-  --shadow-dialog: 0 24px 52px -12px rgba(15, 23, 42, 0.26), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -3px rgba(15, 23, 42, 0.04);
+  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  --shadow-menu: 0 12px 28px -4px rgba(15, 23, 42, 0.1), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  --shadow-dialog: 0 24px 48px -12px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.05);
 
-  /* Motion */
-  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
-  --animate-fade-in: fade-in 180ms var(--ease-out-soft) both;
-  --animate-fade-up: fade-up 260ms var(--ease-out-soft) both;
-  --animate-pop-in: pop-in 200ms var(--ease-out-soft) both;
-  --animate-drop-in: drop-in 160ms var(--ease-out-soft) both;
-  --animate-slide-in: slide-in 240ms var(--ease-out-soft) both;
-  --animate-grow-x: grow-x 650ms var(--ease-out-soft) both;
+  /* Motion Curves */
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: fade-in 200ms var(--ease-smooth) both;
+  --animate-fade-up: fade-up 300ms var(--ease-smooth) both;
+  --animate-pop-in: pop-in 220ms var(--ease-smooth) both;
+  --animate-drop-in: drop-in 200ms var(--ease-smooth) both;
+  --animate-slide-in: slide-in 240ms var(--ease-smooth) both;
 
   @keyframes fade-in {
     from { opacity: 0; }
+    to { opacity: 1; }
   }
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes pop-in {
-    from { opacity: 0; transform: scale(0.96); }
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
   @keyframes drop-in {
-    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
   @keyframes slide-in {
-    from { opacity: 0; transform: translateX(18px); }
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
   }
-  @keyframes grow-x {
-    from { transform: scaleX(0); }
-  }
-  @keyframes grow-y {
-    from { transform: scaleY(0); }
+  @keyframes beacon {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.5); opacity: 0; }
+    100% { transform: scale(0.95); opacity: 0; }
   }
 }
 
@@ -113,14 +118,14 @@
   body {
     font-family: var(--font-sans);
     font-size: 14px;
-    line-height: 21px;
+    line-height: 22px;
     background-color: var(--color-page);
     color: var(--color-fg);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -132,7 +137,7 @@
   summary,
   tr {
     transition-property: color, background-color, border-color, box-shadow, transform, opacity;
-    transition-duration: 160ms;
+    transition-duration: 180ms;
     transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -148,38 +153,72 @@
   }
 }
 
-/* Architectural SaaS Surface Utilities */
-.hero-mesh {
+/* ==========================================================
+   CLEAN ENTERPRISE SURFACES & MESH
+   ========================================================== */
+
+/* Nền sạch sẽ, thanh lịch với ánh sáng xám/xanh lam nhạt */
+.clean-mesh {
   background-color: #ffffff;
   background-image:
-    radial-gradient(at 15% 10%, rgba(22, 53, 91, 0.06) 0px, transparent 50%),
-    radial-gradient(at 88% 18%, rgba(29, 78, 216, 0.06) 0px, transparent 48%),
-    radial-gradient(at 75% 85%, rgba(201, 42, 42, 0.035) 0px, transparent 45%),
-    linear-gradient(to right, rgba(226, 232, 240, 0.45) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(226, 232, 240, 0.45) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+    radial-gradient(at 10% 10%, rgba(29, 78, 216, 0.04) 0px, transparent 50%),
+    radial-gradient(at 90% 10%, rgba(30, 64, 175, 0.03) 0px, transparent 45%),
+    linear-gradient(to right, rgba(226, 232, 240, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.35) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
 
+/* Thẻ Bento hiện đại thanh thoát */
+.bento-card {
+  position: relative;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
+  transition: all 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bento-card:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.07), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
+}
+
+/* Dark Navy/Slate Panel cho các trang Auth, Onboarding & Header */
 .navy-panel {
-  background-color: #102744;
+  background-color: #0f172a;
   background-image:
-    radial-gradient(circle at 85% 12%, rgba(59, 130, 246, 0.22) 0%, transparent 45%),
-    radial-gradient(circle at 10% 90%, rgba(201, 42, 42, 0.14) 0%, transparent 42%),
-    linear-gradient(155deg, #0d213a 0%, #16355b 58%, #1c4272 100%);
+    radial-gradient(circle at 85% 15%, rgba(37, 99, 235, 0.16) 0%, transparent 45%),
+    radial-gradient(circle at 10% 85%, rgba(30, 64, 175, 0.12) 0%, transparent 40%),
+    linear-gradient(160deg, #020617 0%, #0f172a 60%, #1e293b 100%);
 }
 
-.transparent-checkerboard {
-  background-color: var(--color-surface);
-  background-image:
-    linear-gradient(45deg, var(--color-line) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--color-line) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--color-line) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--color-line) 75%);
-  background-size: 14px 14px;
-  background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+/* Tia sáng trắng mờ phản xạ thanh lịch khi rê chuột */
+.shimmer-subtle {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-subtle::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    65deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.shimmer-subtle:hover::after {
+  transform: translateX(120%);
 }
 
-/* Tinh chỉnh thanh cuộn thanh mảnh hiện đại chuẩn SaaS */
+/* Thanh cuộn tinh tế */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

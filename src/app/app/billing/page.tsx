@@ -277,42 +277,42 @@ function BillingContent() {
                 return (
                   <div
                     key={p.id}
-                    className={`rounded-xl border p-5 flex flex-col justify-between transition-all ${
+                    className={`rounded-2xl border p-6 flex flex-col justify-between card-interactive ${
                       isCurrent
-                        ? "border-primary bg-selected/50 shadow-card ring-1 ring-primary/20"
-                        : "border-line bg-surface hover:shadow-card"
+                        ? "border-blue-500 bg-blue-50/40 shadow-card ring-2 ring-blue-500/20"
+                        : "border-line bg-surface hover:shadow-card-hover"
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-base font-bold text-fg">Gói {p.name}</h3>
+                        <h3 className="text-lg font-extrabold text-fg">Gói {p.name}</h3>
                         {isCurrent ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary text-white text-[11px] font-bold">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-bold shadow-xs">
                             Đang dùng
                           </span>
                         ) : p.isTrial ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-badge-draft-bg text-badge-draft-fg text-[11px] font-semibold">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
                             Dùng thử
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="mt-3 pb-3 border-b border-line">
-                        <span className="text-2xl font-extrabold text-fg">{formatMoney(p.price)}</span>
-                        <span className="ml-1 text-xs text-muted font-medium">/ {p.durationDays} ngày</span>
+                      <div className="mt-3.5 pb-3.5 border-b border-line">
+                        <span className="text-2xl sm:text-3xl font-extrabold text-fg">{formatMoney(p.price)}</span>
+                        <span className="ml-1 text-xs text-muted font-semibold">/ {p.durationDays} ngày</span>
                       </div>
 
-                      <ul className="mt-4 flex flex-col gap-2 text-xs sm:text-sm text-fg">
-                        <li className="flex items-center gap-2 font-semibold text-primary">
-                          <Check className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+                      <ul className="mt-4 flex flex-col gap-2.5 text-xs sm:text-sm text-fg">
+                        <li className="flex items-center gap-2 font-bold text-blue-700">
+                          <Check className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" />
                           <span>{p.monthlyQuota} hợp đồng gửi ký mỗi tháng</span>
                         </li>
                         <li className="flex items-center gap-2 text-muted">
-                          <Check className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+                          <Check className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
                           <span>Tối đa 5 bên ký mỗi hợp đồng</span>
                         </li>
                         <li className="flex items-center gap-2 text-muted">
-                          <Check className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
+                          <Check className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
                           <span>Chuẩn chữ ký số PAdES & OTP email</span>
                         </li>
                       </ul>
@@ -320,7 +320,8 @@ function BillingContent() {
 
                     <Button
                       className="mt-6 w-full"
-                      variant={isCurrent ? "primary" : "secondary"}
+                      variant={isCurrent ? "accent" : "secondary"}
+                      glow={isCurrent}
                       disabled={p.isTrial}
                       onClick={() => openCheckout(p)}
                     >

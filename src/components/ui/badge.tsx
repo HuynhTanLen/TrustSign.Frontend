@@ -28,16 +28,18 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: BadgeTone;
   size?: "sm" | "md";
   dot?: boolean;
+  /** Bật hiệu ứng sóng xung quanh chấm trạng thái (beacon pulse). */
+  pulse?: boolean;
 }
 
 const tones: Record<BadgeTone, string> = {
-  draft: "bg-badge-draft-bg text-badge-draft-fg ring-badge-draft-fg/15",
-  pending: "bg-badge-pending-bg text-badge-pending-fg ring-badge-pending-fg/20",
-  signing: "bg-badge-signing-bg text-badge-signing-fg ring-badge-signing-fg/20",
-  completed: "bg-badge-completed-bg text-badge-completed-fg ring-badge-completed-fg/20",
-  declined: "bg-badge-declined-bg text-badge-declined-fg ring-badge-declined-fg/20",
-  cancelled: "bg-badge-cancelled-bg text-badge-cancelled-fg ring-badge-cancelled-fg/15",
-  expired: "bg-badge-expired-bg text-badge-expired-fg ring-badge-expired-fg/20",
+  draft: "bg-slate-100/90 text-slate-700 ring-slate-300/60 shadow-xs",
+  pending: "bg-amber-50 text-amber-800 ring-amber-300/80 shadow-xs",
+  signing: "bg-blue-50 text-blue-700 ring-blue-300/80 shadow-xs",
+  completed: "bg-emerald-50 text-emerald-800 ring-emerald-300/80 shadow-xs",
+  declined: "bg-rose-50 text-rose-800 ring-rose-300/80 shadow-xs",
+  cancelled: "bg-gray-100 text-gray-700 ring-gray-300/60 shadow-xs",
+  expired: "bg-orange-50 text-orange-800 ring-orange-300/80 shadow-xs",
 };
 
 const sizes = {
@@ -68,6 +70,7 @@ export function Badge({
   tone,
   size = "md",
   dot,
+  pulse,
   children,
   ...props
 }: BadgeProps) {
@@ -80,10 +83,20 @@ export function Badge({
   const activeTone = tone ?? resolved.tone;
   const showDot = dot ?? Boolean(contractStatus || subscriptionStatus);
 
+  // Tự động bật pulse cho các trạng thái đang diễn ra
+  const shouldPulse =
+    pulse ??
+    (contractStatus === "Signing" ||
+      contractStatus === "Pending" ||
+      subscriptionStatus === "Active" ||
+      activeTone === "signing" ||
+      activeTone === "pending");
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full font-semibold ring-1 ring-inset whitespace-nowrap select-none",
+        "transition-colors duration-150",
         sizes[size],
         tones[activeTone],
         className,
@@ -91,7 +104,18 @@ export function Badge({
       {...props}
     >
       {showDot && (
-        <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-current opacity-80 shrink-0" />
+        <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+          {shouldPulse && (
+            <span
+              aria-hidden="true"
+              className="absolute inline-flex h-full w-full rounded-full bg-current opacity-75 animate-ping"
+            />
+          )}
+          <span
+            aria-hidden="true"
+            className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current"
+          />
+        </span>
       )}
       <span className="truncate">{children ?? resolved.label}</span>
     </span>

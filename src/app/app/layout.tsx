@@ -133,20 +133,17 @@ function AppLayoutShell({
         nav={nav}
         secondaryNav={secondaryNav}
         sidebarTop={
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
-              Doanh nghiệp của bạn
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+            <span className="p-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+              <Building2 className="w-3.5 h-3.5" aria-hidden="true" />
             </span>
-            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-line bg-page">
-              <Building2 className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-fg truncate">
-                  {activeTenantInfo?.name ?? "Doanh nghiệp"}
-                </p>
-                <p className="text-[11px] text-muted truncate">
-                  {TENANT_ROLE_LABELS[currentRole] ?? "Chủ doanh nghiệp"}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-900 truncate leading-tight">
+                {activeTenantInfo?.name ?? "Doanh nghiệp"}
+              </p>
+              <p className="text-[10px] text-slate-500 font-semibold truncate leading-tight">
+                {TENANT_ROLE_LABELS[currentRole] ?? "Chủ doanh nghiệp"}
+              </p>
             </div>
           </div>
         }

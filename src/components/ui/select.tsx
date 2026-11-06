@@ -38,7 +38,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     const messageId = `${selectId}-message`;
 
     return (
-      <div className={cn("w-full flex flex-col gap-1.5", containerClassName)}>
+      <div className={cn("group w-full flex flex-col gap-1.5", containerClassName)}>
         {label && (
           <label htmlFor={selectId} className="text-[13px] font-semibold text-fg">
             {label}
@@ -56,10 +56,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={error || helperText ? messageId : undefined}
             className={cn(
-              "w-full h-control appearance-none rounded-md border bg-surface pl-3.5 pr-9 text-sm font-medium text-fg shadow-xs cursor-pointer",
-              "focus:outline-none focus:ring-3 disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted",
+              "w-full h-control appearance-none rounded-lg border bg-surface pl-3.5 pr-9 text-sm font-medium text-fg shadow-xs cursor-pointer",
+              "transition-all duration-200",
+              "focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted",
               error
-                ? "border-danger focus:border-danger focus:ring-danger/15"
+                ? "border-danger focus:border-danger focus:ring-danger/20"
                 : "border-line-strong hover:border-muted/60 focus:border-primary focus:ring-primary/15",
               className,
             )}
@@ -80,11 +81,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           </select>
           <ChevronDown
             aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted transition-transform group-focus-within:rotate-180 group-focus-within:text-primary"
           />
         </div>
         {error && (
-          <p id={messageId} role="alert" className="text-xs font-medium text-danger">
+          <p id={messageId} role="alert" className="text-xs font-medium text-danger motion-safe:animate-fade-in">
             {error}
           </p>
         )}

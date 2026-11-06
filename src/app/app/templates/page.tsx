@@ -347,11 +347,11 @@ export default function TemplatesPage() {
         actions={
           <Button
             variant="primary"
+            leftIcon={<FilePenLine className="w-4 h-4" aria-hidden="true" />}
             onClick={() => {
               loadBlueprintToBuilder(REFERENCE_TEMPLATES[0]);
             }}
           >
-            <FilePenLine className="w-4 h-4" aria-hidden="true" />
             Thiết kế mẫu mới
           </Button>
         }
@@ -536,8 +536,11 @@ export default function TemplatesPage() {
           className="lg:col-span-7"
           actions={
             editingId ? (
-              <Button variant="ghost" onClick={() => setEditingId(null)}>
-                <X className="w-4 h-4" aria-hidden="true" />
+              <Button
+                variant="ghost"
+                leftIcon={<X className="w-4 h-4" aria-hidden="true" />}
+                onClick={() => setEditingId(null)}
+              >
                 Hủy sửa
               </Button>
             ) : undefined
@@ -680,8 +683,12 @@ export default function TemplatesPage() {
                     Các điều khoản pháp lý sẽ tự động đặt sau phần thông tin giao dịch.
                   </p>
                 </div>
-                <Button type="button" variant="secondary" onClick={addClause}>
-                  <Plus className="w-3.5 h-3.5" />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={addClause}
+                >
                   Thêm điều khoản
                 </Button>
               </div>
@@ -721,8 +728,12 @@ export default function TemplatesPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-line">
-              <Button type="submit" variant="primary" isLoading={isSaving}>
-                <Sparkles className="w-4 h-4" aria-hidden="true" />
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isSaving}
+                leftIcon={<Sparkles className="w-4 h-4" aria-hidden="true" />}
+              >
                 {editingId ? "Cập nhật mẫu hợp đồng" : "Lưu vào mẫu của doanh nghiệp"}
               </Button>
             </div>

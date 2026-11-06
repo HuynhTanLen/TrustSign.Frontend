@@ -155,25 +155,32 @@ function RegisterForm() {
 
   if (isSuccess) {
     return (
-      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-completed-bg text-success border border-success/15">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <header className="px-6 py-5 bg-slate-50/90 border-b border-slate-200 flex items-center gap-3.5">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-xs">
             <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
           </span>
           <div>
-            <h1 className="text-base font-bold text-fg">Kiểm tra hộp thư xác minh</h1>
+            <h1 className="text-base font-extrabold text-fg">Kiểm tra hộp thư xác minh</h1>
             <p className="text-xs text-muted">Kích hoạt tài khoản để bắt đầu</p>
           </div>
         </header>
 
-        <div className="p-6 flex flex-col gap-5">
-          <p className="text-sm text-muted leading-relaxed">
+        <div className="p-6 sm:p-7 flex flex-col gap-5">
+          <div className="flex justify-center py-2">
+            <span className="relative inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-md">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-25" />
+              <CheckCircle2 className="w-8 h-8" />
+            </span>
+          </div>
+
+          <p className="text-sm text-muted leading-relaxed text-center">
             Hệ thống đã gửi liên kết xác minh kích hoạt tài khoản tới địa chỉ{" "}
             <span className="font-bold text-fg">{registeredEmail}</span>. Vui lòng mở hộp thư và nhấn vào liên kết để hoàn tất.
           </p>
 
           {process.env.NODE_ENV !== "production" && (
-            <div className="p-3.5 rounded-lg border border-line bg-strip text-xs text-muted">
+            <div className="p-3.5 rounded-xl border border-line bg-strip text-xs text-muted">
               Môi trường thử nghiệm cục bộ: xem email kích hoạt tại hộp thư Mailpit:{" "}
               <code className="font-mono font-bold text-fg">http://localhost:8025</code>
             </div>
@@ -194,10 +201,22 @@ function RegisterForm() {
             </Button>
 
             <Link href={loginHref} className="block">
-              <Button type="button" variant="primary" className="w-full">
+              <Button type="button" variant="accent" glow className="w-full">
                 Đến trang đăng nhập
               </Button>
             </Link>
+
+            {/* Giữ nguyên các ô đã nhập để chỉ cần sửa email rồi đăng ký lại. */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSuccess(false);
+                setResendCooldown(0);
+              }}
+              className="mt-1 text-sm text-muted hover:text-fg underline underline-offset-4 cursor-pointer text-center"
+            >
+              Nhập sai email? Đăng ký lại
+            </button>
           </div>
         </div>
       </div>
@@ -208,14 +227,14 @@ function RegisterForm() {
   const { label: strengthLabel, color: strengthColor } = getStrengthMeta(strength);
 
   return (
-    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
-          <UserPlus className="w-4 h-4" aria-hidden="true" />
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+      <header className="px-6 py-5 bg-slate-50/90 border-b border-slate-200 flex items-center gap-3.5">
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 shadow-xs shrink-0">
+          <UserPlus className="w-5 h-5" aria-hidden="true" />
         </span>
         <div>
-          <h1 className="text-base font-bold text-fg">Đăng ký tài khoản mới</h1>
-          <p className="text-xs text-muted">Khởi tạo tài khoản cá nhân trên nền tảng Chữ Tín</p>
+          <h1 className="text-base font-extrabold text-slate-900">Đăng ký tài khoản mới</h1>
+          <p className="text-xs text-slate-500 font-medium">Khởi tạo tài khoản cá nhân trên nền tảng Chữ Tín</p>
         </div>
       </header>
 
@@ -339,8 +358,9 @@ function RegisterForm() {
 
           <Button
             type="submit"
-            variant="primary"
+            variant="accent"
             size="lg"
+            glow
             className="w-full mt-2"
             isLoading={isLoading}
             disabled={!acceptTerms || isLoading}
@@ -353,7 +373,7 @@ function RegisterForm() {
           Đã có tài khoản Chữ Tín?{" "}
           <Link
             href={loginHref}
-            className="text-primary font-bold underline underline-offset-4 hover:text-primary-hover"
+            className="text-blue-600 font-extrabold underline underline-offset-4 hover:text-blue-800 transition-colors"
           >
             Đăng nhập ngay
           </Link>

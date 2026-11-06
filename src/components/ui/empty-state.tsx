@@ -35,7 +35,7 @@ export function EmptyState({
       role="status"
       aria-live="polite"
       className={cn(
-        "flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-line-strong bg-surface",
+        "group flex flex-col items-center justify-center text-center rounded-2xl border border-dashed border-blue-200/80 bg-blue-50/20 hover:bg-blue-50/40 transition-colors",
         compact ? "px-4 py-8" : "px-6 py-12",
         className,
       )}
@@ -44,16 +44,16 @@ export function EmptyState({
         <div
           aria-hidden="true"
           className={cn(
-            "mb-3.5 inline-flex items-center justify-center rounded-full bg-selected text-primary border border-primary/10 shrink-0",
-            compact ? "w-10 h-10 [&_svg]:w-4 [&_svg]:h-4" : "w-12 h-12 [&_svg]:w-5 [&_svg]:h-5",
+            "mb-4 inline-flex items-center justify-center rounded-2xl bg-white text-blue-600 border border-blue-200 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1 shrink-0",
+            compact ? "w-11 h-11 [&_svg]:w-5 [&_svg]:h-5" : "w-14 h-14 [&_svg]:w-6 [&_svg]:h-6",
           )}
         >
           {icon}
         </div>
       )}
-      <h3 className={cn("font-bold text-fg", compact ? "text-sm" : "text-base")}>{title}</h3>
+      <h3 className={cn("font-extrabold text-fg", compact ? "text-sm" : "text-base")}>{title}</h3>
       {description && (
-        <p className={cn("max-w-[420px] text-sm text-muted mt-1", hasActions ? "mb-5" : "")}>
+        <p className={cn("max-w-[420px] text-sm text-muted mt-1 leading-relaxed", hasActions ? "mb-5" : "")}>
           {description}
         </p>
       )}
@@ -62,7 +62,7 @@ export function EmptyState({
           {action ?? (
             actionLabel &&
             onAction && (
-              <Button variant="primary" size={compact ? "sm" : "md"} onClick={onAction}>
+              <Button variant="accent" glow size={compact ? "sm" : "md"} onClick={onAction}>
                 {actionLabel}
               </Button>
             )

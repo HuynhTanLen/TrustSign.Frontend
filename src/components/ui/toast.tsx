@@ -100,21 +100,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               onMouseEnter={() => clearTimer(t.id)}
               onMouseLeave={() => scheduleDismiss(t.id, 2000)}
               className={cn(
-                "pointer-events-auto w-full sm:w-[380px] flex items-center gap-3 px-4 py-3.5 rounded-lg border border-line bg-surface shadow-menu text-sm font-medium text-fg motion-safe:animate-slide-in",
+                "pointer-events-auto w-full sm:w-[390px] flex items-center gap-3.5 px-4.5 py-3.5 rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-2xl shadow-slate-900/15 text-sm font-semibold text-fg motion-safe:animate-slide-in",
               )}
             >
               <span
                 className={cn(
-                  "inline-flex items-center justify-center w-7 h-7 rounded-full shrink-0",
+                  "inline-flex items-center justify-center w-8 h-8 rounded-xl shrink-0 shadow-xs",
                   iconWrap,
                 )}
               >
                 {t.type === "error" ? (
-                  <CircleAlert className="w-4 h-4" aria-hidden="true" />
+                  <CircleAlert className="w-4.5 h-4.5" aria-hidden="true" />
                 ) : t.type === "info" ? (
-                  <Info className="w-4 h-4" aria-hidden="true" />
+                  <Info className="w-4.5 h-4.5" aria-hidden="true" />
                 ) : (
-                  <CircleCheck className="w-4 h-4" aria-hidden="true" />
+                  <CircleCheck className="w-4.5 h-4.5" aria-hidden="true" />
                 )}
               </span>
               <span className="flex-1 min-w-0 leading-snug break-words">{t.message}</span>
@@ -122,9 +122,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="Đóng thông báo"
-                className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-fg hover:bg-strip cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-full text-muted hover:text-fg hover:bg-slate-100 hover:rotate-90 transition-all cursor-pointer shrink-0"
               >
-                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           );

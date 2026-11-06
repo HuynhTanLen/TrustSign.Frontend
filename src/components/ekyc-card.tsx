@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { EkycDialog } from "@/components/ekyc-dialog";
+import { EkycHandoffDialog } from "@/components/ekyc-handoff-dialog";
 
 /** Thẻ trạng thái eKYC của tài khoản trong trang Cài đặt. */
 export function EkycCard() {
   const { data, isLoading, mutate } = useApi("ekyc:mine", ekycApi.mine);
-  const [open, setOpen] = React.useState(false);
+  const [mode, setMode] = React.useState<"camera" | "handoff" | null>(null);
+  const { toast } = useToast();
 
   return (
     <Card
@@ -48,13 +51,28 @@ export function EkycCard() {
               <p className="text-muted">Tài khoản chưa xác minh danh tính. Quá trình mất khoảng 2 phút.</p>
             )}
           </div>
-          <Button variant="primary" onClick={() => setOpen(true)}>
+          <Button variant="accent" glow onClick={() => setMode("camera")}>
             <ScanFace className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Xác minh ngay
           </Button>
         </div>
       )}
-      <EkycDialog open={open} onClose={() => setOpen(false)} onVerified={(r) => mutate(() => r)} />
+      <EkycDialog
+        open={mode === "camera"}
+        onClose={() => setMode(null)}
+        onVerified={(r) => mutate(() => r)}
+        onUseOtherDevice={() => setMode("handoff")}
+      />
+      <EkycHandoffDialog
+        open={mode === "handoff"}
+        onClose={() => setMode(null)}
+        onBack={() => setMode("camera")}
+        onVerified={(r) => {
+          mutate(() => r);
+          setMode(null);
+          toast("Đã xác minh danh tính từ điện thoại.", "success");
+        }}
+      />
     </Card>
   );
 }

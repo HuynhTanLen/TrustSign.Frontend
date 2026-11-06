@@ -4,20 +4,16 @@ import { cn } from "@/lib/cn";
 import { Skeleton } from "./skeleton";
 
 export interface CardProps extends Omit<React.HTMLAttributes<HTMLElement>, "title"> {
-  /** Tiêu đề phần đầu thẻ; bỏ qua để tạo khung nội dung phẳng. */
   title?: React.ReactNode;
   description?: React.ReactNode;
   icon?: LucideIcon;
-  /** Các nút thao tác hoặc nhãn bên phải tiêu đề. */
   actions?: React.ReactNode;
-  /** Chân thẻ tùy chọn (hiển thị phân cách phía dưới). */
   footer?: React.ReactNode;
-  /** Hiển thị trạng thái Skeleton khi đang tải nội dung thẻ. */
   loading?: boolean;
   children?: React.ReactNode;
   className?: string;
-  /** Ghi đè khoảng đệm thân thẻ (ví dụ "p-0" cho bảng). */
   bodyClassName?: string;
+  interactive?: boolean;
 }
 
 export function CardHeader({
@@ -28,7 +24,7 @@ export function CardHeader({
   return (
     <header
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-strip/75 border-b border-line",
+        "flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-slate-50/70 border-b border-slate-100",
         className,
       )}
       {...props}
@@ -44,7 +40,7 @@ export function CardBody({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("p-5", className)} {...props}>
+    <div className={cn("p-5 sm:p-6", className)} {...props}>
       {children}
     </div>
   );
@@ -58,7 +54,7 @@ export function CardFooter({
   return (
     <footer
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-strip/50 border-t border-line text-xs text-muted",
+        "flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-slate-50/50 border-t border-slate-100 text-xs text-muted",
         className,
       )}
       {...props}
@@ -75,16 +71,18 @@ export function Card({
   actions,
   footer,
   loading = false,
+  interactive = false,
   children,
   className = "",
-  bodyClassName = "p-5",
+  bodyClassName = "p-5 sm:p-6",
   ...props
 }: CardProps) {
   return (
     <section
       aria-busy={loading || undefined}
       className={cn(
-        "bg-surface border border-line rounded-lg shadow-card overflow-hidden",
+        "group relative bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden transition-all duration-200",
+        interactive && "hover:-translate-y-0.5 hover:shadow-card-hover hover:border-slate-300",
         className,
       )}
       {...props}
@@ -93,12 +91,12 @@ export function Card({
         <CardHeader>
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-selected text-primary border border-primary/10 shrink-0">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
                 <Icon className="w-4 h-4" aria-hidden="true" />
               </span>
             )}
             <div className="min-w-0">
-              <h2 className="text-[15px] font-semibold text-fg truncate">{title}</h2>
+              <h2 className="text-[15px] font-bold text-slate-900 tracking-tight truncate">{title}</h2>
               {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
             </div>
           </div>
@@ -135,7 +133,7 @@ export interface StatCardProps {
   className?: string;
 }
 
-/** Thẻ KPI trên trang tổng quan: nhãn, chỉ số nổi bật, biểu tượng màu và dòng ngữ cảnh. */
+/** Thẻ KPI phong cách Enterprise FinTech sạch sẽ, sang trọng (không màu neon). */
 export function StatCard({
   label,
   value,
@@ -146,10 +144,10 @@ export function StatCard({
   className = "",
 }: StatCardProps) {
   const iconTone = {
-    primary: "bg-selected text-primary border-primary/15",
-    success: "bg-badge-completed-bg text-badge-completed-fg border-success/15",
-    warning: "bg-badge-pending-bg text-badge-pending-fg border-warning/15",
-    danger: "bg-badge-declined-bg text-badge-declined-fg border-danger/15",
+    primary: "bg-blue-50 text-blue-700 border-blue-200",
+    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    warning: "bg-amber-50 text-amber-700 border-amber-200",
+    danger: "bg-rose-50 text-rose-700 border-rose-200",
   }[tone];
 
   if (loading) {
@@ -157,7 +155,7 @@ export function StatCard({
       <div
         aria-busy="true"
         className={cn(
-          "bg-surface border border-line rounded-lg p-5 shadow-card flex flex-col gap-3",
+          "bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col gap-3",
           className,
         )}
       >
@@ -171,23 +169,25 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "group relative bg-surface border border-line rounded-lg p-5 shadow-card hover:shadow-card-hover transition-shadow overflow-hidden",
+        "group relative bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-slate-300",
+        "overflow-hidden cursor-default",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted truncate">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted truncate">
             {label}
           </p>
-          <div className="mt-2.5 text-2xl font-bold tracking-tight text-fg tabular-nums truncate">
+          <div className="mt-2.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums truncate">
             {value}
           </div>
         </div>
         {Icon && (
           <span
             className={cn(
-              "inline-flex items-center justify-center w-10 h-10 rounded-lg border shrink-0",
+              "inline-flex items-center justify-center w-11 h-11 rounded-xl border shrink-0 transition-transform duration-200 group-hover:scale-105",
               iconTone,
             )}
           >
@@ -195,7 +195,7 @@ export function StatCard({
           </span>
         )}
       </div>
-      {hint && <div className="mt-2.5 text-xs text-muted">{hint}</div>}
+      {hint && <div className="mt-3 text-xs text-muted flex items-center gap-1.5 font-medium">{hint}</div>}
     </div>
   );
 }

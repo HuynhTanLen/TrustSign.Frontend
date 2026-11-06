@@ -85,7 +85,7 @@ function OtpInput({ value, onChange, disabled }: { value: string[]; onChange: (v
           onKeyDown={(e) => {
             if (e.key === "Backspace" && !value[i]) refs.current[i - 1]?.focus();
           }}
-          className="w-11 h-12 rounded-md border border-line-strong bg-surface text-center text-xl font-semibold text-fg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          className="w-12 h-14 rounded-xl border border-line-strong bg-surface text-center text-2xl font-bold text-fg transition-all focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/15 shadow-xs"
         />
       ))}
     </div>
@@ -262,7 +262,7 @@ function SignContent() {
                     <p className="text-sm text-fg">
                       Hệ thống gửi mã 6 chữ số tới <span className="font-semibold">{session.signerEmailMasked}</span> để xác nhận đúng người ký.
                     </p>
-                    <Button variant="primary" onClick={sendOtp} isLoading={busy}>
+                    <Button variant="accent" glow onClick={sendOtp} isLoading={busy}>
                       Gửi mã OTP
                     </Button>
                   </div>
@@ -282,11 +282,11 @@ function SignContent() {
                         : "Mã đã hết hạn."}
                     </p>
                     {USE_MOCK && <p className="text-xs text-muted">Dữ liệu mẫu: mã đúng là 123456.</p>}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2.5">
                       <Button type="button" variant="secondary" onClick={sendOtp} disabled={busy}>
                         Gửi lại mã
                       </Button>
-                      <Button type="submit" variant="primary" isLoading={busy} disabled={otp.join("").length < OTP_LENGTH || otpLocked || secondsLeft === 0}>
+                      <Button type="submit" variant="accent" glow isLoading={busy} disabled={otp.join("").length < OTP_LENGTH || otpLocked || secondsLeft === 0}>
                         Xác nhận
                       </Button>
                     </div>
@@ -334,8 +334,8 @@ function SignContent() {
                           <button
                             type="button"
                             onClick={() => setPadOpen(true)}
-                            className={`w-full h-28 rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                              signature ? "border-primary bg-surface" : "border-primary bg-selected hover:bg-selected/70"
+                            className={`w-full h-32 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 hover:scale-[1.01] ${
+                              signature ? "border-blue-500 bg-surface shadow-xs" : "border-blue-400 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-600 hover:shadow-md"
                             }`}
                           >
                             {signature ? (
@@ -343,16 +343,16 @@ function SignContent() {
                               <img src={signature} alt="Chữ ký của bạn" className="max-h-16" />
                             ) : (
                               <>
-                                <PenTool className="w-5 h-5 text-primary" aria-hidden="true" />
-                                <span className="text-sm font-semibold text-primary">Bấm để ký vào đây</span>
+                                <PenTool className="w-6 h-6 text-blue-600 animate-pulse" aria-hidden="true" />
+                                <span className="text-sm font-bold text-blue-700">Bấm để ký vào đây</span>
                               </>
                             )}
-                            <span className="text-xs text-muted">{f.signerName}</span>
+                            <span className="text-xs text-muted font-medium">{f.signerName}</span>
                           </button>
                         ) : (
-                          <div className="h-28 rounded-md border border-line bg-page flex flex-col items-center justify-center gap-1">
-                            <span className={`text-sm font-semibold ${f.signed ? "text-success" : "text-muted"}`}>{f.signed ? "Đã ký" : "Chưa ký"}</span>
-                            <span className="text-xs text-muted">{f.signerName}</span>
+                          <div className="h-32 rounded-xl border border-line bg-page flex flex-col items-center justify-center gap-1">
+                            <span className={`text-sm font-bold ${f.signed ? "text-emerald-600" : "text-muted"}`}>{f.signed ? "Đã ký" : "Chưa ký"}</span>
+                            <span className="text-xs text-muted font-medium">{f.signerName}</span>
                           </div>
                         )}
                       </li>
@@ -360,11 +360,11 @@ function SignContent() {
                   </ul>
                 </Card>
 
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                   <Button variant="secondary" onClick={() => setDeclining(true)} disabled={busy}>
                     Từ chối ký
                   </Button>
-                  <Button variant="primary" onClick={sign} disabled={!signature} isLoading={busy}>
+                  <Button variant="success" size="lg" glow onClick={sign} disabled={!signature} isLoading={busy}>
                     Ký hợp đồng
                   </Button>
                 </div>
