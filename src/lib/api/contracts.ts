@@ -83,6 +83,33 @@ export interface NewSigner {
   title?: string;
 }
 
+/** Phải khớp EmailValidator phía backend; chặt hơn một chút ở vài dạng hiếm như "a"@x.vn. */
+export function isValidEmail(email: string): boolean {
+  const v = email.trim();
+  return (
+    v.length <= 254 &&
+    !v.includes("..") &&
+    /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:".]{2,}$/.test(v)
+  );
+}
+
+function toSignerPayload(signers: NewSigner[]) {
+  return signers.map((s, i) => ({
+    fullName: s.fullName,
+    email: s.email.trim(),
+    order: i + 1,
+    pageNumber: s.pageNumber,
+    boxX: Math.round(s.boxX),
+    boxY: Math.round(s.boxY),
+    boxWidth: Math.round(s.boxWidth),
+    boxHeight: Math.round(s.boxHeight),
+    role: s.role ?? "Signer",
+    phone: s.phone || undefined,
+    organization: s.organization || undefined,
+    title: s.title || undefined,
+  }));
+}
+
 export const contractsApi = {
   list(params: ContractListQuery = {}): Promise<ContractListItem[]> {
     if (USE_MOCK) {
@@ -123,21 +150,27 @@ export const contractsApi = {
     return apiFetch<void>(`/api/contracts/${encodeURIComponent(id)}/cancel`, { method: "POST" });
   },
 
-  /** Step 1 of the wizard: a Draft from a template; returns its id. */
-  createFromTemplate(templateId: string, title: string, values: Record<string, string>): Promise<{ contractId: string }> {
+  /** Tạo bản Nháp từ mẫu kèm người nhận trong một lần gọi: người nhận sai thì backend không lưu gì. */
+  createFromTemplate(
+    templateId: string,
+    title: string,
+    values: Record<string, string>,
+    signers: NewSigner[],
+  ): Promise<{ contractId: string }> {
     if (USE_MOCK) return mockResponse({ contractId: mockDb.contractDetails[0].id });
     return apiFetch(`/api/contracts/from-template`, {
       method: "POST",
-      body: JSON.stringify({ templateId, title, values }),
+      body: JSON.stringify({ templateId, title, values, signers: toSignerPayload(signers) }),
     });
   },
 
-  /** Step 1 alternative: a Draft from an uploaded PDF (≤ 10 MB). */
-  upload(file: File, title: string): Promise<{ contractId: string }> {
+  /** Tạo bản Nháp từ PDF tải lên (≤ 10 MB) kèm người nhận trong một lần gọi. */
+  upload(file: File, title: string, signers: NewSigner[]): Promise<{ contractId: string }> {
     if (USE_MOCK) return mockResponse({ contractId: mockDb.contractDetails[0].id }, 800);
     const body = new FormData();
     body.append("file", file);
     body.append("title", title);
+    body.append("signers", JSON.stringify(toSignerPayload(signers)));
     return apiFetch(`/api/contracts/upload`, { method: "POST", body });
   },
 
@@ -145,22 +178,7 @@ export const contractsApi = {
     if (USE_MOCK) return mockResponse(undefined);
     return apiFetch<void>(`/api/contracts/${encodeURIComponent(id)}/signers`, {
       method: "PUT",
-      body: JSON.stringify({
-        signers: signers.map((s, i) => ({
-          fullName: s.fullName,
-          email: s.email,
-          order: i + 1,
-          pageNumber: s.pageNumber,
-          boxX: Math.round(s.boxX),
-          boxY: Math.round(s.boxY),
-          boxWidth: Math.round(s.boxWidth),
-          boxHeight: Math.round(s.boxHeight),
-          role: s.role ?? "Signer",
-          phone: s.phone || undefined,
-          organization: s.organization || undefined,
-          title: s.title || undefined,
-        })),
-      }),
+      body: JSON.stringify({ signers: toSignerPayload(signers) }),
     });
   },
 

@@ -23,7 +23,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { contractsApi, type NewSigner, type RecipientRole } from "@/lib/api/contracts";
+import { contractsApi, isValidEmail, type NewSigner, type RecipientRole } from "@/lib/api/contracts";
 import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
 import { tenantsApi } from "@/lib/api/tenants";
 import {
@@ -626,6 +626,54 @@ export default function NewContractPage() {
   const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
   const [blocked, setBlocked] = React.useState<string | null>(null);
 
+  // ?draft=<id>: tiếp tục soạn một bản Nháp. Nội dung PDF đã khóa (đã băm SHA-256), chỉ sửa người nhận, ô ký và hạn ký.
+  const resumeDraftId = searchParams.get("draft");
+  const [resumeError, setResumeError] = React.useState<unknown>(null);
+  const [resumeLoading, setResumeLoading] = React.useState(resumeDraftId !== null);
+
+  React.useEffect(() => {
+    if (!resumeDraftId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const detail = await contractsApi.get(resumeDraftId);
+        if (detail.status !== "Draft" || !detail.documentUrl) {
+          throw new Error("Chỉ tiếp tục soạn được hợp đồng đang ở trạng thái Nháp.");
+        }
+        const pdf = await fetch(detail.documentUrl);
+        if (!pdf.ok) throw new Error("Không tải được tệp PDF của bản nháp.");
+        const blob = await pdf.blob();
+        if (cancelled) return;
+        setSource("upload");
+        setFile(new File([blob], `${detail.code}.pdf`, { type: "application/pdf" }));
+        setTitle(detail.title);
+        if (detail.signers.length > 0) {
+          setSigners(
+            detail.signers.map((s, i) => ({
+              fullName: s.fullName,
+              email: s.email,
+              role: s.role ?? "Signer",
+              phone: s.phone ?? "",
+              organization: s.organization ?? "",
+              title: s.title ?? "",
+              ...defaultBoxForOrder(i, detail.signers.length),
+              ...(s.boxWidth ? { pageNumber: s.pageNumber ?? 1, boxX: s.boxX ?? 0, boxY: s.boxY ?? 0, boxWidth: s.boxWidth, boxHeight: s.boxHeight ?? 0 } : {}),
+            })),
+          );
+        }
+        setCreatedDraftId(detail.id);
+        setStep(1);
+      } catch (err) {
+        if (!cancelled) setResumeError(err);
+      } finally {
+        if (!cancelled) setResumeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeDraftId]);
+
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const canvasRef = React.useRef<HTMLDivElement>(null);
   const placementScrollRef = React.useRef<HTMLDivElement>(null);
@@ -789,6 +837,7 @@ export default function NewContractPage() {
     const activeClauses = customClauses ?? base.clauses;
     const compiledContent = buildFormattedContractFromBlueprint({
       name: title || templateDetail.name,
+      legalBasis: base.legalBasis,
       partyATitle: base.partyATitle,
       partyBTitle: base.partyBTitle,
       fields: orderedFields,
@@ -946,7 +995,10 @@ export default function NewContractPage() {
   const step2Valid =
     signers.length > 0 &&
     hasSignerRole &&
-    signers.every((s) => s.fullName.trim() && /\S+@\S+\.\S+/.test(s.email)) &&
+    signers.every((s) => {
+      const name = s.fullName.trim();
+      return name.length > 0 && name.length <= 100 && isValidEmail(s.email);
+    }) &&
     dueAt !== "";
 
   const goToSignersStep = () => {
@@ -1121,42 +1173,47 @@ export default function NewContractPage() {
   };
 
   const ensureDraftAndSigners = async (): Promise<string> => {
-    let contractId = createdDraftId;
-    if (!contractId) {
-      if (source === "upload" && file) {
-        const res = await contractsApi.upload(file, title.trim());
-        contractId = res.contractId;
-      } else {
-        let realTemplateId = selectedChoice;
-        const compiledContent = mergedBlueprint?.compiledContent ?? templateDetail?.content ?? "";
-        if (
-          selectedChoice.startsWith("ref:") ||
-          extraFields.length > 0 ||
-          removedFieldKeys.length > 0 ||
-          customClauses !== null
-        ) {
-          const createdTpl = await templatesApi.create({
-            name: title.trim(),
-            content: compiledContent,
-          });
-          realTemplateId = createdTpl.id;
-        }
-        const normalizedValues: Record<string, string> = {};
-        for (const [k, v] of Object.entries(values)) {
-          normalizedValues[k] = isMoneyField(k, formatVariableLabel(k))
-            ? formatDigitsToVnCurrency(v)
-            : v;
-        }
-        const res = await contractsApi.createFromTemplate(
-          realTemplateId,
-          title.trim(),
-          normalizedValues,
-        );
-        contractId = res.contractId;
-      }
-      setCreatedDraftId(contractId);
+    // Đã có bản nháp: chỉ cập nhật người nhận.
+    if (createdDraftId) {
+      await contractsApi.setSigners(createdDraftId, signers);
+      return createdDraftId;
     }
-    await contractsApi.setSigners(contractId, signers);
+
+    // Chưa có: tạo bản nháp kèm người nhận trong một lần gọi, sai thì backend không lưu gì.
+    let contractId: string;
+    if (source === "upload" && file) {
+      const res = await contractsApi.upload(file, title.trim(), signers);
+      contractId = res.contractId;
+    } else {
+      let realTemplateId = selectedChoice;
+      const compiledContent = mergedBlueprint?.compiledContent ?? templateDetail?.content ?? "";
+      if (
+        selectedChoice.startsWith("ref:") ||
+        extraFields.length > 0 ||
+        removedFieldKeys.length > 0 ||
+        customClauses !== null
+      ) {
+        const createdTpl = await templatesApi.create({
+          name: title.trim(),
+          content: compiledContent,
+        });
+        realTemplateId = createdTpl.id;
+      }
+      const normalizedValues: Record<string, string> = {};
+      for (const [k, v] of Object.entries(values)) {
+        normalizedValues[k] = isMoneyField(k, formatVariableLabel(k))
+          ? formatDigitsToVnCurrency(v)
+          : v;
+      }
+      const res = await contractsApi.createFromTemplate(
+        realTemplateId,
+        title.trim(),
+        normalizedValues,
+        signers,
+      );
+      contractId = res.contractId;
+    }
+    setCreatedDraftId(contractId);
     return contractId;
   };
 
@@ -1398,7 +1455,26 @@ export default function NewContractPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Soạn hợp đồng" back={{ href: "/app/contracts", label: "Danh sách hợp đồng" }} />
+      <PageHeader
+        title={resumeDraftId ? "Tiếp tục soạn bản nháp" : "Soạn hợp đồng"}
+        back={
+          resumeDraftId
+            ? { href: `/app/contracts/${resumeDraftId}`, label: "Chi tiết hợp đồng" }
+            : { href: "/app/contracts", label: "Danh sách hợp đồng" }
+        }
+      />
+      {resumeDraftId && resumeLoading ? (
+        <p className="text-sm text-muted" role="status">Đang tải bản nháp…</p>
+      ) : resumeDraftId && resumeError ? (
+        <ErrorState error={resumeError} title="Không mở được bản nháp" />
+      ) : (
+        <>
+      {resumeDraftId && (
+        <p className="rounded-md border border-line bg-strip px-4 py-3 text-sm text-muted">
+          Nội dung hợp đồng đã được khóa khi tạo bản nháp (mã băm SHA-256 cố định). Ở đây bạn chỉ sửa người nhận,
+          vị trí ô ký và hạn ký. Muốn sửa nội dung, hãy hủy bản nháp và tạo hợp đồng mới.
+        </p>
+      )}
       <Stepper step={step} />
 
       <div key={step} className="motion-safe:animate-fade-up">
@@ -1820,6 +1896,7 @@ export default function NewContractPage() {
                           value={s.fullName}
                           onChange={(e) => updateSigner(i, { fullName: e.target.value })}
                           placeholder="Nguyễn Văn A"
+                          maxLength={100}
                         />
                         <Input
                           label="Email nhận thông báo / link ký"
@@ -1828,6 +1905,11 @@ export default function NewContractPage() {
                           value={s.email}
                           onChange={(e) => updateSigner(i, { email: e.target.value })}
                           placeholder="email@doanhnghiep.vn"
+                          error={
+                            s.email.trim() && !isValidEmail(s.email)
+                              ? "Email không hợp lệ, ví dụ: ten@congty.vn"
+                              : undefined
+                          }
                         />
                       </div>
 
@@ -1867,10 +1949,14 @@ export default function NewContractPage() {
                 />
               </div>
               <div className="flex justify-between pt-2 border-t border-line">
-                <Button variant="secondary" onClick={() => setStep(0)}>
-                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                  Quay lại
-                </Button>
+                {resumeDraftId ? (
+                  <span />
+                ) : (
+                  <Button variant="secondary" onClick={() => setStep(0)}>
+                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                    Quay lại
+                  </Button>
+                )}
                 <Button variant="primary" disabled={!step2Valid} onClick={goToPlacement}>
                   Đặt vị trí ô ký
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -2257,6 +2343,8 @@ export default function NewContractPage() {
           </Card>
         )}
       </div>
+        </>
+      )}
 
       <Dialog
         open={confirmOpen}

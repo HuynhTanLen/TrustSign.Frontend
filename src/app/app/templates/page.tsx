@@ -111,6 +111,8 @@ export default function TemplatesPage() {
   // State của Trình thiết kế hợp đồng tự động (không cần {})
   const defaultRef = REFERENCE_TEMPLATES[0];
   const [name, setName] = React.useState(defaultRef.name);
+  // shortcut: Căn cứ pháp lý chỉ giữ theo mẫu nạp vào, chưa có ô sửa trong trình thiết kế
+  const [legalBasis, setLegalBasis] = React.useState<string[]>(defaultRef.legalBasis);
   const [partyATitle, setPartyATitle] = React.useState(defaultRef.partyATitle);
   const [partyBTitle, setPartyBTitle] = React.useState(defaultRef.partyBTitle);
   const [fields, setFields] = React.useState<TemplateFieldItem[]>(defaultRef.fields);
@@ -136,12 +138,13 @@ export default function TemplatesPage() {
     () =>
       buildFormattedContractFromBlueprint({
         name,
+        legalBasis,
         partyATitle,
         partyBTitle,
         fields,
         clauses,
       }),
-    [name, partyATitle, partyBTitle, fields, clauses],
+    [name, legalBasis, partyATitle, partyBTitle, fields, clauses],
   );
 
   const categories = React.useMemo(
@@ -164,6 +167,7 @@ export default function TemplatesPage() {
   const loadBlueprintToBuilder = (bp: ContractBlueprint) => {
     setEditingId(null);
     setName(bp.name);
+    setLegalBasis(bp.legalBasis);
     setPartyATitle(bp.partyATitle);
     setPartyBTitle(bp.partyBTitle);
     setFields(bp.fields.map((f) => ({ ...f })));
@@ -176,14 +180,18 @@ export default function TemplatesPage() {
   const handleQuickUseReference = async (bp: ContractBlueprint) => {
     setIsQuickUsingId(bp.id);
     try {
-      const existing = (data ?? []).find(
+      const compiled = buildFormattedContractFromBlueprint(bp);
+      // Chỉ dùng lại mẫu đã lưu khi nội dung trùng khớp bản chuẩn hiện tại, tránh mở nhầm bản cũ cùng tên
+      const sameName = (data ?? []).filter(
         (t) => t.name.trim().toLowerCase() === bp.name.trim().toLowerCase(),
       );
-      if (existing) {
-        router.push(`/app/contracts/new?templateId=${existing.id}`);
-        return;
+      for (const t of sameName) {
+        const detail = await templatesApi.get(t.id);
+        if (detail.content.trim() === compiled.trim()) {
+          router.push(`/app/contracts/new?templateId=${t.id}`);
+          return;
+        }
       }
-      const compiled = buildFormattedContractFromBlueprint(bp);
       const created = await templatesApi.create({
         name: bp.name,
         content: compiled,
@@ -275,6 +283,7 @@ export default function TemplatesPage() {
       const parsed = parseTemplateIntoBlueprint(detail.name, detail.content);
       setEditingId(detail.id);
       setName(detail.name);
+      setLegalBasis(parsed.legalBasis);
       setPartyATitle(parsed.partyATitle);
       setPartyBTitle(parsed.partyBTitle);
       setFields(parsed.fields);
