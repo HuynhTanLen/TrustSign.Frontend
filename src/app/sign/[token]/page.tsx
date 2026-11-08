@@ -93,6 +93,7 @@ function OtpInput({ value, onChange, disabled }: { value: string[]; onChange: (v
 }
 
 function ResultScreen({ state, session }: { state: SigningState; session?: SigningSession }) {
+  const isApprover = session?.role === "Approver";
   const content: Record<
     string,
     { icon: React.ReactNode; title: string; text: string; bgTone: string }
@@ -103,8 +104,10 @@ function ResultScreen({ state, session }: { state: SigningState; session?: Signi
           <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
         </div>
       ),
-      title: "Ký hợp đồng thành công!",
-      text: "Chữ ký số PAdES của bạn đã được chứng nhận và lưu trữ an toàn. Bản hợp đồng hoàn tất sẽ tự động gửi tới email của bạn sau khi tất cả các bên hoàn thành lượt ký.",
+      title: isApprover ? "Đã duyệt hợp đồng" : "Ký hợp đồng thành công!",
+      text: isApprover
+        ? "Kết quả duyệt của bạn đã được ghi nhận. Hợp đồng được chuyển tới người kế tiếp theo thứ tự."
+        : "Chữ ký của bạn đã được ghi nhận. Hệ thống sẽ thông báo khi tất cả các bên hoàn thành lượt của mình.",
       bgTone: "bg-surface",
     },
     Declined: {
@@ -113,7 +116,7 @@ function ResultScreen({ state, session }: { state: SigningState; session?: Signi
           <CircleX className="w-9 h-9" />
         </div>
       ),
-      title: "Đã ghi nhận từ chối ký",
+      title: isApprover ? "Đã ghi nhận từ chối duyệt" : "Đã ghi nhận từ chối ký",
       text: "Lý do từ chối của bạn đã được thông báo tới người khởi tạo hợp đồng để rà soát lại thỏa thuận.",
       bgTone: "bg-surface",
     },
@@ -207,7 +210,7 @@ function SignContent() {
   };
 
   const sign = async () => {
-    if (!signature) return;
+    if (!signature && !isApprover) return;
     idempotencyKey.current ??= crypto.randomUUID();
     setBusy(true);
     try {
@@ -220,6 +223,8 @@ function SignContent() {
   };
 
   const otpLocked = attemptsLeft === 0;
+  const isApprover = session?.role === "Approver";
+  const verb = isApprover ? "duyệt" : "ký";
   const state = finalState ?? session?.state;
 
   return (
@@ -238,7 +243,7 @@ function SignContent() {
           <ResultScreen state={state} session={session} />
         ) : (
           <>
-            <Card title="Hợp đồng cần ký" icon={FileText}>
+            <Card title={`Hợp đồng cần ${verb}`} icon={FileText}>
               <dl className="grid grid-cols-1 sm:grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-muted">Hợp đồng</dt>
                 <dd className="font-semibold text-fg">
@@ -246,7 +251,7 @@ function SignContent() {
                 </dd>
                 <dt className="text-muted">Bên gửi</dt>
                 <dd className="text-fg">{session.senderCompany}</dd>
-                <dt className="text-muted">Người ký</dt>
+                <dt className="text-muted">{isApprover ? "Người duyệt" : "Người ký"}</dt>
                 <dd className="text-fg">
                   {session.signerName} ({session.signerEmailMasked}) · lượt {session.order}/{session.totalSigners}
                 </dd>
@@ -326,7 +331,7 @@ function SignContent() {
                   )}
                 </Card>
 
-                <Card title="Ô ký" icon={Users}>
+                <Card title={isApprover ? "Các bên ký (bạn chỉ duyệt, không cần ký)" : "Ô ký"} icon={Users}>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {session.fields.map((f) => (
                       <li key={f.signerOrder}>
@@ -362,10 +367,10 @@ function SignContent() {
 
                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                   <Button variant="secondary" onClick={() => setDeclining(true)} disabled={busy}>
-                    Từ chối ký
+                    Từ chối {verb}
                   </Button>
-                  <Button variant="success" size="lg" glow onClick={sign} disabled={!signature} isLoading={busy}>
-                    Ký hợp đồng
+                  <Button variant="success" size="lg" glow onClick={sign} disabled={!isApprover && !signature} isLoading={busy}>
+                    {isApprover ? "Duyệt hợp đồng" : "Ký hợp đồng"}
                   </Button>
                 </div>
               </>
@@ -403,10 +408,10 @@ function SignContent() {
 
       <ReasonDialog
         open={declining}
-        title="Từ chối ký"
+        title={`Từ chối ${verb}`}
         message="Bên gửi sẽ nhận được lý do và hợp đồng dừng ở trạng thái Từ chối."
         reasonLabel="Lý do từ chối"
-        confirmLabel="Từ chối ký"
+        confirmLabel={`Từ chối ${verb}`}
         onClose={() => setDeclining(false)}
         onConfirm={async (reason) => {
           await signingApi.decline(token, reason);

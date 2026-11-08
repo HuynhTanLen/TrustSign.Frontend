@@ -262,6 +262,7 @@ const signingSession: { token: string; otp: string; session: SigningSession } = 
       { signerOrder: 2, signerName: "Phạm Quốc Bảo", isMine: true, signed: false },
     ],
     documentUrl: null,
+    role: "Signer",
   },
 };
 

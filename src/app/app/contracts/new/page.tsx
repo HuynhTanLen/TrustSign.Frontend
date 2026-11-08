@@ -51,7 +51,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { PdfPageViewer } from "@/components/pdf-page-viewer";
+import { PdfPageViewer, countPdfPages } from "@/components/pdf-page-viewer";
 
 const MAX_SIGNERS = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -1050,7 +1050,7 @@ export default function NewContractPage() {
     return Math.max(25, Math.min(PDF_PAGE_HEIGHT - DEFAULT_BOX_HEIGHT - 20, computedY));
   }, []);
 
-  const goToPlacement = () => {
+  const goToPlacement = async () => {
     if (!signers.some((s) => (s.role ?? "Signer") === "Signer")) {
       toast("Hợp đồng phải có ít nhất 1 người ký (Signer).", "error");
       return;
@@ -1064,8 +1064,13 @@ export default function NewContractPage() {
       toast("Hạn ký phải sau thời điểm hiện tại.", "error");
       return;
     }
-    const targetSignPage =
-      source === "upload" ? Math.max(1, uploadedTotalPages) : totalTemplatePages;
+    // Viewer chỉ báo số trang sau khi bước đặt ô ký hiện ra, nên phải đếm trước; nếu không mọi ô ký rơi vào trang 1.
+    let uploadPages = uploadedTotalPages;
+    if (source === "upload" && file) {
+      uploadPages = await countPdfPages(file).catch(() => uploadedTotalPages);
+      setUploadedTotalPages(uploadPages);
+    }
+    const targetSignPage = source === "upload" ? Math.max(1, uploadPages) : totalTemplatePages;
     const firstSignerIndex = signers.findIndex((s) => (s.role ?? "Signer") === "Signer");
     setActiveSignerIndex(firstSignerIndex >= 0 ? firstSignerIndex : 0);
     setActivePage(targetSignPage);
@@ -2170,7 +2175,9 @@ export default function NewContractPage() {
                     {/* Tờ A4 đầy đủ chiều cao để không bị cắt phần cuối */}
                     <div
                       ref={canvasRef}
-                      className="relative w-full min-h-[780px] rounded-sm bg-white shadow-md select-none"
+                      className={`relative w-full rounded-sm bg-white shadow-md select-none ${
+                        source === "upload" ? "" : "min-h-[780px]"
+                      }`}
                     >
                       {source === "upload" && file ? (
                         <PdfPageViewer
