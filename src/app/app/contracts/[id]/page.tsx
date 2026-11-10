@@ -484,8 +484,13 @@ export default function ContractDetailPage() {
                 const config = SIGNER_STATUS_CONFIG[s.status];
                 const isApprover = s.role === "Approver";
                 const isCc = s.role === "Cc";
+                const isCoordinator = s.role === "Coordinator";
 
-                const roleBadge = isApprover ? (
+                const roleBadge = isCoordinator ? (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/20">
+                    Người điều phối
+                  </span>
+                ) : isApprover ? (
                   <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/20">
                     Người duyệt
                   </span>
@@ -500,7 +505,11 @@ export default function ContractDetailPage() {
                 );
 
                 const statusLabel =
-                  isApprover && s.status === "Signed"
+                  isCoordinator && s.status === "Signed"
+                    ? "Đã điều phối"
+                    : isCoordinator && s.status === "Current"
+                      ? "Đang chờ điều phối"
+                      : isApprover && s.status === "Signed"
                     ? "Đã duyệt"
                     : isApprover && s.status === "Current"
                       ? "Đang chờ duyệt"
@@ -555,6 +564,7 @@ export default function ContractDetailPage() {
                       {/* Tọa độ ô ký dạng chip nhẹ nhàng (chỉ người ký mới có ô ký) */}
                       {!isApprover &&
                         !isCc &&
+                        !isCoordinator &&
                         s.pageNumber !== undefined &&
                         s.boxX !== undefined &&
                         s.boxY !== undefined && (
@@ -570,7 +580,7 @@ export default function ContractDetailPage() {
                         <p className="mt-1.5 text-xs text-emerald-700 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                           <span>
-                            {isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
+                            {isCoordinator ? "Điều phối" : isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
                           </span>
                         </p>
                       )}

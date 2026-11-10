@@ -19,7 +19,10 @@ export interface ContractListItem {
 
 export type SignerStatus = "Waiting" | "Current" | "Signed" | "Declined";
 
-export type RecipientRole = "Signer" | "Approver" | "Cc";
+export type RecipientRole = "Signer" | "Approver" | "Cc" | "Coordinator";
+
+/** Người ký có ô ký; người điều phối giữ sẵn ô ký cho người ký bên đối tác mà họ sẽ chỉ định. */
+export const hasSignatureBox = (role?: RecipientRole) => (role ?? "Signer") === "Signer" || role === "Coordinator";
 
 export interface ContractSigner {
   order: number;

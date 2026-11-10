@@ -25,7 +25,15 @@ export interface SigningSession {
   dueAt: string;
   fields: SigningField[];
   documentUrl: string | null;
+  role: "Signer" | "Approver" | "Cc" | "Coordinator";
+}
+
+/** Người bên đối tác do người điều phối khai báo; người ký dùng ô ký bên gửi đã đặt sẵn. */
+export interface CoordinatedRecipient {
+  fullName: string;
+  email: string;
   role: "Signer" | "Approver" | "Cc";
+  title?: string;
 }
 
 export interface OtpResult {
@@ -63,6 +71,14 @@ export const signingApi = {
     return apiFetch<void>(`/api/signing/${encodeURIComponent(token)}/sign`, {
       method: "POST",
       body: JSON.stringify({ signaturePng, idempotencyKey }),
+    });
+  },
+
+  coordinate(token: string, recipients: CoordinatedRecipient[]): Promise<void> {
+    if (USE_MOCK) return mockResponse(undefined, 800);
+    return apiFetch<void>(`/api/signing/${encodeURIComponent(token)}/coordinate`, {
+      method: "POST",
+      body: JSON.stringify({ recipients }),
     });
   },
 

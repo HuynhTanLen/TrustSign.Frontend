@@ -23,7 +23,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { contractsApi, isValidEmail, type NewSigner, type RecipientRole } from "@/lib/api/contracts";
+import { contractsApi, hasSignatureBox, isValidEmail, type NewSigner, type RecipientRole } from "@/lib/api/contracts";
 import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
 import { tenantsApi } from "@/lib/api/tenants";
 import {
@@ -1256,7 +1256,7 @@ export default function NewContractPage() {
       ? file !== null
       : activeVariables.length > 0 && activeVariables.every((v) => (values[v] ?? "").trim() !== ""));
 
-  const hasSignerRole = signers.some((s) => (s.role ?? "Signer") === "Signer");
+  const hasSignerRole = signers.some((s) => hasSignatureBox(s.role));
   const step2Valid =
     signers.length > 0 &&
     hasSignerRole &&
@@ -1316,8 +1316,8 @@ export default function NewContractPage() {
   }, []);
 
   const goToPlacement = async () => {
-    if (!signers.some((s) => (s.role ?? "Signer") === "Signer")) {
-      toast("Hợp đồng phải có ít nhất 1 người ký (Signer).", "error");
+    if (!signers.some((s) => hasSignatureBox(s.role))) {
+      toast("Hợp đồng phải có ít nhất 1 người ký hoặc người điều phối.", "error");
       return;
     }
     const normalizedEmails = signers.map((s) => s.email.trim().toLowerCase());
@@ -1336,7 +1336,7 @@ export default function NewContractPage() {
       setUploadedTotalPages(uploadPages);
     }
     const targetSignPage = source === "upload" ? Math.max(1, uploadPages) : totalTemplatePages;
-    const firstSignerIndex = signers.findIndex((s) => (s.role ?? "Signer") === "Signer");
+    const firstSignerIndex = signers.findIndex((s) => hasSignatureBox(s.role));
     setActiveSignerIndex(firstSignerIndex >= 0 ? firstSignerIndex : 0);
     setActivePage(targetSignPage);
     setStep(2);
@@ -2524,7 +2524,9 @@ export default function NewContractPage() {
               <div className="p-3.5 rounded-md border border-primary/25 bg-selected/50 flex items-start gap-2.5 text-xs text-fg">
                 <MailCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <strong>Cơ chế xác nhận ký qua Email Chủ doanh nghiệp:</strong> Khi gửi hợp đồng, hệ thống sẽ gửi email kèm mã OTP đến <strong>Lượt ký #1 (Chủ doanh nghiệp / Đại diện Bên A)</strong> để kiểm tra và xác nhận ký tên trước. Sau khi Chủ doanh nghiệp ký xong, hệ thống mới tự động gửi email mời ký cho <strong>Lượt ký #2 (Đối tác / Khách hàng Bên B)</strong>.
+                  <strong>Gửi theo thứ tự từ trên xuống:</strong> hệ thống chỉ gửi email cho người ở lượt hiện tại; người đó ký hoặc duyệt xong thì lượt kế tiếp mới nhận email. Người duyệt nên đặt <strong>trước</strong> người ký mà họ kiểm tra.
+                  <br />
+                  <strong>Không biết ai bên đối tác sẽ duyệt/ký?</strong> Chọn vai trò <strong>Người điều phối</strong> cho đầu mối bên đối tác và đặt sẵn ô ký cho họ. Tới lượt, đầu mối sẽ tự khai người duyệt và người ký bên mình; người ký đó dùng ô ký bạn đã đặt.
                 </div>
               </div>
 
@@ -2533,6 +2535,8 @@ export default function NewContractPage() {
                   const roleTag =
                     s.role === "Approver"
                       ? `Lượt ${i + 1} · Người duyệt (OTP xác thực, không cần ô ký)`
+                      : s.role === "Coordinator"
+                        ? `Lượt ${i + 1} · Người điều phối (đầu mối đối tác tự khai người duyệt/ký bên mình)`
                       : s.role === "Cc"
                         ? "Nhận bản sao Cc (Không có lượt ký, nhận email khi hoàn tất)"
                         : i === 0
@@ -2555,7 +2559,7 @@ export default function NewContractPage() {
                           </span>
                           <Badge
                             className={
-                              s.role === "Approver"
+                              s.role === "Approver" || s.role === "Coordinator"
                                 ? "bg-amber-500/15 text-amber-700"
                                 : s.role === "Cc"
                                   ? "bg-strip text-muted"
@@ -2603,6 +2607,7 @@ export default function NewContractPage() {
                           options={[
                             { value: "Signer", label: "Người ký (Có ô ký trên PDF & OTP)" },
                             { value: "Approver", label: "Người duyệt (Duyệt/từ chối qua OTP, không đóng chữ ký)" },
+                            { value: "Coordinator", label: "Người điều phối (Đầu mối đối tác, tự khai người duyệt/ký bên mình)" },
                             { value: "Cc", label: "Nhận bản sao Cc (Nhận email khi hoàn tất)" },
                           ]}
                         />
@@ -2725,7 +2730,11 @@ export default function NewContractPage() {
                             </span>
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-fg truncate">
-                                {idx === 0 ? `Chủ DN: ${s.fullName}` : `Đối tác: ${s.fullName}`}
+                                {s.role === "Coordinator"
+                                  ? `Điều phối: ${s.fullName} (ô ký cho bên đối tác)`
+                                  : idx === 0
+                                    ? `Chủ DN: ${s.fullName}`
+                                    : `Đối tác: ${s.fullName}`}
                               </p>
                               <p className="text-xs text-muted truncate">{s.email}</p>
                             </div>
@@ -2738,7 +2747,7 @@ export default function NewContractPage() {
                     })}
                   </div>
 
-                  {signers[activeSignerIndex] && (signers[activeSignerIndex].role ?? "Signer") === "Signer" && (
+                  {signers[activeSignerIndex] && hasSignatureBox(signers[activeSignerIndex].role) && (
                     <details className="p-3.5 rounded-md border border-line bg-page text-xs group">
                       <summary className="font-semibold text-fg cursor-pointer select-none flex items-center justify-between">
                         <span>Tùy chỉnh tọa độ ô ký (Nâng cao)</span>
@@ -2912,7 +2921,7 @@ export default function NewContractPage() {
                       )}
 
                       {signers.map((s, idx) => {
-                        if ((s.role ?? "Signer") !== "Signer") return null;
+                        if (!hasSignatureBox(s.role)) return null;
                         if (s.pageNumber !== activePage) return null;
                         const leftPct = (s.boxX / PDF_PAGE_WIDTH) * 100;
                         const topPct =
@@ -2987,10 +2996,12 @@ export default function NewContractPage() {
                 <dd>
                   <ol className="flex flex-col gap-2">
                     {signers.map((s, i) => {
-                      const isSigner = (s.role ?? "Signer") === "Signer";
+                      const isSigner = hasSignatureBox(s.role);
                       const isApprover = s.role === "Approver";
                       const roleName = isApprover
                         ? "Người duyệt (Duyệt qua OTP)"
+                        : s.role === "Coordinator"
+                          ? "Người điều phối (Ô ký dành cho người ký bên đối tác)"
                         : isSigner
                           ? "Người ký (Có ô ký trên PDF)"
                           : "Nhận bản sao Cc";
