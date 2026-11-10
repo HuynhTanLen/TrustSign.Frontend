@@ -7,7 +7,7 @@ import { GOOGLE_SIGN_IN_ENABLED, GoogleSignInCancelled, getGoogleIdToken } from 
 import { Button } from "@/components/ui/button";
 import { CircleAlert } from "lucide-react";
 
-type Pending = { idToken: string; step: "terms" | "password" };
+type Pending = { idToken: string; step: "password" };
 
 function GoogleMark() {
   return (
@@ -21,28 +21,25 @@ function GoogleMark() {
 }
 
 /**
- * Nút "Tiếp tục với Google". Backend trả hai lỗi cần hỏi thêm người dùng:
- * chưa có tài khoản thì cần đồng ý điều khoản; email trùng tài khoản cũ thì cần mật khẩu cũ để liên kết.
+ * Nút "Tiếp tục với Google". Email Google chưa có tài khoản thì backend tạo luôn và đăng nhập (đồng ý điều khoản được
+ * thông báo ngay dưới nút); email trùng tài khoản cũ thì hỏi mật khẩu cũ để liên kết.
  */
 export function GoogleSignIn({ onSuccess }: { onSuccess: (user: UserDto) => void }) {
   const [pending, setPending] = React.useState<Pending | null>(null);
-  const [acceptTerms, setAcceptTerms] = React.useState(false);
   const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   if (!GOOGLE_SIGN_IN_ENABLED) return null;
 
-  const submit = async (idToken: string, extra: { acceptTerms?: boolean; password?: string } = {}) => {
+  const submit = async (idToken: string, extra: { password?: string } = {}) => {
     setBusy(true);
     setError(null);
     try {
       const res = await authApi.googleLogin({ idToken, ...extra });
       onSuccess(res.user);
     } catch (err) {
-      if (err instanceof ApiError && err.code === "Auth.TermsMustBeAccepted" && !extra.acceptTerms) {
-        setPending({ idToken, step: "terms" });
-      } else if (err instanceof ApiError && err.code === "Auth.GoogleLinkRequiresPassword") {
+      if (err instanceof ApiError && err.code === "Auth.GoogleLinkRequiresPassword") {
         setPending({ idToken, step: "password" });
       } else if (err instanceof ApiError) {
         // Sai mật khẩu vẫn ở lại bước nhập mật khẩu; lỗi khác (token hết hạn, tài khoản bị khóa) thì quay lại từ đầu.
@@ -80,22 +77,6 @@ export function GoogleSignIn({ onSuccess }: { onSuccess: (user: UserDto) => void
         </div>
       )}
 
-      {pending?.step === "terms" && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 flex flex-col gap-3">
-          <p>Email Google này chưa có tài khoản TrustSign. Đồng ý điều khoản để tạo tài khoản mới.</p>
-          <label className="flex items-start gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4" />
-            <span>Tôi đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023).</span>
-          </label>
-          <div className="flex gap-2">
-            <Button type="button" size="sm" isLoading={busy} disabled={!acceptTerms} onClick={() => submit(pending.idToken, { acceptTerms: true })}>
-              Tạo tài khoản
-            </Button>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setPending(null)}>Hủy</Button>
-          </div>
-        </div>
-      )}
-
       {pending?.step === "password" && (
         <form
           className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 flex flex-col gap-3"
@@ -122,10 +103,16 @@ export function GoogleSignIn({ onSuccess }: { onSuccess: (user: UserDto) => void
       )}
 
       {!pending && (
-        <Button type="button" variant="secondary" size="lg" className="w-full" isLoading={busy} onClick={start}>
-          <GoogleMark />
-          Tiếp tục với Google
-        </Button>
+        <>
+          <Button type="button" variant="secondary" size="lg" className="w-full" isLoading={busy} onClick={start}>
+            <GoogleMark />
+            Tiếp tục với Google
+          </Button>
+          <p className="text-center text-xs text-slate-500">
+            Nếu email Google chưa có tài khoản, hệ thống sẽ tạo luôn. Tiếp tục nghĩa là bạn đồng ý với Điều khoản sử dụng và
+            Chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023).
+          </p>
+        </>
       )}
     </div>
   );
