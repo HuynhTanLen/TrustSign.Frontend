@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Building2, Lock, LockOpen, Search } from "lucide-react";
 import { adminApi, type AdminTenant } from "@/lib/api/admin";
 import { useApi } from "@/lib/use-api";
@@ -60,14 +61,22 @@ export default function AdminTenantsPage() {
                 primary: true,
                 render: (t) => (
                   <span className="block py-2 whitespace-normal">
-                    <span className="font-semibold">{t.name}</span>
+                    <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-primary hover:underline">
+                      {t.name}
+                    </Link>
                     {t.lockReason && <span className="block text-xs text-danger">Lý do khóa: {t.lockReason}</span>}
                   </span>
                 ),
               },
               { key: "tax", header: "Mã số thuế", render: (t) => <span className="font-mono text-xs text-muted">{t.taxCode ?? "—"}</span> },
               { key: "owner", header: "Chủ doanh nghiệp", render: (t) => t.ownerEmail },
-              { key: "plan", header: "Gói", render: (t) => <span className="inline-flex items-center gap-2">Gói {t.planName} <Badge subscriptionStatus={t.subscriptionStatus} /></span> },
+              { key: "plan", header: "Gói", render: (t) =>
+                  t.planName && t.subscriptionStatus ? (
+                    <span className="inline-flex items-center gap-2">Gói {t.planName} <Badge subscriptionStatus={t.subscriptionStatus} /></span>
+                  ) : (
+                    <span className="text-muted">Chưa có gói</span>
+                  ),
+              },
               { key: "members", header: "Thành viên", align: "right", render: (t) => t.membersCount },
               { key: "lock", header: "Trạng thái", render: (t) => <LockBadge locked={t.isLocked} /> },
               {

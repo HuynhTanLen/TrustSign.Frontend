@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Lock, LockOpen, Search, Users } from "lucide-react";
 import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { useApi } from "@/lib/use-api";
@@ -56,7 +57,9 @@ export default function AdminUsersPage() {
                 primary: true,
                 render: (u) => (
                   <span className="block py-2 whitespace-normal">
-                    <span className="font-semibold">{u.fullName}</span>
+                    <Link href={`/admin/users/${u.id}`} className="font-semibold text-primary hover:underline">
+                      {u.fullName}
+                    </Link>
                     {u.lockReason && <span className="block text-xs text-danger">Lý do khóa: {u.lockReason}</span>}
                   </span>
                 ),
@@ -74,7 +77,8 @@ export default function AdminUsersPage() {
                 header: "",
                 align: "right",
                 render: (u) =>
-                  u.isLocked ? (
+                  // Admin và tài khoản chưa xác minh email không khóa được (backend trả 403/409).
+                  u.isAdmin || (!u.emailVerified && !u.isLocked) ? null : u.isLocked ? (
                     <Button
                       variant="secondary"
                       leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}

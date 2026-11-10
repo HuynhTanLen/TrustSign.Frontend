@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { CheckCircle2, CircleAlert, KeyRound, Lock } from "lucide-react";
+import { PASSWORD_RULE, isAcceptablePassword } from "@/lib/password-policy";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -33,8 +34,8 @@ function ResetPasswordContent() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setErrorMessage("Mật khẩu mới tối thiểu 8 ký tự.");
+    if (!isAcceptablePassword(newPassword)) {
+      setErrorMessage(PASSWORD_RULE);
       return;
     }
 

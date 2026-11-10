@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { PASSWORD_MAX_LENGTH, PASSWORD_RULE, isAcceptablePassword } from "@/lib/password-policy";
 import { CheckCircle2, CircleAlert, Eye, EyeOff, Lock, Mail, Phone, User, UserPlus } from "lucide-react";
 
 function safeRedirect(value: string | null): string | null {
@@ -21,7 +22,7 @@ function safeRedirect(value: string | null): string | null {
 
 function getPasswordStrength(pwd: string): number {
   let score = 0;
-  if (pwd.length >= 8) score++;
+  if (pwd.length >= 8 && pwd.length <= PASSWORD_MAX_LENGTH) score++;
   if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
   if (/[0-9]/.test(pwd)) score++;
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
@@ -97,8 +98,8 @@ function RegisterForm() {
       return;
     }
 
-    if (password.length < 8) {
-      setErrorMessage("Mật khẩu phải có ít nhất 8 ký tự.");
+    if (!isAcceptablePassword(password, email.trim(), trimmedName)) {
+      setErrorMessage(PASSWORD_RULE);
       return;
     }
 

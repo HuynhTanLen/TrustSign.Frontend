@@ -17,6 +17,17 @@ export interface UserDto {
   tenants?: UserTenantDto[];
   phoneNumber?: string | null;
   jobTitle?: string | null;
+  hasPassword?: boolean;
+  googleLinked?: boolean;
+  /** URL ký (hết hạn sau vài giờ); null khi chưa có ảnh. */
+  avatarUrl?: string | null;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
+  acceptTerms?: boolean;
+  /** Chỉ khi email Google trùng tài khoản có sẵn: mật khẩu hiện tại để xác nhận liên kết. */
+  password?: string;
 }
 
 export interface AuthResponse {
@@ -75,6 +86,31 @@ export const authApi = {
     return res;
   },
 
+  /** Đăng nhập bằng Google (Firebase ID token) */
+  async googleLogin(data: GoogleLoginRequest): Promise<AuthResponse> {
+    const res = await apiFetch<AuthResponse>("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    if (res.accessToken) {
+      setAccessToken(res.accessToken);
+    }
+    return res;
+  },
+
+  async linkGoogle(idToken: string): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>("/api/auth/google/link", {
+      method: "POST",
+      body: JSON.stringify({ idToken }),
+    });
+  },
+
+  async unlinkGoogle(): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>("/api/auth/google", {
+      method: "DELETE",
+    });
+  },
+
   /** Làm mới access token */
   async refresh(): Promise<AuthResponse> {
     const res = await apiFetch<AuthResponse>("/api/auth/refresh", {
@@ -117,6 +153,17 @@ export const authApi = {
       method: "PATCH",
       body: JSON.stringify(body),
     });
+  },
+
+  /** Thay ảnh đại diện (JPEG/PNG/WebP, ≤ 128 KB); trả về hồ sơ mới. */
+  async uploadAvatar(image: Blob): Promise<UserDto> {
+    const body = new FormData();
+    body.append("file", image, "avatar.jpg");
+    return apiFetch<UserDto>("/api/auth/me/avatar", { method: "PUT", body });
+  },
+
+  async removeAvatar(): Promise<UserDto> {
+    return apiFetch<UserDto>("/api/auth/me/avatar", { method: "DELETE" });
   },
 
   /** Đổi mật khẩu */

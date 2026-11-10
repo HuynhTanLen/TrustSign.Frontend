@@ -1,5 +1,7 @@
 import { API_URL, apiFetch } from "@/lib/api";
-import { USE_MOCK, mockResponse } from "@/lib/mock";
+import { USE_MOCK, mockError, mockResponse } from "@/lib/mock";
+import type { ContractStatus, SubscriptionStatus } from "@/components/ui/badge";
+import type { TenantRole } from "@/lib/api/tenants";
 import { mockDb } from "@/lib/mock/data";
 
 // Planned endpoints (FE-08): /api/admin/tenants, /api/admin/users, /api/admin/certificates, /api/pki/root-ca.
@@ -9,8 +11,8 @@ export interface AdminTenant {
   name: string;
   taxCode: string | null;
   ownerEmail: string;
-  planName: string;
-  subscriptionStatus: "Trial" | "Active" | "Expired";
+  planName: string | null;
+  subscriptionStatus: SubscriptionStatus | null;
   membersCount: number;
   isLocked: boolean;
   lockReason: string | null;
@@ -22,8 +24,65 @@ export interface AdminUser {
   email: string;
   tenantsCount: number;
   emailVerified: boolean;
+  isAdmin?: boolean;
   isLocked: boolean;
   lockReason: string | null;
+}
+
+export interface AdminHistoryItem {
+  at: string;
+  title: string;
+  actorEmail: string | null;
+  reason: string | null;
+}
+
+/** Hồ sơ doanh nghiệp cho quản trị nền tảng: chỉ đếm hợp đồng, không đọc nội dung hợp đồng của khách. */
+export interface AdminTenantProfile {
+  id: string;
+  name: string;
+  taxCode: string | null;
+  address: string | null;
+  phone: string | null;
+  contactEmail: string | null;
+  representativeName: string | null;
+  representativeTitle: string | null;
+  createdAt: string;
+  isLocked: boolean;
+  lockReason: string | null;
+  lockedAt: string | null;
+  subscription: {
+    planName: string;
+    status: SubscriptionStatus;
+    startedAt: string;
+    expiresAt: string;
+    quotaUsed: number;
+    quotaLimit: number;
+  } | null;
+  members: { userId: string; fullName: string; email: string; role: TenantRole; joinedAt: string; isLocked: boolean }[];
+  contractCounts: Record<ContractStatus, number>;
+  history: AdminHistoryItem[];
+}
+
+/** Hồ sơ người dùng: không có mật khẩu, phiên đăng nhập hay ảnh CCCD; số CCCD đã che. */
+export interface AdminUserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string | null;
+  jobTitle: string | null;
+  isAdmin: boolean;
+  status: "Pending" | "Active" | "Locked";
+  emailVerified: boolean;
+  createdAt: string;
+  termsAcceptedAt: string | null;
+  failedLoginCount: number;
+  temporarilyLockedUntil: string | null;
+  isLocked: boolean;
+  lockReason: string | null;
+  lockedAt: string | null;
+  tenants: { tenantId: string; tenantName: string; role: TenantRole; joinedAt: string; tenantLocked: boolean }[];
+  ekyc: { status: "Verified" | "Revoked"; citizenIdMasked: string; fullName: string; verifiedAt: string } | null;
+  history: AdminHistoryItem[];
 }
 
 export interface Certificate {
@@ -58,6 +117,28 @@ export const adminApi = {
     return apiFetch<AdminTenant[]>("/api/admin/tenants");
   },
 
+  tenant(id: string): Promise<AdminTenantProfile> {
+    if (USE_MOCK) {
+      const t = mockDb.adminTenants.find((x) => x.id === id);
+      if (!t) return mockError(404, "Không tìm thấy doanh nghiệp.");
+      return mockResponse({
+        ...t,
+        address: null,
+        phone: null,
+        contactEmail: t.ownerEmail,
+        representativeName: null,
+        representativeTitle: null,
+        createdAt: new Date().toISOString(),
+        lockedAt: null,
+        subscription: null,
+        members: [],
+        contractCounts: { Draft: 0, Pending: 0, Signing: 0, Completed: 0, Declined: 0, Cancelled: 0, Expired: 0 },
+        history: [],
+      });
+    }
+    return apiFetch<AdminTenantProfile>(`/api/admin/tenants/${id}`);
+  },
+
   lockTenant(id: string, reason: string): Promise<void> {
     if (USE_MOCK) {
       setLock(mockDb.adminTenants.find((t) => t.id === id), reason);
@@ -77,6 +158,29 @@ export const adminApi = {
   users(): Promise<AdminUser[]> {
     if (USE_MOCK) return mockResponse(mockDb.adminUsers);
     return apiFetch<AdminUser[]>("/api/admin/users");
+  },
+
+  user(id: string): Promise<AdminUserProfile> {
+    if (USE_MOCK) {
+      const u = mockDb.adminUsers.find((x) => x.id === id);
+      if (!u) return mockError(404, "Không tìm thấy người dùng.");
+      return mockResponse({
+        ...u,
+        phoneNumber: null,
+        jobTitle: null,
+        isAdmin: false,
+        status: u.isLocked ? "Locked" : u.emailVerified ? "Active" : "Pending",
+        createdAt: new Date().toISOString(),
+        termsAcceptedAt: null,
+        failedLoginCount: 0,
+        temporarilyLockedUntil: null,
+        lockedAt: null,
+        tenants: [],
+        ekyc: null,
+        history: [],
+      });
+    }
+    return apiFetch<AdminUserProfile>(`/api/admin/users/${id}`);
   },
 
   lockUser(id: string, reason: string): Promise<void> {

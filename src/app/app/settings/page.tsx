@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { useWorkspace } from "@/lib/workspace-context";
 import { authApi, UserDto } from "@/lib/api/auth";
 import { tenantsApi, TenantDto } from "@/lib/api/tenants";
@@ -15,6 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { EkycCard } from "@/components/ekyc-card";
+import { Avatar } from "@/components/avatar";
+import { resizeToSquareJpeg } from "@/lib/image-resize";
+import { PASSWORD_MAX_LENGTH, PASSWORD_RULE, isAcceptablePassword } from "@/lib/password-policy";
+import { GOOGLE_SIGN_IN_ENABLED, GoogleSignInCancelled, getGoogleIdToken } from "@/lib/firebase";
 import {
   Briefcase,
   Building2,
@@ -31,6 +36,61 @@ import {
 
 const VN_PHONE_REGEX = /^(0|\+84)\d{9}$/;
 const TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/;
+
+function AvatarEditor({ user, refreshUser }: { user: UserDto; refreshUser: () => Promise<void> }) {
+  const { toast } = useToast();
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    try {
+      await action();
+      await refreshUser();
+      toast(success, "success");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Không cập nhật được ảnh đại diện.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFile = (file: File | undefined) => {
+    if (inputRef.current) inputRef.current.value = ""; // cho phép chọn lại cùng một file
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      toast("Chỉ nhận ảnh JPEG, PNG hoặc WebP.", "error");
+      return;
+    }
+    void run(async () => authApi.uploadAvatar(await resizeToSquareJpeg(file)), "Đã cập nhật ảnh đại diện");
+  };
+
+  return (
+    <div className="flex items-center gap-4 pb-2">
+      <Avatar name={user.fullName} src={user.avatarUrl} className="h-20 w-20 text-3xl" />
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" size="sm" isLoading={busy} onClick={() => inputRef.current?.click()}>
+            {user.avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}
+          </Button>
+          {user.avatarUrl && (
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => run(authApi.removeAvatar, "Đã xóa ảnh đại diện")}>
+              Xóa ảnh
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted">JPEG, PNG hoặc WebP. Ảnh được cắt vuông và thu nhỏ tự động.</p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+    </div>
+  );
+}
 
 function ProfileForm({
   user,
@@ -93,7 +153,9 @@ function ProfileForm({
       icon={User}
       bodyClassName="p-6"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <AvatarEditor user={user} refreshUser={refreshUser} />
+
+      <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
         <Input
           label="Email đăng nhập"
           type="email"
@@ -143,6 +205,63 @@ function ProfileForm({
   );
 }
 
+function GoogleLinkCard({ user, refreshUser }: { user: UserDto; refreshUser: () => Promise<void> | void }) {
+  const { toast } = useToast();
+  const [busy, setBusy] = React.useState(false);
+
+  if (!GOOGLE_SIGN_IN_ENABLED) return null;
+
+  const run = async (action: () => Promise<{ message: string }>) => {
+    setBusy(true);
+    try {
+      const res = await action();
+      await refreshUser();
+      toast(res.message, "success");
+    } catch (err) {
+      if (err instanceof GoogleSignInCancelled) return;
+      toast(err instanceof ApiError ? err.message : "Thao tác với Google thất bại.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Đăng nhập bằng Google"
+      description="Liên kết tài khoản Google để đăng nhập không cần mật khẩu."
+      icon={Mail}
+      bodyClassName="p-6"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="text-sm">
+          <Badge tone={user.googleLinked ? "completed" : "draft"} size="sm">
+            {user.googleLinked ? "Đã liên kết" : "Chưa liên kết"}
+          </Badge>
+          {user.googleLinked && user.hasPassword === false && (
+            <p className="mt-2 text-muted">
+              Bạn chưa có mật khẩu. Hãy dùng &quot;Quên mật khẩu&quot; ở trang đăng nhập để đặt mật khẩu trước khi hủy liên kết.
+            </p>
+          )}
+        </div>
+        {user.googleLinked ? (
+          <Button
+            variant="secondary"
+            isLoading={busy}
+            disabled={user.hasPassword === false}
+            onClick={() => run(() => authApi.unlinkGoogle())}
+          >
+            Hủy liên kết
+          </Button>
+        ) : (
+          <Button isLoading={busy} onClick={() => run(async () => authApi.linkGoogle(await getGoogleIdToken()))}>
+            Liên kết Google
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function SecurityForm() {
   const { toast } = useToast();
   const [currentPassword, setCurrentPassword] = React.useState("");
@@ -159,8 +278,8 @@ function SecurityForm() {
       setPasswordError("Vui lòng nhập mật khẩu hiện tại.");
       return;
     }
-    if (newPassword.length < 8) {
-      setPasswordError("Mật khẩu mới phải có ít nhất 8 ký tự.");
+    if (!isAcceptablePassword(newPassword)) {
+      setPasswordError(PASSWORD_RULE);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -218,10 +337,11 @@ function SecurityForm() {
             type="password"
             required
             minLength={8}
+            maxLength={PASSWORD_MAX_LENGTH}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
-            helperText="Tối thiểu 8 ký tự"
+            helperText="8–64 ký tự, gồm chữ và số"
           />
 
           <Input
@@ -229,6 +349,7 @@ function SecurityForm() {
             type="password"
             required
             minLength={8}
+            maxLength={PASSWORD_MAX_LENGTH}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
@@ -449,9 +570,11 @@ function CompanyTab({
   return <CompanyForm key={tenant.id} tenant={tenant} isOwner={isOwner} onUpdated={handleUpdated} />;
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { user, currentRole, refreshUser } = useWorkspace();
-  const [activeTab, setActiveTab] = React.useState<string>("profile");
+  // Trang tạo hợp đồng chuyển tới đây (?tab=security) khi người dùng chưa xác minh danh tính.
+  const initialTab = useSearchParams().get("tab") === "security" ? "security" : "profile";
+  const [activeTab, setActiveTab] = React.useState<string>(initialTab);
   const isOwner = currentRole === "TenantOwner";
 
   return (
@@ -478,6 +601,7 @@ export default function SettingsPage() {
       {activeTab === "security" && (
         <>
           <EkycCard />
+          {user && <GoogleLinkCard user={user} refreshUser={refreshUser} />}
           <SecurityForm />
         </>
       )}
@@ -486,5 +610,13 @@ export default function SettingsPage() {
         <CompanyTab isOwner={isOwner} refreshUser={refreshUser} />
       )}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <React.Suspense fallback={<Skeleton className="h-40 w-full max-w-4xl mx-auto" />}>
+      <SettingsContent />
+    </React.Suspense>
   );
 }

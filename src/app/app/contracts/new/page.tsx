@@ -1222,6 +1222,12 @@ export default function NewContractPage() {
     return contractId;
   };
 
+  // Chưa eKYC thì không tạo được hợp đồng: đưa người dùng tới Cài đặt > Bảo mật, nơi có thẻ xác minh danh tính.
+  const notifyNotVerified = () => {
+    toast("Bạn cần xác minh danh tính (eKYC) trước khi tạo hợp đồng. Đang chuyển tới trang Cài đặt.", "error");
+    router.push("/app/settings?tab=security");
+  };
+
   const handleSaveDraftOnly = async () => {
     setIsSavingDraft(true);
     try {
@@ -1229,7 +1235,11 @@ export default function NewContractPage() {
       toast("Đã lưu hợp đồng nháp và vị trí ô ký.", "success");
       router.push(`/app/contracts/${contractId}`);
     } catch (err) {
-      toast(err instanceof ApiError ? err.message : "Không lưu được hợp đồng nháp.", "error");
+      if (err instanceof ApiError && err.code === "Identity.NotVerified") {
+        notifyNotVerified();
+      } else {
+        toast(err instanceof ApiError ? err.message : "Không lưu được hợp đồng nháp.", "error");
+      }
     } finally {
       setIsSavingDraft(false);
     }
@@ -1247,7 +1257,9 @@ export default function NewContractPage() {
       router.push(`/app/contracts/${contractId}`);
     } catch (err) {
       setConfirmOpen(false);
-      if (
+      if (err instanceof ApiError && err.code === "Identity.NotVerified") {
+        notifyNotVerified();
+      } else if (
         err instanceof ApiError &&
         (err.code === "Subscription.QuotaExceeded" ||
           err.code === "Quota.Exceeded" ||

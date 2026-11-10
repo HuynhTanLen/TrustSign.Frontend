@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, ShieldCheck, Sparkles, X, type LucideIcon } from "lucide-react";
 import { Wordmark } from "@/components/wordmark";
+import { Avatar } from "@/components/avatar";
 
 export interface ShellNavItem {
   href: string;
@@ -264,10 +265,12 @@ export function AppShell({
 export function UserMenu({
   name,
   email,
+  avatarUrl,
   children,
 }: {
   name?: string;
   email?: string;
+  avatarUrl?: string | null;
   children: (close: () => void) => React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -296,9 +299,7 @@ export function UserMenu({
         aria-haspopup="menu"
         className="group flex items-center gap-2.5 h-10 pl-1.5 pr-3.5 rounded-full bg-slate-100/90 border border-slate-200 text-sm text-fg hover:bg-slate-200/70 transition-all duration-200 hover:scale-[1.02] cursor-pointer"
       >
-        <span className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs ring-2 ring-white">
-          {name ? name.trim().slice(0, 1).toUpperCase() : "?"}
-        </span>
+        <Avatar name={name} src={avatarUrl} className="h-7 w-7 text-xs ring-2 ring-white" />
         <span className="hidden md:inline font-bold max-w-[160px] truncate">{name}</span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${

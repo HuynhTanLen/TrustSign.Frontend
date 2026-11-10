@@ -20,6 +20,8 @@ import {
   ScanFace,
   Shield,
   UserCog,
+  Building2,
+  Users,
 } from "lucide-react";
 
 function AdminLayoutShell({
@@ -95,6 +97,8 @@ function AdminLayoutShell({
   // Navigation M1 + M2 trong khu Quản trị:
   const nav: ShellNavItem[] = [
     { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
+    { href: "/admin/tenants", label: "Doanh nghiệp", icon: Building2 },
+    { href: "/admin/users", label: "Người dùng", icon: Users },
     { href: "/admin/plans", label: "Gói dịch vụ", icon: Package },
     { href: "/admin/ekyc", label: "Xác minh eKYC", icon: ScanFace },
   ];
@@ -168,7 +172,7 @@ function AdminLayoutShell({
         </div>
       }
       topbarRight={
-        <UserMenu name={user?.fullName} email={user?.email}>
+        <UserMenu name={user?.fullName} email={user?.email} avatarUrl={user?.avatarUrl}>
           {(close) => (
             <>
               <button
