@@ -177,6 +177,245 @@ function isMoneyField(key: string, label?: string): boolean {
   );
 }
 
+const QUANTITY_UNITS = ["chiếc", "cái", "bộ", "kg", "tấn", "lít", "m", "m²", "m³", "thùng", "hộp", "gói", "lô"];
+
+const PAYMENT_METHODS = ["Chuyển khoản ngân hàng", "Tiền mặt", "Tiền mặt hoặc chuyển khoản"];
+const PAYMENT_TERMS = [
+  "Thanh toán 100% ngay khi ký hợp đồng",
+  "Thanh toán 100% khi giao nhận",
+  "Đặt cọc 30% khi ký, 70% còn lại khi giao nhận",
+  "Thanh toán trong vòng 07 ngày kể từ ngày giao nhận",
+  "Thanh toán trong vòng 15 ngày kể từ ngày giao nhận",
+  "Thanh toán trong vòng 30 ngày kể từ ngày giao nhận",
+  "Thanh toán hằng tháng, trước ngày 05 của tháng",
+  "Thanh toán theo từng đợt nghiệm thu",
+];
+const PAYMENT_SEP = " – ";
+
+const DELIVERY_PLACES = [
+  { id: "a", label: "Tại địa chỉ Bên A", prefix: "Tại địa chỉ Bên A: ", addressKey: "dia_chi_ben_a" },
+  { id: "b", label: "Tại địa chỉ Bên B", prefix: "Tại địa chỉ Bên B: ", addressKey: "dia_chi_ben_b" },
+  { id: "other", label: "Địa điểm khác", prefix: "", addressKey: null },
+];
+
+/** Bộ thông số theo loại hàng hóa; loại được đoán từ "Tên hàng hóa / Tài sản" (thứ tự quan trọng: "máy tính" trước "máy"). */
+const SPEC_KINDS: { id: string; label: string; match?: RegExp; attrs: string[] }[] = [
+  {
+    id: "electronics",
+    label: "Điện thoại / Máy tính / Điện tử",
+    match: /điện thoại|iphone|samsung|laptop|máy tính|ipad|tablet|tivi|macbook/i,
+    attrs: ["Hãng sản xuất", "Model", "Cấu hình / Dung lượng", "Màu sắc", "Số IMEI / Serial", "Tình trạng", "Phụ kiện kèm theo"],
+  },
+  {
+    id: "machine",
+    label: "Máy móc, thiết bị",
+    match: /máy|thiết bị/i,
+    attrs: ["Hãng sản xuất", "Model", "Công suất / Thông số chính", "Xuất xứ", "Năm sản xuất", "Số serial", "Tình trạng"],
+  },
+  {
+    id: "goods",
+    label: "Hàng hóa thông thường",
+    attrs: ["Chủng loại", "Quy cách đóng gói", "Xuất xứ", "Tiêu chuẩn chất lượng", "Hạn sử dụng"],
+  },
+  { id: "other", label: "Khác (tự mô tả)", attrs: [] },
+];
+
+function guessSpecKind(productName: string): string | undefined {
+  if (!productName.trim()) return undefined;
+  return SPEC_KINDS.find((k) => k.match?.test(productName))?.id ?? "goods";
+}
+
+/** Loại hàng mà mỗi đơn vị có mã riêng (IMEI, serial) -> mỗi đơn vị một bộ thông số */
+const PER_UNIT_SPEC_KINDS = ["electronics", "machine"];
+const COUNTABLE_UNITS = ["chiếc", "cái", "bộ"];
+const MAX_SPEC_UNITS = 10;
+
+/** Từ "2 chiếc" + loại hàng -> số bộ thông số cần nhập */
+function specLayout(kindId: string | undefined, quantityValue: string) {
+  const [, q = "", unitName = ""] = quantityValue.match(/^([\d.,]*)\s*(.*)$/) ?? [];
+  const n = /^\d+$/.test(q) ? Number(q) : 1;
+  const perUnit = PER_UNIT_SPEC_KINDS.includes(kindId ?? "") && COUNTABLE_UNITS.includes(unitName) && n >= 2;
+  return {
+    count: perUnit && n <= MAX_SPEC_UNITS ? n : 1,
+    appendix: perUnit && n > MAX_SPEC_UNITS,
+    unitName,
+  };
+}
+
+/**
+ * 1 đơn vị:  "\n+ Nhãn hiệu: Honda\n+ Màu sơn: Đỏ"
+ * n đơn vị:  "\n+ Chiếc 1: Nhãn hiệu Honda, màu sơn Đỏ\n+ Chiếc 2: ..."
+ * Dấu xuống dòng đầu để danh sách nằm dưới nhãn (preview + PDF).
+ */
+/** Khóa lưu giá bán của từng chiếc trong specUnits (không trùng tên thông số nào) */
+const PRICE_KEY = "__gia";
+
+function formatSpecValue(
+  attrs: string[],
+  units: Record<string, string>[],
+  layout: ReturnType<typeof specLayout>,
+  withPrice = false,
+): string {
+  const clean = (s: string) => s.replace(/\s*\n\s*/g, " ").trim();
+  const filled = (p: Record<string, string> = {}) => attrs.filter((a) => p[a]?.trim());
+  let lines: string[];
+  if (layout.count === 1) {
+    lines = filled(units[0]).map((a) => `+ ${a}: ${clean(units[0][a])}`);
+    if (layout.appendix) lines.push(`+ Danh sách chi tiết từng ${layout.unitName} lập thành phụ lục kèm theo hợp đồng`);
+  } else {
+    const title = layout.unitName.charAt(0).toUpperCase() + layout.unitName.slice(1);
+    lines = Array.from({ length: layout.count }, (_, i) => {
+      const p = units[i] ?? {};
+      const parts = filled(p).map((a, j) => `${j === 0 ? a : a.charAt(0).toLowerCase() + a.slice(1)} ${clean(p[a])}`);
+      const price = digitsOf(p[PRICE_KEY]);
+      if (withPrice && price) parts.push(`giá ${formatDigitsToVnCurrency(price)} đồng`);
+      return parts.length ? `+ ${title} ${i + 1}: ${parts.join(", ")}` : "";
+    }).filter(Boolean);
+  }
+  return lines.length ? `\n${lines.join("\n")}` : "";
+}
+
+// ---- Giá tiền: đơn giá × số lượng, bằng chữ, thuê theo m²/tháng ----
+const VN_DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+const VN_SCALES = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"];
+
+function readThreeDigits(n: number, full: boolean): string {
+  const h = Math.floor(n / 100);
+  const t = Math.floor((n % 100) / 10);
+  const u = n % 10;
+  const w: string[] = [];
+  if (h > 0 || full) w.push(VN_DIGITS[h], "trăm");
+  if (t > 1) {
+    w.push(VN_DIGITS[t], "mươi");
+    if (u === 1) w.push("mốt");
+    else if (u === 5) w.push("lăm");
+    else if (u > 0) w.push(VN_DIGITS[u]);
+  } else if (t === 1) {
+    w.push("mười");
+    if (u === 5) w.push("lăm");
+    else if (u > 0) w.push(VN_DIGITS[u]);
+  } else if (u > 0) {
+    if (h > 0 || full) w.push("lẻ");
+    w.push(VN_DIGITS[u]);
+  }
+  return w.join(" ");
+}
+
+/** 50000000 -> "Năm mươi triệu đồng"; "" nếu <= 0 hoặc quá lớn */
+function moneyToWords(amount: number): string {
+  const groups: number[] = [];
+  for (let x = Math.floor(amount); x > 0; x = Math.floor(x / 1000)) groups.push(x % 1000);
+  if (groups.length === 0 || groups.length > VN_SCALES.length) return "";
+  const w: string[] = [];
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i] === 0) continue;
+    w.push(readThreeDigits(groups[i], w.length > 0), VN_SCALES[i]);
+  }
+  const s = `${w.filter(Boolean).join(" ")} đồng`;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function digitsOf(s: string | undefined): string {
+  return (s ?? "").replace(/\D/g, "").slice(0, 13);
+}
+
+function vnd(n: number): string {
+  return formatDigitsToVnCurrency(String(Math.round(n)));
+}
+
+/** "15.000.000 đồng/tháng (Mười lăm triệu đồng)"; "" nếu chưa có số tiền hợp lệ */
+function moneyText(n: number, per = ""): string {
+  const words = n > 0 && n < 1e15 ? moneyToWords(Math.round(n)) : "";
+  return words ? `${vnd(n)} đồng${per} (${words})` : "";
+}
+
+/** Theo cách viết Việt Nam: "." ngăn nghìn, "," thập phân */
+function parseVnNumber(s: string): number {
+  const n = Number(s.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** "1 năm (đến ngày 04/11/2027)" -> 12; "Đến ngày ..." hoặc chữ tự gõ -> 0 */
+function parseTermMonths(term: string): number {
+  const m = term.match(/^\s*(\d+)\s*(tháng|năm)/i);
+  return m ? Number(m[1]) * (m[2].toLowerCase() === "năm" ? 12 : 1) : 0;
+}
+
+/**
+ * Các giá trị suy ra từ ô nhập ghép (người dùng không gõ trực tiếp):
+ * thông số kỹ thuật, tổng giá bán (đơn giá × số lượng hoặc cộng giá từng chiếc), giá thuê, đặt cọc, tổng tiền thuê.
+ */
+function deriveValues(
+  raw: Record<string, string>,
+  choice: Record<string, string>,
+  units: Record<string, string>[],
+  kindId: string | undefined,
+  has: (key: string) => boolean,
+): Record<string, string> {
+  const out = { ...raw };
+  const qtyValue = raw["so_luong_hang_hoa"] ?? "";
+  const hasSale = has("so_luong_hang_hoa") && has("gia_tri_hop_dong");
+  const layout = specLayout(has("thong_so_ky_thuat") ? kindId : undefined, qtyValue);
+
+  const kind = SPEC_KINDS.find((k) => k.id === kindId);
+  if (has("thong_so_ky_thuat") && kind && kind.attrs.length > 0) {
+    out["thong_so_ky_thuat"] = formatSpecValue(kind.attrs, units, layout, hasSale);
+  }
+
+  if (hasSale) {
+    const vat = choice["gia_tri_hop_dong"] === "excluded" ? "chưa gồm VAT" : "đã gồm VAT";
+    let total = 0;
+    let detail = "";
+    if (layout.count > 1) {
+      const prices = Array.from({ length: layout.count }, (_, i) => Number(digitsOf(units[i]?.[PRICE_KEY]) || 0));
+      total = prices.every((p) => p > 0) ? prices.reduce((a, b) => a + b, 0) : 0; // thiếu giá một chiếc -> chưa đủ
+    } else {
+      const qty = parseVnNumber(qtyValue.match(/^[\d.,]*/)?.[0] ?? "");
+      const unitPrice = Number(digitsOf(choice["gia_tri_hop_dong.unit"]) || 0);
+      total = qty * unitPrice;
+      if (total > 0 && qty !== 1) {
+        detail = ` (đơn giá ${vnd(unitPrice)} đồng${layout.unitName ? `/${layout.unitName}` : ""} × ${qtyValue.trim()})`;
+      }
+    }
+    const text = moneyText(total);
+    out["gia_tri_hop_dong"] = text ? `${text}, ${vat}${detail}` : "";
+  }
+
+  if (has("gia_thue_hang_thang")) {
+    const byArea = choice["gia_thue_hang_thang"] === "m2";
+    const area = parseVnNumber(raw["dien_tich_thue"] ?? "");
+    const unit = Number(digitsOf(choice["gia_thue_hang_thang.unit"]) || 0);
+    const monthly = byArea ? area * unit : Number(digitsOf(choice["gia_thue_hang_thang.amount"]) || 0);
+    const text = moneyText(monthly, "/tháng");
+    out["gia_thue_hang_thang"] = text
+      ? `${text}${byArea ? ` (đơn giá ${vnd(unit)} đồng/m²/tháng × ${String(area).replace(".", ",")} m²)` : ""}`
+      : "";
+
+    if (has("tien_dat_coc")) {
+      const mode = choice["tien_dat_coc"] ?? "";
+      if (/^\d+$/.test(mode)) {
+        const t = moneyText(monthly * Number(mode));
+        out["tien_dat_coc"] = t ? `${t} (tương đương ${mode} tháng tiền thuê)` : "";
+      } else {
+        out["tien_dat_coc"] = mode === "custom" ? moneyText(Number(digitsOf(choice["tien_dat_coc.amount"]) || 0)) : "";
+      }
+    }
+
+    // Thời hạn không tính theo tháng/năm (VD "Đến ngày ...") thì giữ ô tổng tiền thuê cho người dùng tự nhập
+    const months = parseTermMonths(raw["thoi_han_hop_dong"] ?? "");
+    if (has("tong_tien_thue") && months > 0) {
+      const t = moneyText(monthly * months);
+      out["tong_tien_thue"] = t ? `${t} (${months} tháng × ${vnd(monthly)} đồng/tháng)` : "";
+    }
+  }
+  return out;
+}
+
+/** Chỉ định dạng lại khi giá trị thuần số; chuỗi đã ghép chữ ("50.000.000 đồng (…)") giữ nguyên */
+function formatMoneyValue(v: string): string {
+  return /^[\d.,\s]*$/.test(v) ? formatDigitsToVnCurrency(v) : v;
+}
+
 function formatDigitsToVnCurrency(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return raw;
@@ -404,15 +643,20 @@ function InteractiveContractPaper({
         const label = formatVariableLabel(key);
         const val =
           rawVal && isMoneyField(key, label)
-            ? formatDigitsToVnCurrency(rawVal)
+            ? formatMoneyValue(rawVal)
             : rawVal;
         const isFocused = focusedVar === key;
         const isFirstRef = !seenVarInLine[key];
         seenVarInLine[key] = true;
+        // Giá trị nhiều dòng (VD: thông số kỹ thuật) hiển thị thành danh sách "+ ..." bên dưới nhãn
+        const multiline = Boolean(rawVal) && values[key].includes("\n");
 
         if (!interactiveFields) {
           return (
-            <span key={`${lineIdx}-${partIdx}`} className="font-semibold text-slate-900">
+            <span
+              key={`${lineIdx}-${partIdx}`}
+              className={`font-semibold text-slate-900 ${multiline ? "block whitespace-pre-line pl-3" : ""}`}
+            >
               {val || `[${label}]`}
             </span>
           );
@@ -426,7 +670,11 @@ function InteractiveContractPaper({
               if (isFirstRef) tokenRefs.current[key] = el;
             }}
             onClick={() => onSelectVar?.(key)}
-            className={`inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-sm font-sans text-xs transition-all cursor-pointer ${
+            className={`${
+              multiline
+                ? "flex flex-col items-start w-fit mt-1 ml-3 whitespace-pre-line text-left leading-[1.7]"
+                : "inline-flex items-center"
+            } px-1.5 py-0.5 mx-0.5 rounded-sm font-sans text-xs transition-all cursor-pointer ${
               isFocused
                 ? "bg-primary text-white font-bold ring-2 ring-primary/40 shadow-xs"
                 : val
@@ -593,7 +841,21 @@ export default function NewContractPage() {
   const [newFieldLabel, setNewFieldLabel] = React.useState("");
   const [newFieldSection, setNewFieldSection] = React.useState<FieldSection | "clause">("transaction");
 
-  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [rawValues, setValues] = React.useState<Record<string, string>>({});
+  /** Lựa chọn phụ của ô nhập ghép (loại hàng hóa của Thông số, nơi giao nhận) — không nằm trong nội dung hợp đồng */
+  const [fieldChoice, setFieldChoice] = React.useState<Record<string, string>>({});
+  /** Thông số kỹ thuật theo từng đơn vị hàng (phần tử 0 = chiếc 1 hoặc bộ thông số chung) */
+  const [specUnits, setSpecUnits] = React.useState<Record<string, string>[]>([]);
+
+  // "Thông số kỹ thuật" được suy ra từ loại hàng + số lượng + specUnits, nên tự cập nhật khi đổi số lượng/đơn vị/loại hàng
+  const specKindId = fieldChoice["thong_so_ky_thuat"] ?? guessSpecKind(rawValues["ten_hang_hoa_tai_san"] ?? "");
+  const quantityValue = rawValues["so_luong_hang_hoa"] ?? "";
+  const values = React.useMemo(() => {
+    const has = (k: string) =>
+      !removedFieldKeys.includes(k) &&
+      (Boolean(templateDetail?.variables.includes(k)) || extraFields.some((f) => f.key === k));
+    return deriveValues(rawValues, fieldChoice, specUnits, specKindId, has);
+  }, [rawValues, fieldChoice, specKindId, specUnits, templateDetail, removedFieldKeys, extraFields]);
   const [endDateIso, setEndDateIso] = React.useState<string>(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
@@ -674,7 +936,7 @@ export default function NewContractPage() {
     };
   }, [resumeDraftId]);
 
-  const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
+  const inputRefs = React.useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
   const canvasRef = React.useRef<HTMLDivElement>(null);
   const placementScrollRef = React.useRef<HTMLDivElement>(null);
   const signatureSectionRef = React.useRef<HTMLDivElement>(null);
@@ -761,6 +1023,8 @@ export default function NewContractPage() {
         setRemovedFieldKeys([]);
         setCustomClauses(null);
         setValues(smartDefaults);
+        setFieldChoice({});
+        setSpecUnits([]);
 
         // Tự động focus vào trường đầu tiên chưa có dữ liệu (thường là Tên đối tác Bên B)
         const firstEmptyVar = vars.find((v) => !smartDefaults[v]) ?? vars[0];
@@ -785,6 +1049,8 @@ export default function NewContractPage() {
           setRemovedFieldKeys([]);
           setCustomClauses(null);
           setValues(smartDefaults);
+          setFieldChoice({});
+          setSpecUnits([]);
 
           const firstEmptyVar =
             detail.variables.find((v) => !smartDefaults[v]) ?? detail.variables[0];
@@ -854,7 +1120,6 @@ export default function NewContractPage() {
     () => mergedBlueprint?.orderedFields.map((f) => f.key) ?? [],
     [mergedBlueprint],
   );
-
   const contractPages = React.useMemo(
     () => splitContractIntoA4Pages(mergedBlueprint?.compiledContent ?? "", title),
     [mergedBlueprint?.compiledContent, title],
@@ -962,7 +1227,7 @@ export default function NewContractPage() {
     const el = inputRefs.current[varKey];
     if (el) {
       el.focus();
-      el.select();
+      if (el instanceof HTMLInputElement) el.select();
     }
   };
 
@@ -1207,7 +1472,7 @@ export default function NewContractPage() {
       const normalizedValues: Record<string, string> = {};
       for (const [k, v] of Object.entries(values)) {
         normalizedValues[k] = isMoneyField(k, formatVariableLabel(k))
-          ? formatDigitsToVnCurrency(v)
+          ? formatMoneyValue(v)
           : v;
       }
       const res = await contractsApi.createFromTemplate(
@@ -1407,8 +1672,16 @@ export default function NewContractPage() {
       );
     }
 
+    // Ô giá ghép (đơn giá × số lượng, thuê theo m², đặt cọc theo tháng...) được xử lý ở nhóm 9–12 bên dưới
+    const saleMode = activeVariables.includes("so_luong_hang_hoa") && activeVariables.includes("gia_tri_hop_dong");
+    const leaseMode = activeVariables.includes("gia_thue_hang_thang");
+    const smartPrice =
+      (saleMode && f.key === "gia_tri_hop_dong") ||
+      (leaseMode && (f.key === "gia_thue_hang_thang" || f.key === "tien_dat_coc")) ||
+      (leaseMode && f.key === "tong_tien_thue" && parseTermMonths(values["thoi_han_hop_dong"] ?? "") > 0);
+
     // 3. Trường Tiền tệ (Giá trị hợp đồng / Mức lương / Tiền cọc) -> Tự động thêm dấu chấm phân cách hàng nghìn (1.000.000)
-    if (isMoneyField(f.key, f.label)) {
+    if (isMoneyField(f.key, f.label) && !smartPrice) {
       const displayMoney = val ? formatDigitsToVnCurrency(val) : "";
       return (
         <div className="flex flex-col gap-1.5">
@@ -1450,7 +1723,433 @@ export default function NewContractPage() {
       );
     }
 
-    // 4. Các trường văn bản thông thường
+    const setField = (v: string) => {
+      setValues((prev) => ({ ...prev, [f.key]: v }));
+      setFocusedVar(f.key);
+      setCreatedDraftId(null);
+    };
+    const fieldLabel = (
+      <span className="text-sm font-semibold text-fg">
+        {idx + 1}. {f.label} <span className="text-danger">*</span>
+      </span>
+    );
+    const smallInput =
+      "w-full h-9 px-2.5 rounded-md border border-line-strong bg-surface text-xs text-fg placeholder:text-muted focus:outline-none focus:border-primary";
+
+    // 4. Số lượng -> ô số + chọn đơn vị tính ("2 chiếc")
+    if (f.key.startsWith("so_luong")) {
+      const m = val.match(/^([\d.,]*)\s*(.*)$/);
+      const qty = m?.[1] ?? "";
+      const unit = m?.[2] ?? "";
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <div className="grid grid-cols-[1fr_130px] gap-2">
+            <input
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              aria-label="Số lượng"
+              inputMode="decimal"
+              value={qty}
+              onFocus={() => setFocusedVar(f.key)}
+              onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+              onChange={(e) => setField(`${e.target.value.replace(/[^\d.,]/g, "")} ${unit}`.trim())}
+              placeholder="VD: 2"
+              className={smallInput}
+            />
+            <select
+              aria-label="Đơn vị tính"
+              value={unit}
+              onFocus={() => setFocusedVar(f.key)}
+              onChange={(e) => setField(`${qty} ${e.target.value}`.trim())}
+              className={smallInput}
+            >
+              <option value="" disabled>
+                Đơn vị tính
+              </option>
+              {unit && !QUANTITY_UNITS.includes(unit) && <option value={unit}>{unit}</option>}
+              {QUANTITY_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    // 5. Thông số kỹ thuật -> chọn loại hàng hóa (tự đoán từ tên hàng) rồi điền đúng bộ thông số của loại đó
+    if (f.key === "thong_so_ky_thuat") {
+      const kindId = specKindId;
+      const kind = SPEC_KINDS.find((k) => k.id === kindId);
+      const layout = specLayout(kindId, quantityValue);
+      const unitTitle = layout.unitName.charAt(0).toUpperCase() + layout.unitName.slice(1);
+      // Giá trị hợp đồng được effect ghép lại từ specUnits
+      const updateUnit = (i: number, patch: Record<string, string>) => {
+        setSpecUnits((prev) => {
+          const next = [...prev];
+          next[i] = { ...next[i], ...patch };
+          return next;
+        });
+        setFocusedVar(f.key);
+        setCreatedDraftId(null);
+      };
+      return (
+        <div className="flex flex-col gap-2">
+          {fieldLabel}
+          <select
+            aria-label="Loại hàng hóa"
+            value={kindId ?? ""}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => {
+              setFieldChoice((prev) => ({ ...prev, [f.key]: e.target.value }));
+              if (e.target.value === "other") setField("");
+            }}
+            className={smallInput}
+          >
+            <option value="" disabled>
+              Chọn loại hàng hóa để hiện thông số cần nhập
+            </option>
+            {SPEC_KINDS.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+          {kind?.id === "other" && (
+            <input
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              value={val}
+              onFocus={() => setFocusedVar(f.key)}
+              onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+              onChange={(e) => setField(e.target.value)}
+              placeholder="Mô tả quy cách, chất lượng, thông số…"
+              className={smallInput}
+            />
+          )}
+          {kind &&
+            kind.attrs.length > 0 &&
+            Array.from({ length: layout.count }, (_, u) => (
+              <div
+                key={u}
+                className={layout.count > 1 ? "flex flex-col gap-2 p-2.5 rounded-md border border-line bg-page" : ""}
+              >
+                {layout.count > 1 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-fg">
+                      {unitTitle} {u + 1}
+                    </span>
+                    {u > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => updateUnit(u, specUnits[0] ?? {})}
+                        className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                      >
+                        Giống {layout.unitName} 1
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {kind.attrs.map((a, i) => (
+                    <label key={a} className="flex flex-col gap-1 text-[11px] font-medium text-muted">
+                      {a}
+                      <input
+                        ref={
+                          u === 0 && i === 0
+                            ? (el) => {
+                                inputRefs.current[f.key] = el;
+                              }
+                            : undefined
+                        }
+                        value={specUnits[u]?.[a] ?? ""}
+                        onFocus={() => setFocusedVar(f.key)}
+                        onChange={(e) => updateUnit(u, { [a]: e.target.value })}
+                        className={smallInput}
+                      />
+                    </label>
+                  ))}
+                  {saleMode && layout.count > 1 && (
+                    <label className="flex flex-col gap-1 text-[11px] font-medium text-muted sm:col-span-2">
+                      Giá bán {layout.unitName} {u + 1} (đồng)
+                      <input
+                        inputMode="numeric"
+                        value={specUnits[u]?.[PRICE_KEY] ?? ""}
+                        onFocus={() => setFocusedVar(f.key)}
+                        onChange={(e) =>
+                          updateUnit(u, { [PRICE_KEY]: formatDigitsToVnCurrency(digitsOf(e.target.value)) })
+                        }
+                        placeholder="VD: 25.000.000"
+                        className={smallInput}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            ))}
+          {layout.appendix && (
+            <p className="text-[11px] text-muted">
+              Số lượng lớn hơn {MAX_SPEC_UNITS}: nhập thông số chung, danh sách chi tiết từng {layout.unitName} lập
+              thành phụ lục kèm theo hợp đồng.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // 6. Phương thức thanh toán -> chọn hình thức + chọn thời hạn/tiến độ
+    if (f.key === "phuong_thuc_thanh_toan") {
+      const [method = "", term = ""] = val.split(PAYMENT_SEP);
+      const compose = (mth: string, trm: string) => [mth, trm].filter(Boolean).join(PAYMENT_SEP);
+      const optionList = (list: string[], current: string) => [
+        ...(current && !list.includes(current) ? [current] : []),
+        ...list,
+      ];
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr] gap-2">
+            <select
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              aria-label="Hình thức thanh toán"
+              value={method}
+              onFocus={() => setFocusedVar(f.key)}
+              onChange={(e) => setField(compose(e.target.value, term))}
+              className={smallInput}
+            >
+              <option value="" disabled>
+                Hình thức
+              </option>
+              {optionList(PAYMENT_METHODS, method).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Thời hạn thanh toán"
+              value={term}
+              onFocus={() => setFocusedVar(f.key)}
+              onChange={(e) => setField(compose(method, e.target.value))}
+              className={smallInput}
+            >
+              <option value="" disabled>
+                Thời hạn / tiến độ
+              </option>
+              {optionList(PAYMENT_TERMS, term).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    // 7. Địa điểm giao nhận -> chọn nơi trước (tự điền địa chỉ Bên A/B), rồi nhập/sửa địa chỉ cụ thể
+    if (f.key === "dia_diem_ban_giao") {
+      const placeId =
+        fieldChoice[f.key] ??
+        DELIVERY_PLACES.find((p) => p.prefix && val.startsWith(p.prefix))?.id ??
+        (val ? "other" : "");
+      const place = DELIVERY_PLACES.find((p) => p.id === placeId);
+      const detail = place?.prefix && val.startsWith(place.prefix) ? val.slice(place.prefix.length) : val;
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <select
+            aria-label="Nơi giao nhận"
+            value={placeId}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => {
+              const p = DELIVERY_PLACES.find((x) => x.id === e.target.value)!;
+              setFieldChoice((prev) => ({ ...prev, [f.key]: p.id }));
+              setField(p.addressKey ? `${p.prefix}${values[p.addressKey] ?? ""}` : "");
+              setTimeout(() => inputRefs.current[f.key]?.focus(), 0);
+            }}
+            className={smallInput}
+          >
+            <option value="" disabled>
+              Chọn nơi giao nhận
+            </option>
+            {DELIVERY_PLACES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          {place && (
+            <input
+              ref={(el) => {
+                inputRefs.current[f.key] = el;
+              }}
+              value={detail}
+              onFocus={() => setFocusedVar(f.key)}
+              onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+              onChange={(e) => setField(`${place.prefix}${e.target.value}`)}
+              placeholder="Nhập địa chỉ giao nhận cụ thể…"
+              className={smallInput}
+            />
+          )}
+        </div>
+      );
+    }
+
+    const setChoice = (key: string, v: string) => {
+      setFieldChoice((prev) => ({ ...prev, [key]: v }));
+      setFocusedVar(f.key);
+      setCreatedDraftId(null);
+    };
+    const priceInput = (key: string, suffix: string, withRef: boolean) => (
+      <div className="relative">
+        <input
+          ref={
+            withRef
+              ? (el) => {
+                  inputRefs.current[f.key] = el;
+                }
+              : undefined
+          }
+          inputMode="numeric"
+          aria-label={suffix}
+          value={fieldChoice[key] ?? ""}
+          onFocus={() => setFocusedVar(f.key)}
+          onKeyDown={(e) => handleVariableKeyDown(f.key, e)}
+          onChange={(e) => setChoice(key, formatDigitsToVnCurrency(digitsOf(e.target.value)))}
+          placeholder="VD: 25.000.000"
+          className={`${smallInput} pr-28`}
+        />
+        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted">
+          {suffix}
+        </span>
+      </div>
+    );
+    const resultBox = (text: string, empty: string) => (
+      <div className="rounded-md border border-line bg-page px-2.5 py-1.5 text-xs leading-relaxed">
+        {text ? <span className="font-semibold text-fg">{text}</span> : <span className="text-muted">{empty}</span>}
+      </div>
+    );
+
+    // 9. Giá bán: đơn giá × số lượng (hoặc cộng giá từng chiếc), chọn VAT, tổng hiện cả bằng chữ
+    if (f.key === "gia_tri_hop_dong" && saleMode) {
+      const layout = specLayout(activeVariables.includes("thong_so_ky_thuat") ? specKindId : undefined, quantityValue);
+      const perUnitPrice = layout.count > 1;
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          {perUnitPrice ? (
+            <p className="text-[11px] text-muted">
+              Nhập giá bán từng {layout.unitName} ở mục “{formatVariableLabel("thong_so_ky_thuat")}” phía trên; tổng
+              được tự cộng.
+            </p>
+          ) : (
+            <label className="flex flex-col gap-1 text-[11px] font-medium text-muted">
+              Đơn giá
+              {priceInput("gia_tri_hop_dong.unit", layout.unitName ? `đồng/${layout.unitName}` : "đồng", true)}
+            </label>
+          )}
+          <select
+            ref={
+              perUnitPrice
+                ? (el) => {
+                    inputRefs.current[f.key] = el;
+                  }
+                : undefined
+            }
+            aria-label="Thuế VAT"
+            value={fieldChoice[f.key] ?? "included"}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => setChoice(f.key, e.target.value)}
+            className={smallInput}
+          >
+            <option value="included">Giá đã gồm VAT</option>
+            <option value="excluded">Giá chưa gồm VAT</option>
+          </select>
+          {resultBox(val, "Tổng giá bán sẽ hiện ở đây khi nhập đủ số lượng và giá")}
+        </div>
+      );
+    }
+
+    // 10. Giá thuê: nhập theo tháng hoặc theo đơn giá m² (tự nhân diện tích)
+    if (f.key === "gia_thue_hang_thang" && leaseMode) {
+      const byArea = fieldChoice[f.key] === "m2";
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <select
+            ref={(el) => {
+              inputRefs.current[f.key] = el;
+            }}
+            aria-label="Cách tính giá thuê"
+            value={byArea ? "m2" : "month"}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => setChoice(f.key, e.target.value)}
+            className={smallInput}
+          >
+            <option value="month">Nhập số tiền thuê mỗi tháng</option>
+            <option value="m2">Nhập đơn giá theo m² (tự nhân diện tích)</option>
+          </select>
+          {byArea
+            ? priceInput("gia_thue_hang_thang.unit", "đồng/m²/tháng", false)
+            : priceInput("gia_thue_hang_thang.amount", "đồng/tháng", false)}
+          {byArea && !(values["dien_tich_thue"] ?? "").trim() && (
+            <p className="text-[11px] text-muted">
+              Nhập “{formatVariableLabel("dien_tich_thue")}” ở mục phía trên để tính.
+            </p>
+          )}
+          {resultBox(val, "Giá thuê hàng tháng sẽ hiện ở đây")}
+        </div>
+      );
+    }
+
+    // 11. Đặt cọc: chọn số tháng tiền thuê (tự ra số tiền) hoặc tự nhập
+    if (f.key === "tien_dat_coc" && leaseMode) {
+      const mode = fieldChoice[f.key] ?? "";
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <select
+            ref={(el) => {
+              inputRefs.current[f.key] = el;
+            }}
+            aria-label="Mức đặt cọc"
+            value={mode}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => setChoice(f.key, e.target.value)}
+            className={smallInput}
+          >
+            <option value="" disabled>
+              Chọn mức đặt cọc
+            </option>
+            <option value="1">1 tháng tiền thuê</option>
+            <option value="2">2 tháng tiền thuê</option>
+            <option value="3">3 tháng tiền thuê</option>
+            <option value="custom">Tự nhập số tiền</option>
+          </select>
+          {mode === "custom" && priceInput("tien_dat_coc.amount", "đồng", false)}
+          {resultBox(val, "Số tiền đặt cọc sẽ hiện ở đây")}
+        </div>
+      );
+    }
+
+    // 12. Tổng tiền thuê cả thời hạn: tự tính khi thời hạn tính theo tháng/năm
+    if (f.key === "tong_tien_thue" && smartPrice) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          {resultBox(val, "Tự tính = giá thuê hàng tháng × thời hạn thuê")}
+        </div>
+      );
+    }
+
+    // 8. Các trường văn bản thông thường
     return (
       <Input
         ref={(el) => {
