@@ -91,6 +91,7 @@ export default function ContractDetailPage() {
   const [confirmSend, setConfirmSend] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
   const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
+  const [blockedNeedsVerification, setBlockedNeedsVerification] = React.useState(false);
   const [isReminding, setIsReminding] = React.useState(false);
 
   const [dueAt, setDueAt] = React.useState(() => {
@@ -126,7 +127,12 @@ export default function ContractDetailPage() {
       reload();
     } catch (err) {
       setConfirmSend(false);
-      if (
+      setBlockedNeedsVerification(err instanceof ApiError && err.code === "TenantVerification.NotVerified");
+      if (err instanceof ApiError && err.code === "TenantVerification.NotVerified") {
+        setBlockedMessage(
+          "Doanh nghiệp chưa được xác thực nên chưa gửi ký được. Vào Cài đặt > Doanh nghiệp để nộp giấy đăng ký kinh doanh; bản nháp vẫn được giữ.",
+        );
+      } else if (
         err instanceof ApiError &&
         (err.code === "Subscription.QuotaExceeded" ||
           err.code === "Quota.Exceeded" ||
@@ -690,15 +696,21 @@ export default function ContractDetailPage() {
       <Dialog
         open={blockedMessage !== null}
         onClose={() => setBlockedMessage(null)}
-        title="Không đủ hạn mức gửi ký"
+        title={blockedNeedsVerification ? "Chưa gửi ký được" : "Không đủ hạn mức gửi ký"}
         footer={
           <>
             <Button variant="secondary" onClick={() => setBlockedMessage(null)}>
               Đóng
             </Button>
-            <Link href="/app/billing">
-              <Button variant="primary">Nâng cấp gói dịch vụ ngay</Button>
-            </Link>
+            {blockedNeedsVerification ? (
+              <Link href="/app/settings?tab=company">
+                <Button variant="primary">Nộp hồ sơ xác thực</Button>
+              </Link>
+            ) : (
+              <Link href="/app/billing">
+                <Button variant="primary">Nâng cấp gói dịch vụ ngay</Button>
+              </Link>
+            )}
           </>
         }
       >

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { ReasonDialog } from "@/components/reason-dialog";
 import { LockBadge } from "@/components/lock-badge";
+import { VerificationBadge } from "@/components/verification-badge";
 import { Table } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 
@@ -78,6 +79,7 @@ export default function AdminTenantsPage() {
                   ),
               },
               { key: "members", header: "Thành viên", align: "right", render: (t) => t.membersCount },
+              { key: "verify", header: "Xác thực", render: (t) => <VerificationBadge status={t.verificationStatus ?? "Unverified"} /> },
               { key: "lock", header: "Trạng thái", render: (t) => <LockBadge locked={t.isLocked} /> },
               {
                 key: "actions",

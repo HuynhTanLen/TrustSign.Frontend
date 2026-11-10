@@ -9,6 +9,7 @@ import { useApi } from "@/lib/use-api";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { TENANT_ROLE_LABELS } from "@/lib/workspace-context";
 import { AdminHistoryCard, InfoList, LockActions } from "@/components/admin-profile";
+import { AdminTenantVerification } from "@/components/admin-tenant-verification";
 import { LockBadge } from "@/components/lock-badge";
 import { Badge, type ContractStatus } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -88,6 +89,8 @@ export default function AdminTenantProfilePage() {
           )}
         </Card>
       </div>
+
+      <AdminTenantVerification tenant={t} onChanged={reload} />
 
       <Card title={`Thành viên (${t.members.length})`} icon={Users} bodyClassName="p-0">
         <Table

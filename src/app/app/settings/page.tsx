@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { EkycCard } from "@/components/ekyc-card";
+import { TenantVerificationCard } from "@/components/tenant-verification-card";
 import { Avatar } from "@/components/avatar";
 import { resizeToSquareJpeg } from "@/lib/image-resize";
 import { PASSWORD_MAX_LENGTH, PASSWORD_RULE, isAcceptablePassword } from "@/lib/password-policy";
@@ -567,13 +568,19 @@ function CompanyTab({
     );
   }
 
-  return <CompanyForm key={tenant.id} tenant={tenant} isOwner={isOwner} onUpdated={handleUpdated} />;
+  return (
+    <div className="flex flex-col gap-6">
+      <CompanyForm key={tenant.id} tenant={tenant} isOwner={isOwner} onUpdated={handleUpdated} />
+      <TenantVerificationCard tenant={tenant} isOwner={isOwner} onChanged={reload} />
+    </div>
+  );
 }
 
 function SettingsContent() {
   const { user, currentRole, refreshUser } = useWorkspace();
   // Trang tạo hợp đồng chuyển tới đây (?tab=security) khi người dùng chưa xác minh danh tính.
-  const initialTab = useSearchParams().get("tab") === "security" ? "security" : "profile";
+  const tabParam = useSearchParams().get("tab");
+  const initialTab = ["security", "company"].find((id) => id === tabParam) ?? "profile";
   const [activeTab, setActiveTab] = React.useState<string>(initialTab);
   const isOwner = currentRole === "TenantOwner";
 

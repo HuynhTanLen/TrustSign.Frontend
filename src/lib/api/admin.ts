@@ -1,7 +1,7 @@
-import { API_URL, apiFetch } from "@/lib/api";
+import { API_URL, apiFetch, apiFetchBlob } from "@/lib/api";
 import { USE_MOCK, mockError, mockResponse } from "@/lib/mock";
 import type { ContractStatus, SubscriptionStatus } from "@/components/ui/badge";
-import type { TenantRole } from "@/lib/api/tenants";
+import type { TenantRole, TenantVerificationStatus } from "@/lib/api/tenants";
 import { mockDb } from "@/lib/mock/data";
 
 // Planned endpoints (FE-08): /api/admin/tenants, /api/admin/users, /api/admin/certificates, /api/pki/root-ca.
@@ -16,6 +16,7 @@ export interface AdminTenant {
   membersCount: number;
   isLocked: boolean;
   lockReason: string | null;
+  verificationStatus?: TenantVerificationStatus;
 }
 
 export interface AdminUser {
@@ -61,6 +62,13 @@ export interface AdminTenantProfile {
   members: { userId: string; fullName: string; email: string; role: TenantRole; joinedAt: string; isLocked: boolean }[];
   contractCounts: Record<ContractStatus, number>;
   history: AdminHistoryItem[];
+  verification?: {
+    status: TenantVerificationStatus;
+    submittedAt: string | null;
+    verifiedAt: string | null;
+    rejectReason: string | null;
+    hasLicense: boolean;
+  } | null;
 }
 
 /** Hồ sơ người dùng: không có mật khẩu, phiên đăng nhập hay ảnh CCCD; số CCCD đã che. */
@@ -145,6 +153,22 @@ export const adminApi = {
       return mockResponse(undefined);
     }
     return apiFetch<void>(`/api/admin/tenants/${id}/lock`, { method: "POST", body: JSON.stringify({ reason }) });
+  },
+
+  approveVerification(id: string): Promise<void> {
+    if (USE_MOCK) return mockError(501, "Chế độ mock chưa hỗ trợ xác thực doanh nghiệp.");
+    return apiFetch<void>(`/api/admin/tenants/${id}/verification/approve`, { method: "POST" });
+  },
+
+  rejectVerification(id: string, reason: string): Promise<void> {
+    if (USE_MOCK) return mockError(501, "Chế độ mock chưa hỗ trợ xác thực doanh nghiệp.");
+    return apiFetch<void>(`/api/admin/tenants/${id}/verification/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+  },
+
+  /** Giấy đăng ký kinh doanh do máy chủ giải mã; mở trong tab mới và nhớ thu hồi URL khi xong. */
+  async businessLicenseUrl(id: string): Promise<string> {
+    if (USE_MOCK) return mockError(501, "Chế độ mock chưa hỗ trợ xác thực doanh nghiệp.");
+    return URL.createObjectURL(await apiFetchBlob(`/api/admin/tenants/${id}/business-license`));
   },
 
   unlockTenant(id: string): Promise<void> {

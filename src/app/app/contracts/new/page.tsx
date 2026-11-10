@@ -625,6 +625,7 @@ export default function NewContractPage() {
   const [isSavingDraft, setIsSavingDraft] = React.useState(false);
   const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
   const [blocked, setBlocked] = React.useState<string | null>(null);
+  const [blockedNeedsVerification, setBlockedNeedsVerification] = React.useState(false);
 
   // ?draft=<id>: tiếp tục soạn một bản Nháp. Nội dung PDF đã khóa (đã băm SHA-256), chỉ sửa người nhận, ô ký và hạn ký.
   const resumeDraftId = searchParams.get("draft");
@@ -1259,12 +1260,18 @@ export default function NewContractPage() {
       setConfirmOpen(false);
       if (err instanceof ApiError && err.code === "Identity.NotVerified") {
         notifyNotVerified();
+      } else if (err instanceof ApiError && err.code === "TenantVerification.NotVerified") {
+        setBlockedNeedsVerification(true);
+        setBlocked(
+          "Doanh nghiệp chưa được xác thực nên chưa gửi ký được. Hợp đồng đã được lưu ở trạng thái Nháp. Vào Cài đặt > Doanh nghiệp để nộp giấy đăng ký kinh doanh.",
+        );
       } else if (
         err instanceof ApiError &&
         (err.code === "Subscription.QuotaExceeded" ||
           err.code === "Quota.Exceeded" ||
           err.status === 403)
       ) {
+        setBlockedNeedsVerification(false);
         setBlocked(
           err.code === "Subscription.QuotaExceeded" || err.code === "Quota.Exceeded"
             ? "Doanh nghiệp đã dùng hết hạn mức gửi ký trong kỳ. Hợp đồng đã được lưu ở trạng thái Nháp."
@@ -2396,9 +2403,15 @@ export default function NewContractPage() {
                 <Button variant="secondary">Xem bản nháp</Button>
               </Link>
             )}
-            <Link href="/app/billing">
-              <Button variant="primary">Nâng cấp gói cước</Button>
-            </Link>
+            {blockedNeedsVerification ? (
+              <Link href="/app/settings?tab=company">
+                <Button variant="primary">Nộp hồ sơ xác thực</Button>
+              </Link>
+            ) : (
+              <Link href="/app/billing">
+                <Button variant="primary">Nâng cấp gói cước</Button>
+              </Link>
+            )}
           </>
         }
       >

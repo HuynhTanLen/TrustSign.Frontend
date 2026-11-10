@@ -26,6 +26,9 @@ export interface SigningSession {
   fields: SigningField[];
   documentUrl: string | null;
   role: "Signer" | "Approver" | "Cc";
+  /** Bên gửi đã được quản trị nền tảng xác thực pháp nhân; kèm mã số thuế để người ký đối chiếu. */
+  senderVerified?: boolean;
+  senderTaxCode?: string | null;
 }
 
 export interface OtpResult {

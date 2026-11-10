@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useParams } from "next/navigation";
 import {
+  BadgeCheck,
   CheckCircle2,
   CircleX,
   Clock,
@@ -250,7 +251,15 @@ function SignContent() {
                   {session.contractTitle} <span className="font-mono font-normal text-muted">({session.contractCode})</span>
                 </dd>
                 <dt className="text-muted">Bên gửi</dt>
-                <dd className="text-fg">{session.senderCompany}</dd>
+                <dd className="text-fg">
+                  {session.senderCompany}
+                  {session.senderVerified && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-badge-completed-bg px-2 py-0.5 text-xs font-semibold text-badge-completed-fg">
+                      <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      Đã xác thực{session.senderTaxCode ? ` · MST ${session.senderTaxCode}` : ""}
+                    </span>
+                  )}
+                </dd>
                 <dt className="text-muted">{isApprover ? "Người duyệt" : "Người ký"}</dt>
                 <dd className="text-fg">
                   {session.signerName} ({session.signerEmailMasked}) · lượt {session.order}/{session.totalSigners}
