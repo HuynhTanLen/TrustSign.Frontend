@@ -484,10 +484,10 @@ function CompanyForm({
           <Input
             label="Người đại diện pháp luật"
             value={repName}
-            onChange={(e) => setRepName(e.target.value)}
-            disabled={!isOwner}
-            placeholder="Nguyễn Văn A"
+            disabled
+            placeholder="Chưa đồng bộ eKYC"
             leftIcon={<User className="w-4 h-4" aria-hidden="true" />}
+            helperText="Tự động đồng bộ từ CCCD đã xác minh (eKYC) của Chủ doanh nghiệp."
           />
 
           <Input
@@ -497,6 +497,7 @@ function CompanyForm({
             disabled={!isOwner}
             placeholder="Giám đốc / Tổng giám đốc"
             leftIcon={<Briefcase className="w-4 h-4" aria-hidden="true" />}
+            helperText="Ví dụ: Giám đốc, Tổng giám đốc, Chủ tịch HĐQT"
           />
         </div>
 

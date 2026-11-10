@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Building2, Lock, LockOpen, Search } from "lucide-react";
+import { Building2, Clock, Lock, LockOpen, Search, ShieldCheck } from "lucide-react";
 import { adminApi, type AdminTenant } from "@/lib/api/admin";
 import { useApi } from "@/lib/use-api";
 import { Badge } from "@/components/ui/badge";
@@ -22,13 +22,34 @@ export default function AdminTenantsPage() {
   const { toast } = useToast();
   const { data, error, isLoading, reload, mutate } = useApi("admin-tenants", adminApi.tenants);
   const [query, setQuery] = React.useState("");
+  const [tab, setTab] = React.useState<"all" | "Pending" | "Verified" | "Unverified" | "Rejected" | "locked">("all");
   const [locking, setLocking] = React.useState<AdminTenant | null>(null);
   const [unlocking, setUnlocking] = React.useState<AdminTenant | null>(null);
 
   const q = query.trim().toLowerCase();
-  const rows = (data ?? []).filter(
-    (t) => !q || t.name.toLowerCase().includes(q) || (t.taxCode ?? "").includes(q) || t.ownerEmail.toLowerCase().includes(q),
-  );
+  const allTenants = data ?? [];
+
+  const counts = {
+    all: allTenants.length,
+    pending: allTenants.filter((t) => t.verificationStatus === "Pending").length,
+    verified: allTenants.filter((t) => t.verificationStatus === "Verified").length,
+    unverified: allTenants.filter((t) => !t.verificationStatus || t.verificationStatus === "Unverified").length,
+    rejected: allTenants.filter((t) => t.verificationStatus === "Rejected").length,
+    locked: allTenants.filter((t) => t.isLocked).length,
+  };
+
+  const rows = allTenants
+    .filter((t) => {
+      if (tab === "Pending") return t.verificationStatus === "Pending";
+      if (tab === "Verified") return t.verificationStatus === "Verified";
+      if (tab === "Unverified") return !t.verificationStatus || t.verificationStatus === "Unverified";
+      if (tab === "Rejected") return t.verificationStatus === "Rejected";
+      if (tab === "locked") return t.isLocked;
+      return true;
+    })
+    .filter(
+      (t) => !q || t.name.toLowerCase().includes(q) || (t.taxCode ?? "").includes(q) || t.ownerEmail.toLowerCase().includes(q),
+    );
 
   const update = (id: string, patch: Partial<AdminTenant>) => mutate((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
 
@@ -39,16 +60,99 @@ export default function AdminTenantsPage() {
       {error ? (
         <ErrorState error={error} onRetry={reload} />
       ) : (
-        <Card
-          title={isLoading ? "Danh sách doanh nghiệp" : `Danh sách doanh nghiệp (${data?.length ?? 0})`}
-          icon={Building2}
-          actions={
-            <div className="w-64 [&_label]:sr-only">
-              <Input label="Tìm doanh nghiệp" placeholder="Tên, mã số thuế, email" value={query} onChange={(e) => setQuery(e.target.value)} leftIcon={<Search />} />
-            </div>
-          }
-          bodyClassName="p-0"
-        >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-1 pb-3 text-sm">
+            <button
+              type="button"
+              onClick={() => setTab("all")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "all" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <span>Tất cả</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "all" ? "bg-white/20" : "bg-line"}`}>
+                {counts.all}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("Pending")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "Pending" ? "bg-amber-600 text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Chờ duyệt pháp nhân</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                  tab === "Pending" ? "bg-white/20" : counts.pending > 0 ? "bg-amber-100 text-amber-800 font-bold" : "bg-line"
+                }`}
+              >
+                {counts.pending}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("Verified")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "Verified" ? "bg-emerald-600 text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Đã xác thực</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "Verified" ? "bg-white/20" : "bg-line"}`}>
+                {counts.verified}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("Unverified")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "Unverified" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <span>Chưa xác thực</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "Unverified" ? "bg-white/20" : "bg-line"}`}>
+                {counts.unverified}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("Rejected")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "Rejected" ? "bg-rose-600 text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <span>Bị từ chối</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "Rejected" ? "bg-white/20" : "bg-line"}`}>
+                {counts.rejected}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("locked")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                tab === "locked" ? "bg-danger text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Bị khóa</span>
+              <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "locked" ? "bg-white/20" : "bg-line"}`}>
+                {counts.locked}
+              </span>
+            </button>
+          </div>
+
+          <Card
+            title={isLoading ? "Danh sách doanh nghiệp" : `Danh sách doanh nghiệp (${rows.length})`}
+            icon={Building2}
+            actions={
+              <div className="w-64 [&_label]:sr-only">
+                <Input label="Tìm doanh nghiệp" placeholder="Tên, mã số thuế, email" value={query} onChange={(e) => setQuery(e.target.value)} leftIcon={<Search />} />
+              </div>
+            }
+            bodyClassName="p-0"
+          >
           <Table
             bare
             loading={isLoading}
@@ -108,6 +212,7 @@ export default function AdminTenantsPage() {
             ]}
           />
         </Card>
+        </div>
       )}
 
       <ReasonDialog

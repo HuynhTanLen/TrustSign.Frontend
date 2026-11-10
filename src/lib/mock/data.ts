@@ -200,10 +200,10 @@ const tenantStats: TenantStats = {
 };
 
 const adminTenants: AdminTenant[] = [
-  { id: "tn-1", name: "CTCP Phần mềm Việt Soft", taxCode: "0109827364", ownerEmail: "ha.le@vietsoft.example", planName: "Cơ bản", subscriptionStatus: "Active", membersCount: 8, isLocked: false, lockReason: null },
-  { id: "tn-2", name: "Công ty TNHH Logistics Biển Đông", taxCode: "0314891204", ownerEmail: "admin@biendong.example", planName: "Doanh nghiệp", subscriptionStatus: "Active", membersCount: 24, isLocked: false, lockReason: null },
-  { id: "tn-3", name: "CTCP Thương mại Sao Mai", taxCode: "0105541920", ownerEmail: "contact@saomai.example", planName: "Dùng thử", subscriptionStatus: "Trial", membersCount: 3, isLocked: false, lockReason: null },
-  { id: "tn-4", name: "Công ty TNHH Đầu tư Ánh Dương", taxCode: null, ownerEmail: "admin@anhduong.example", planName: "Cơ bản", subscriptionStatus: "Expired", membersCount: 5, isLocked: true, lockReason: "Gửi hàng loạt lời mời ký không rõ nguồn gốc" },
+  { id: "tn-1", name: "CTCP Phần mềm Việt Soft", taxCode: "0109827364", ownerEmail: "ha.le@vietsoft.example", planName: "Cơ bản", subscriptionStatus: "Active", membersCount: 8, isLocked: false, lockReason: null, verificationStatus: "Verified" },
+  { id: "tn-2", name: "Công ty TNHH Logistics Biển Đông", taxCode: "0314891204", ownerEmail: "admin@biendong.example", planName: "Doanh nghiệp", subscriptionStatus: "Active", membersCount: 24, isLocked: false, lockReason: null, verificationStatus: "Verified" },
+  { id: "tn-3", name: "CTCP Thương mại Sao Mai", taxCode: "0105541920", ownerEmail: "contact@saomai.example", planName: "Dùng thử", subscriptionStatus: "Trial", membersCount: 3, isLocked: false, lockReason: null, verificationStatus: "Pending" },
+  { id: "tn-4", name: "Công ty TNHH Đầu tư Ánh Dương", taxCode: null, ownerEmail: "admin@anhduong.example", planName: "Cơ bản", subscriptionStatus: "Expired", membersCount: 5, isLocked: true, lockReason: "Gửi hàng loạt lời mời ký không rõ nguồn gốc", verificationStatus: "Rejected" },
 ];
 
 const adminStats: Omit<AdminStats, "recentTenants"> = {
@@ -225,10 +225,10 @@ const adminStats: Omit<AdminStats, "recentTenants"> = {
 };
 
 const adminUsers: AdminUser[] = [
-  { id: "u-1", fullName: "Lê Thu Hà", email: "ha.le@vietsoft.example", tenantsCount: 2, emailVerified: true, isLocked: false, lockReason: null },
-  { id: "u-2", fullName: "Ngô Thanh Tùng", email: "tung.ngo@vietsoft.example", tenantsCount: 1, emailVerified: true, isLocked: false, lockReason: null },
-  { id: "u-3", fullName: "Vũ Hải Yến", email: "yen.vu@hungthinh.example", tenantsCount: 1, emailVerified: false, isLocked: false, lockReason: null },
-  { id: "u-4", fullName: "Hồ Quang Vinh", email: "vinh.ho@anhduong.example", tenantsCount: 1, emailVerified: true, isLocked: true, lockReason: "Nhập sai OTP nhiều lần từ nhiều địa chỉ IP" },
+  { id: "u-1", fullName: "Lê Thu Hà", email: "ha.le@vietsoft.example", tenantsCount: 2, emailVerified: true, isLocked: false, lockReason: null, identityVerified: true, createdAt: at(-60, 10) },
+  { id: "u-2", fullName: "Ngô Thanh Tùng", email: "tung.ngo@vietsoft.example", tenantsCount: 1, emailVerified: true, isLocked: false, lockReason: null, identityVerified: true, createdAt: at(-45, 9) },
+  { id: "u-3", fullName: "Vũ Hải Yến", email: "yen.vu@hungthinh.example", tenantsCount: 1, emailVerified: false, isLocked: false, lockReason: null, identityVerified: false, createdAt: at(-10, 14) },
+  { id: "u-4", fullName: "Hồ Quang Vinh", email: "vinh.ho@anhduong.example", tenantsCount: 1, emailVerified: true, isLocked: true, lockReason: "Nhập sai OTP nhiều lần từ nhiều địa chỉ IP", identityVerified: false, createdAt: at(-30, 8) },
 ];
 
 const certificateAuthority: CertificateAuthorityInfo = {

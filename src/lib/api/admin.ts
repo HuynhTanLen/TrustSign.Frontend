@@ -28,6 +28,8 @@ export interface AdminUser {
   isAdmin?: boolean;
   isLocked: boolean;
   lockReason: string | null;
+  createdAt?: string;
+  identityVerified?: boolean;
 }
 
 export interface AdminHistoryItem {

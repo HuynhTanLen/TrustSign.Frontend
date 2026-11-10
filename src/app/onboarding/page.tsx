@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { authApi, UserDto } from "@/lib/api/auth";
 import { tenantsApi } from "@/lib/api/tenants";
+import { ekycApi, type MyEkyc } from "@/lib/api/ekyc";
+import { EkycDialog } from "@/components/ekyc-dialog";
+import { EkycHandoffDialog } from "@/components/ekyc-handoff-dialog";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +25,9 @@ import {
   Mail,
   MapPin,
   Phone,
+  ScanFace,
   Shield,
+  ShieldCheck,
   Sparkles,
   User,
 } from "lucide-react";
@@ -35,6 +40,8 @@ export default function OnboardingPage() {
 
   const [currentUser, setCurrentUser] = React.useState<UserDto | null>(null);
   const [isCheckingSession, setIsCheckingSession] = React.useState(true);
+  const [myEkyc, setMyEkyc] = React.useState<MyEkyc | null>(null);
+  const [ekycMode, setEkycMode] = React.useState<"camera" | "handoff" | null>(null);
   const [companyName, setCompanyName] = React.useState("");
   const [taxCode, setTaxCode] = React.useState("");
   const [taxCodeError, setTaxCodeError] = React.useState<string | null>(null);
@@ -49,15 +56,21 @@ export default function OnboardingPage() {
 
   React.useEffect(() => {
     let isMounted = true;
-    authApi
-      .me()
-      .then((data) => {
+    Promise.all([
+      authApi.me(),
+      ekycApi.mine().catch(() => ({ status: "None" } as MyEkyc)),
+    ])
+      .then(([userData, ekycData]) => {
         if (!isMounted) return;
-        if (data.hasTenant && data.tenants && data.tenants.length > 0) {
+        if (userData.hasTenant && userData.tenants && userData.tenants.length > 0) {
           router.replace("/app");
           return;
         }
-        setCurrentUser(data);
+        setCurrentUser(userData);
+        setMyEkyc(ekycData);
+        if (ekycData.status === "Verified" && ekycData.fullName) {
+          setRepresentativeName(ekycData.fullName);
+        }
         setIsCheckingSession(false);
       })
       .catch(() => {
@@ -100,6 +113,12 @@ export default function OnboardingPage() {
       return;
     }
 
+    if (myEkyc?.status !== "Verified") {
+      setErrorMessage("Yêu cầu pháp lý: Bạn cần hoàn thành xác minh danh tính (eKYC) trước khi khởi tạo doanh nghiệp.");
+      setEkycMode("camera");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await tenantsApi.create({
@@ -118,6 +137,9 @@ export default function OnboardingPage() {
       if (err instanceof ApiError) {
         setCorrelationId(err.correlationId);
         setErrorMessage(err.message || "Không thể tạo doanh nghiệp.");
+        if (err.code === "Identity.NotVerified" || err.message?.includes("eKYC")) {
+          setEkycMode("camera");
+        }
       } else {
         setErrorMessage("Không kết nối được máy chủ API. Vui lòng kiểm tra backend đang chạy.");
       }
@@ -181,6 +203,52 @@ export default function OnboardingPage() {
               description="Khởi tạo không gian pháp nhân. Bạn sẽ giữ vai trò Chủ doanh nghiệp (TenantOwner)."
             />
 
+            {/* eKYC Status Callout */}
+            {myEkyc?.status === "Verified" ? (
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200/80 shadow-xs flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-600 text-white shrink-0 shadow-xs">
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-emerald-950 flex items-center gap-2">
+                      Người đại diện pháp luật: {myEkyc.fullName}
+                      <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">
+                        Đã xác minh qua CCCD
+                      </span>
+                    </p>
+                    <p className="text-xs text-emerald-800/80 mt-0.5">
+                      CCCD: {myEkyc.maskedCitizenId} · Đã đối soát khuôn mặt và dữ liệu sinh trắc học hợp lệ.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-600 text-white shrink-0 mt-0.5 shadow-xs">
+                    <ScanFace className="w-4 h-4 text-white" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-amber-950">Yêu cầu xác minh danh tính chủ doanh nghiệp (eKYC)</p>
+                    <p className="text-xs text-amber-900/80 mt-0.5">
+                      Theo quy định, họ tên trên thẻ CCCD gắn chip sẽ được hệ thống dùng làm Người đại diện theo pháp luật của doanh nghiệp.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEkycMode("camera")}
+                  leftIcon={<ScanFace className="w-4 h-4" />}
+                  className="shrink-0 font-semibold"
+                >
+                  Xác minh eKYC ngay
+                </Button>
+              </div>
+            )}
+
             {/* Flat Trial Banner Callout (No gradient, no cyan) */}
             <div className="p-4 rounded-xl bg-surface border border-line shadow-xs flex items-start gap-3">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white shrink-0 mt-0.5 shadow-xs">
@@ -236,10 +304,16 @@ export default function OnboardingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="Người đại diện pháp luật"
-                    placeholder="Nguyễn Văn A"
-                    value={representativeName}
+                    placeholder={myEkyc?.status === "Verified" ? (myEkyc.fullName ?? "") : "Tự động trích xuất từ CCCD (eKYC)"}
+                    value={myEkyc?.status === "Verified" ? (myEkyc.fullName ?? representativeName) : representativeName}
                     onChange={(e) => setRepresentativeName(e.target.value)}
+                    disabled={myEkyc?.status === "Verified"}
                     leftIcon={<User className="w-4 h-4" aria-hidden="true" />}
+                    helperText={
+                      myEkyc?.status === "Verified"
+                        ? "Được tự động trích xuất từ CCCD gắn chip đã xác minh của bạn."
+                        : "Cần hoàn tất eKYC trước để hệ thống điền tự động."
+                    }
                   />
 
                   <Input
@@ -248,6 +322,7 @@ export default function OnboardingPage() {
                     value={representativeTitle}
                     onChange={(e) => setRepresentativeTitle(e.target.value)}
                     leftIcon={<Briefcase className="w-4 h-4" aria-hidden="true" />}
+                    helperText="Ví dụ: Giám đốc, Tổng giám đốc, Chủ tịch HĐQT"
                   />
                 </div>
 
@@ -298,6 +373,31 @@ export default function OnboardingPage() {
                 </div>
               </form>
             </Card>
+
+            <EkycDialog
+              open={ekycMode === "camera"}
+              onClose={() => setEkycMode(null)}
+              onVerified={(r) => {
+                setMyEkyc(r);
+                if (r.fullName) setRepresentativeName(r.fullName);
+                setErrorMessage(null);
+                setEkycMode(null);
+                toast("Đã xác minh danh tính eKYC thành công! Bạn có thể tiếp tục tạo doanh nghiệp.", "success");
+              }}
+              onUseOtherDevice={() => setEkycMode("handoff")}
+            />
+            <EkycHandoffDialog
+              open={ekycMode === "handoff"}
+              onClose={() => setEkycMode(null)}
+              onBack={() => setEkycMode("camera")}
+              onVerified={(r) => {
+                setMyEkyc(r);
+                if (r.fullName) setRepresentativeName(r.fullName);
+                setEkycMode(null);
+                setErrorMessage(null);
+                toast("Đã xác minh danh tính từ điện thoại thành công!", "success");
+              }}
+            />
           </div>
         )}
       </main>
