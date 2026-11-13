@@ -117,8 +117,6 @@ function LoginForm() {
           setErrorMessage("Quá nhiều yêu cầu đăng nhập trong thời gian ngắn. Vui lòng chờ 1 phút rồi thử lại.");
         } else if (err.code === "Auth.AccountDisabled") {
           setErrorMessage("Tài khoản đã bị khóa bởi quản trị viên.");
-        } else if (err.code === "Auth.PasswordNotSet") {
-          setErrorMessage("Tài khoản này đăng nhập bằng Google. Hãy bấm \"Tiếp tục với Google\", hoặc dùng Quên mật khẩu để đặt mật khẩu.");
         } else {
           setErrorMessage("Email hoặc mật khẩu không đúng.");
         }
