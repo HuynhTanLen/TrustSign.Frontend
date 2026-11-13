@@ -24,7 +24,7 @@ const mockContractsPreview: { code: string; title: string; signers: string; stat
   { code: "HĐ-2026/0142", title: "Hợp đồng dịch vụ bảo trì hạ tầng Cloud", signers: "3/3 bên đã ký", status: "Completed" },
   { code: "HĐ-2026/0143", title: "Thỏa thuận bảo mật thông tin & tài sản NDA", signers: "Lượt ký 2/2: Giám đốc đối tác", status: "Signing" },
   { code: "HĐ-2026/0145", title: "Phụ lục hợp đồng kinh tế quý IV/2026", signers: "Chờ người ký 1 xác thực OTP", status: "Pending" },
-  { code: "HĐ-2026/0148", title: "Hợp đồng lao động xác định thời hạn", signers: "Soạn thảo nội bộ", status: "Draft" },
+  { code: "HĐ-2026/0148", title: "Hợp đồng cộng tác viên thiết kế", signers: "Soạn thảo nội bộ", status: "Draft" },
 ];
 
 const faqs = [

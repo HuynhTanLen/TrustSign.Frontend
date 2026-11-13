@@ -77,6 +77,7 @@ export const VARIABLE_LABELS: Record<string, string> = {
   muc_dich_thue: "Mục đích sử dụng",
   gia_thue_hang_thang: "Giá thuê hàng tháng (VNĐ/tháng)",
   tien_dat_coc: "Số tiền đặt cọc (VNĐ)",
+  tong_tien_thue: "Tổng tiền thuê cả thời hạn",
   muc_dich_bao_mat: "Mục đích trao đổi thông tin bảo mật",
   so_hop_dong_goc: "Số và ngày ký hợp đồng gốc",
   ket_qua_nghiem_thu: "Kết quả đánh giá nghiệm thu",
@@ -107,7 +108,6 @@ export function registerVariableLabel(key: string, label: string): void {
 // "ngay_" -> ô chọn ngày mặc định hôm nay; "thoi_han" -> thời hạn; "tien_"/"gia_tri"/nhãn chứa "VNĐ" -> định dạng tiền.
 const BLDS = "Bộ luật Dân sự số 91/2015/QH13 ngày 24/11/2015";
 const LTM = "Luật Thương mại số 36/2005/QH11 ngày 14/6/2005";
-const BLLD = "Bộ luật Lao động số 45/2019/QH14 ngày 20/11/2019";
 const LGDDT = "Luật Giao dịch điện tử số 20/2023/QH15";
 const NHU_CAU = "nhu cầu và khả năng thực tế của các bên";
 
@@ -151,8 +151,10 @@ const PENALTY_COMMERCIAL: [string, string[]] = [
 ];
 
 /**
- * 8 mẫu hợp đồng thông dụng tại Việt Nam. Pháp luật không ban hành mẫu bắt buộc cho các loại này;
+ * 7 mẫu hợp đồng thông dụng tại Việt Nam. Pháp luật không ban hành mẫu bắt buộc cho các loại này;
  * nội dung được soạn theo các điều khoản bắt buộc / thông lệ của văn bản nêu ở phần "Căn cứ" từng mẫu.
+ * Chỉ gồm loại ký từ xa được bằng chữ ký điện tử thường. KHÔNG đưa vào: hợp đồng lao động (NĐ 337/2025 buộc ký số qua
+ * nhà cung cấp eContract được cấp phép) và mua bán xe, nhà đất (phải công chứng/chứng thực để đăng ký).
  */
 export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
   {
@@ -213,10 +215,10 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
     ]),
   },
   {
-    id: "sale-goods-vehicle",
-    name: "Hợp đồng mua bán hàng hóa / Tài sản",
-    category: "Mua bán & Tài sản",
-    summary: "Theo BLDS 2015 (Điều 430 trở đi) và Luật Thương mại 2005. Xe, nhà đất mua bán giữa cá nhân phải công chứng/chứng thực để đăng ký.",
+    id: "sale-goods",
+    name: "Hợp đồng mua bán hàng hóa",
+    category: "Mua bán hàng hóa",
+    summary: "Theo BLDS 2015 (Điều 430 trở đi) và Luật Thương mại 2005, cho hàng hóa không phải đăng ký quyền sở hữu. Không dùng cho xe, nhà đất (phải công chứng/chứng thực).",
     legalBasis: [BLDS, LTM, LGDDT, NHU_CAU],
     partyATitle: "BÊN BÁN (BÊN A)",
     partyBTitle: "BÊN MUA (BÊN B)",
@@ -230,10 +232,10 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       { key: "mst_ben_b", label: "Mã số thuế / Số CCCD Bên B", section: "partyB" },
       { key: "dia_chi_ben_b", label: "Địa chỉ Bên B", section: "partyB" },
       { key: "dai_dien_ben_b", label: "Người đại diện Bên B", section: "partyB" },
-      { key: "ten_hang_hoa_tai_san", label: "Tên hàng hóa / Tài sản", section: "transaction" },
+      { key: "ten_hang_hoa_tai_san", label: "Tên hàng hóa", section: "transaction" },
       { key: "so_luong_hang_hoa", label: "Số lượng, đơn vị tính", section: "transaction" },
       { key: "thong_so_ky_thuat", label: "Quy cách, chất lượng, thông số kỹ thuật", section: "transaction" },
-      { key: "gia_tri_hop_dong", label: "Tổng giá bán (VNĐ, đã gồm VAT)", section: "transaction" },
+      { key: "gia_tri_hop_dong", label: "Tổng giá bán", section: "transaction" },
       { key: "phuong_thuc_thanh_toan", label: "Phương thức & thời hạn thanh toán", section: "transaction" },
       { key: "dia_diem_ban_giao", label: "Địa điểm giao nhận", section: "transaction" },
       { key: "ngay_hieu_luc", label: "Ngày giao hàng", section: "transaction" },
@@ -251,7 +253,6 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       ]],
       ["CHUYỂN QUYỀN SỞ HỮU VÀ RỦI RO", [
         "Quyền sở hữu và rủi ro đối với hàng hóa chuyển sang Bên B từ thời điểm giao nhận, trừ trường hợp các bên có thỏa thuận khác.",
-        "Đối với tài sản phải đăng ký quyền sở hữu (xe cơ giới, tàu thuyền, quyền sử dụng đất...), các bên có trách nhiệm thực hiện thủ tục công chứng, chứng thực và đăng ký theo quy định của pháp luật chuyên ngành.",
       ]],
       ["THANH TOÁN", [
         "Bên B thanh toán theo giá và phương thức nêu tại Mục III; Bên A xuất hóa đơn hoặc chứng từ hợp lệ theo quy định.",
@@ -264,85 +265,6 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       FORCE_MAJEURE,
       DISPUTE,
       ESIGN,
-    ]),
-  },
-  {
-    id: "labor-contract",
-    name: "Hợp đồng lao động xác định thời hạn",
-    category: "Nhân sự & Lao động",
-    summary: "Đủ nội dung bắt buộc theo Điều 21 BLLĐ 2019 và Thông tư 10/2020. Bản điện tử chính thức phải ký số qua nhà cung cấp eContract theo Nghị định 337/2025.",
-    legalBasis: [
-      BLLD,
-      "Nghị định số 337/2025/NĐ-CP ngày 24/12/2025 quy định về hợp đồng lao động điện tử",
-      "Thông tư số 10/2020/TT-BLĐTBXH ngày 12/11/2020 hướng dẫn nội dung hợp đồng lao động",
-      LGDDT,
-      NHU_CAU,
-    ],
-    partyATitle: "NGƯỜI SỬ DỤNG LAO ĐỘNG (BÊN A)",
-    partyBTitle: "NGƯỜI LAO ĐỘNG (BÊN B)",
-    fields: [
-      { key: "ten_ben_a", label: "Tên doanh nghiệp (Bên A)", section: "partyA" },
-      { key: "mst_ben_a", label: "Mã số thuế Bên A", section: "partyA" },
-      { key: "dia_chi_ben_a", label: "Địa chỉ trụ sở Bên A", section: "partyA" },
-      { key: "dai_dien_ben_a", label: "Họ tên người giao kết bên phía Bên A", section: "partyA" },
-      { key: "chuc_vu_ben_a", label: "Chức danh người giao kết", section: "partyA" },
-      { key: "ho_ten_nhan_vien", label: "Họ và tên người lao động", section: "partyB" },
-      { key: "sinh_ngay_nhan_vien", label: "Ngày, tháng, năm sinh", section: "partyB" },
-      { key: "gioi_tinh_nhan_vien", label: "Giới tính", section: "partyB" },
-      { key: "cccd_nhan_vien", label: "Số CCCD / Định danh cá nhân (ngày cấp, nơi cấp)", section: "partyB" },
-      { key: "dia_chi_nhan_vien", label: "Nơi cư trú", section: "partyB" },
-      { key: "vi_tri_cong_viec", label: "Công việc phải làm / Chức danh chuyên môn", section: "transaction" },
-      { key: "dia_diem_lam_viec", label: "Địa điểm làm việc", section: "transaction" },
-      { key: "ngay_hieu_luc", label: "Ngày bắt đầu làm việc", section: "transaction" },
-      { key: "thoi_han_hop_dong", label: "Thời hạn hợp đồng (không quá 36 tháng)", section: "transaction" },
-      { key: "muc_luong_chinh", label: "Mức lương theo công việc, chức danh (VNĐ/tháng)", section: "transaction" },
-      { key: "phu_cap_luong", label: "Phụ cấp lương (VNĐ/tháng)", section: "transaction" },
-      { key: "cac_khoan_bo_sung", label: "Các khoản bổ sung khác", section: "transaction" },
-      { key: "hinh_thuc_tra_luong", label: "Hình thức trả lương (tiền mặt / chuyển khoản)", section: "transaction" },
-      { key: "ky_han_tra_luong", label: "Kỳ hạn trả lương (VD: ngày 05 hằng tháng)", section: "transaction" },
-      { key: "thoi_gio_lam_viec", label: "Thời giờ làm việc (VD: 8 giờ/ngày, thứ Hai – thứ Sáu)", section: "transaction" },
-    ],
-    clauses: numbered([
-      ["CÔNG VIỆC, ĐỊA ĐIỂM VÀ THỜI HẠN HỢP ĐỒNG", [
-        "Người lao động làm công việc, tại địa điểm và trong thời hạn nêu tại Mục III; thời hạn hợp đồng không quá 36 tháng (Điều 20 Bộ luật Lao động 2019).",
-        "Khi hợp đồng hết hạn mà người lao động vẫn tiếp tục làm việc, trong thời hạn 30 ngày hai bên phải ký hợp đồng lao động mới; nếu không ký, hợp đồng này trở thành hợp đồng không xác định thời hạn.",
-        "Thử việc (nếu có) được thỏa thuận riêng theo Điều 24 đến Điều 27 Bộ luật Lao động 2019.",
-      ]],
-      ["TIỀN LƯƠNG, PHỤ CẤP VÀ CHẾ ĐỘ NÂNG LƯƠNG", [
-        "Người sử dụng lao động trả lương trực tiếp, đầy đủ, đúng hạn cho người lao động theo mức, hình thức và kỳ hạn nêu tại Mục III.",
-        "Mức lương không thấp hơn mức lương tối thiểu vùng do Chính phủ quy định tại thời điểm trả lương.",
-        "Người lao động được xét nâng bậc, nâng lương theo quy chế lương, thưởng của doanh nghiệp và kết quả thực hiện công việc.",
-      ]],
-      ["THỜI GIỜ LÀM VIỆC, THỜI GIỜ NGHỈ NGƠI", [
-        "Thời giờ làm việc bình thường không quá 08 giờ trong 01 ngày và không quá 48 giờ trong 01 tuần (Điều 105 Bộ luật Lao động 2019).",
-        "Người lao động được nghỉ hằng tuần, nghỉ lễ, Tết (Điều 112) và nghỉ hằng năm hưởng nguyên lương (Điều 113) theo Bộ luật Lao động 2019 và nội quy lao động.",
-      ]],
-      ["TRANG BỊ BẢO HỘ LAO ĐỘNG", [
-        "Người sử dụng lao động trang bị phương tiện bảo vệ cá nhân, bảo đảm điều kiện an toàn, vệ sinh lao động phù hợp với công việc theo quy định pháp luật.",
-      ]],
-      ["BẢO HIỂM XÃ HỘI, BẢO HIỂM Y TẾ, BẢO HIỂM THẤT NGHIỆP", [
-        "Hai bên tham gia bảo hiểm xã hội bắt buộc, bảo hiểm y tế và bảo hiểm thất nghiệp theo quy định pháp luật.",
-        "Người sử dụng lao động đóng phần trách nhiệm của mình và trích từ tiền lương phần người lao động phải đóng để nộp cùng một lúc.",
-      ]],
-      ["ĐÀO TẠO, BỒI DƯỠNG, NÂNG CAO TRÌNH ĐỘ", [
-        "Người lao động được tham gia đào tạo, bồi dưỡng theo kế hoạch của doanh nghiệp; quyền lợi, nghĩa vụ và chi phí đào tạo (nếu có) được thỏa thuận bằng hợp đồng đào tạo riêng.",
-      ]],
-      ["NGHĨA VỤ CỦA NGƯỜI LAO ĐỘNG", [
-        "Hoàn thành công việc được giao; chấp hành nội quy lao động, quy chế của doanh nghiệp và sự điều hành hợp pháp của người sử dụng lao động.",
-        "Giữ bí mật kinh doanh, bí mật công nghệ của doanh nghiệp; bồi thường thiệt hại khi vi phạm theo quy định pháp luật.",
-      ]],
-      ["CHẤM DỨT HỢP ĐỒNG LAO ĐỘNG", [
-        "Hợp đồng chấm dứt trong các trường hợp quy định tại Điều 34 Bộ luật Lao động 2019.",
-        "Khi đơn phương chấm dứt, mỗi bên phải báo trước theo Điều 35 (người lao động) hoặc Điều 36 (người sử dụng lao động) Bộ luật Lao động 2019: ít nhất 30 ngày đối với hợp đồng từ 12 đến 36 tháng, ít nhất 03 ngày làm việc đối với hợp đồng dưới 12 tháng.",
-      ]],
-      ["GIẢI QUYẾT TRANH CHẤP LAO ĐỘNG", [
-        "Tranh chấp phát sinh được giải quyết theo trình tự giải quyết tranh chấp lao động cá nhân quy định tại Bộ luật Lao động 2019 (hòa giải viên lao động, Hội đồng trọng tài lao động hoặc Tòa án).",
-      ]],
-      ["GIAO KẾT ĐIỆN TỬ VÀ HIỆU LỰC", [
-        "Hợp đồng lao động được giao kết thông qua phương tiện điện tử dưới hình thức thông điệp dữ liệu theo quy định của pháp luật về giao dịch điện tử có giá trị như hợp đồng lao động bằng văn bản (khoản 1 Điều 14 Bộ luật Lao động 2019).",
-        "Việc ký, chứng thực và lưu trữ hợp đồng lao động điện tử thực hiện theo Nghị định số 337/2025/NĐ-CP; hợp đồng có hiệu lực từ thời điểm bên sau cùng ký, trừ trường hợp các bên có thỏa thuận khác.",
-        "Người sử dụng lao động gửi bản hợp đồng đã ký hoàn tất cho người lao động để lưu giữ.",
-      ]],
     ]),
   },
   {
@@ -371,11 +293,12 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       { key: "dia_chi_mat_bang", label: "Địa chỉ mặt bằng / Văn phòng cho thuê", section: "transaction" },
       { key: "dien_tich_thue", label: "Diện tích thuê (m2)", section: "transaction" },
       { key: "muc_dich_thue", label: "Mục đích sử dụng", section: "transaction" },
-      { key: "gia_thue_hang_thang", label: "Giá thuê hàng tháng (VNĐ/tháng)", section: "transaction" },
+      { key: "gia_thue_hang_thang", label: "Giá thuê hàng tháng", section: "transaction" },
       { key: "phuong_thuc_thanh_toan", label: "Kỳ và phương thức thanh toán tiền thuê", section: "transaction" },
-      { key: "tien_dat_coc", label: "Số tiền đặt cọc (VNĐ)", section: "transaction" },
+      { key: "tien_dat_coc", label: "Số tiền đặt cọc", section: "transaction" },
       { key: "ngay_hieu_luc", label: "Ngày bàn giao mặt bằng", section: "transaction" },
       { key: "thoi_han_hop_dong", label: "Thời hạn thuê", section: "transaction" },
+      { key: "tong_tien_thue", label: "Tổng tiền thuê cả thời hạn", section: "transaction" },
     ],
     clauses: numbered([
       ["ĐỐI TƯỢNG VÀ MỤC ĐÍCH THUÊ", [
