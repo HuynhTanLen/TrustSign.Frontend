@@ -25,6 +25,10 @@ export interface SigningSession {
   dueAt: string;
   fields: SigningField[];
   documentUrl: string | null;
+  role: "Signer" | "Approver" | "Cc";
+  /** Bên gửi đã được quản trị nền tảng xác thực pháp nhân; kèm mã số thuế để người ký đối chiếu. */
+  senderVerified?: boolean;
+  senderTaxCode?: string | null;
 }
 
 export interface OtpResult {
@@ -57,7 +61,7 @@ export const signingApi = {
     });
   },
 
-  sign(token: string, signaturePng: string, idempotencyKey: string): Promise<void> {
+  sign(token: string, signaturePng: string | null, idempotencyKey: string): Promise<void> {
     if (USE_MOCK) return mockResponse(undefined, 800);
     return apiFetch<void>(`/api/signing/${encodeURIComponent(token)}/sign`, {
       method: "POST",

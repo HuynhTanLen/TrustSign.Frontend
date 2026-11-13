@@ -9,6 +9,7 @@ import { ApiError, tryRestoreSession } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { useToast } from "@/components/ui/toast";
 import { CircleAlert, Eye, EyeOff, Lock, LogIn, Mail } from "lucide-react";
 
@@ -250,6 +251,10 @@ function LoginForm() {
             Đăng nhập
           </Button>
         </form>
+
+        <div className="mt-5">
+          <GoogleSignIn onSuccess={goHome} />
+        </div>
 
         <div className="mt-6 pt-5 border-t border-slate-200 text-center text-sm text-slate-600">
           Chưa có tài khoản doanh nghiệp?{" "}

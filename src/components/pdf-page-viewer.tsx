@@ -7,6 +7,16 @@ if (typeof window !== "undefined") {
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 }
 
+/** Đếm số trang để đặt ô ký vào trang cuối trước khi viewer kịp hiển thị. */
+export async function countPdfPages(file: File): Promise<number> {
+  const task = pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  try {
+    return (await task.promise).numPages;
+  } finally {
+    void task.destroy();
+  }
+}
+
 export interface PdfPageViewerProps {
   file: File;
   pageNumber: number;
@@ -128,7 +138,12 @@ export function PdfPageViewer({ file, pageNumber, onLoaded }: PdfPageViewerProps
   }, [pageNumber]);
 
   return (
-    <div className="relative w-full min-h-[780px] flex items-center justify-center bg-slate-50 rounded-sm overflow-hidden">
+    // Chỉ giữ chiều cao tối thiểu khi chưa có trang: nếu không, trang bị căn giữa và lệch khỏi tọa độ ô ký.
+    <div
+      className={`relative w-full bg-slate-50 rounded-sm overflow-hidden ${
+        loading || error ? "min-h-[780px] flex items-center justify-center" : ""
+      }`}
+    >
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10 text-xs font-semibold text-muted">
           Đang tải trang {pageNumber}...

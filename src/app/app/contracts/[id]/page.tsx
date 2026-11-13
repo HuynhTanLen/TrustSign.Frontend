@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Copy,
   Download,
   ExternalLink,
   FileText,
@@ -17,6 +16,7 @@ import {
   Lock,
   Mail,
   MapPin,
+  PencilLine,
   Send,
   ShieldCheck,
   UserCheck,
@@ -91,7 +91,7 @@ export default function ContractDetailPage() {
   const [confirmSend, setConfirmSend] = React.useState(false);
   const [isSending, setIsSending] = React.useState(false);
   const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
-  const [copiedHash, setCopiedHash] = React.useState<string | null>(null);
+  const [blockedNeedsVerification, setBlockedNeedsVerification] = React.useState(false);
   const [isReminding, setIsReminding] = React.useState(false);
 
   const [dueAt, setDueAt] = React.useState(() => {
@@ -99,15 +99,6 @@ export default function ContractDetailPage() {
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0, 16);
   });
-
-  const handleCopy = (text: string, label: string) => {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedHash(text);
-      toast(`Đã sao chép ${label}.`, "info");
-      setTimeout(() => setCopiedHash(null), 2500);
-    }
-  };
 
   const handleCancel = async () => {
     setIsCancelling(true);
@@ -136,7 +127,12 @@ export default function ContractDetailPage() {
       reload();
     } catch (err) {
       setConfirmSend(false);
-      if (
+      setBlockedNeedsVerification(err instanceof ApiError && err.code === "TenantVerification.NotVerified");
+      if (err instanceof ApiError && err.code === "TenantVerification.NotVerified") {
+        setBlockedMessage(
+          "Doanh nghiệp chưa được xác thực nên chưa gửi ký được. Vào Cài đặt > Doanh nghiệp để nộp giấy đăng ký kinh doanh; bản nháp vẫn được giữ.",
+        );
+      } else if (
         err instanceof ApiError &&
         (err.code === "Subscription.QuotaExceeded" ||
           err.code === "Quota.Exceeded" ||
@@ -253,6 +249,13 @@ export default function ContractDetailPage() {
         }
         actions={
           <div className="flex items-center gap-2.5">
+            {contract.status === "Draft" && (
+              <Link href={`/app/contracts/new?draft=${encodeURIComponent(contract.id)}`}>
+                <Button variant={canSend ? "secondary" : "primary"} leftIcon={<PencilLine className="w-4 h-4" />}>
+                  {canSend ? "Sửa người nhận" : "Tiếp tục soạn"}
+                </Button>
+              </Link>
+            )}
             {canSend && (
               <Button
                 variant="primary"
@@ -612,7 +615,6 @@ export default function ContractDetailPage() {
             <ol className="relative flex flex-col gap-5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-line-strong/60">
               {contract.events.map((ev, i) => {
                 const isFirst = i === 0;
-                const isCopied = copiedHash === ev.hash;
 
                 return (
                   <li
@@ -639,24 +641,6 @@ export default function ContractDetailPage() {
 
                       <p className="text-sm font-bold text-fg">{ev.title}</p>
                       <p className="text-xs text-muted leading-relaxed mt-0.5">{ev.detail}</p>
-
-                      {/* Chip mã băm SHA-256 có thể click sao chép */}
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(ev.hash, "mã băm SHA-256")}
-                        title={`Sao chép mã hash đầy đủ: ${ev.hash}`}
-                        className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-strip hover:bg-selected/50 border border-line text-[11px] font-mono text-muted hover:text-primary transition-colors cursor-pointer group"
-                      >
-                        <span className="font-semibold text-slate-500">SHA-256</span>
-                        <span className="truncate max-w-[150px] sm:max-w-[180px]">
-                          {ev.hash.slice(0, 16)}…
-                        </span>
-                        {isCopied ? (
-                          <Check className="w-3 h-3 text-success shrink-0" />
-                        ) : (
-                          <Copy className="w-3 h-3 text-muted group-hover:text-primary shrink-0" />
-                        )}
-                      </button>
                     </div>
                   </li>
                 );
@@ -712,15 +696,21 @@ export default function ContractDetailPage() {
       <Dialog
         open={blockedMessage !== null}
         onClose={() => setBlockedMessage(null)}
-        title="Không đủ hạn mức gửi ký"
+        title={blockedNeedsVerification ? "Chưa gửi ký được" : "Không đủ hạn mức gửi ký"}
         footer={
           <>
             <Button variant="secondary" onClick={() => setBlockedMessage(null)}>
               Đóng
             </Button>
-            <Link href="/app/billing">
-              <Button variant="primary">Nâng cấp gói dịch vụ ngay</Button>
-            </Link>
+            {blockedNeedsVerification ? (
+              <Link href="/app/settings?tab=company">
+                <Button variant="primary">Nộp hồ sơ xác thực</Button>
+              </Link>
+            ) : (
+              <Link href="/app/billing">
+                <Button variant="primary">Nâng cấp gói dịch vụ ngay</Button>
+              </Link>
+            )}
           </>
         }
       >

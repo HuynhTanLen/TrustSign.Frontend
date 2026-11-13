@@ -156,7 +156,7 @@ function AppLayoutShell({
           </div>
         }
         topbarRight={
-          <UserMenu name={user.fullName} email={user.email}>
+          <UserMenu name={user.fullName} email={user.email} avatarUrl={user.avatarUrl}>
             {(close) => (
               <>
                 <Link

@@ -15,7 +15,22 @@ export interface TenantDto {
   representativeName?: string | null;
   representativeTitle?: string | null;
   phone?: string | null;
+  verificationStatus: TenantVerificationStatus;
+  verificationRejectReason?: string | null;
 }
+
+/** Xác thực pháp nhân: chưa nộp → chờ duyệt → đã xác thực, hoặc bị từ chối và được nộp lại. */
+export type TenantVerificationStatus = "Unverified" | "Pending" | "Verified" | "Rejected";
+
+export const TENANT_VERIFICATION_LABELS: Record<TenantVerificationStatus, string> = {
+  Unverified: "Chưa xác thực",
+  Pending: "Chờ duyệt",
+  Verified: "Đã xác thực",
+  Rejected: "Bị từ chối",
+};
+
+/** Dung lượng tối đa của giấy đăng ký kinh doanh (khớp giới hạn của máy chủ). */
+export const LICENSE_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface TenantSessionResponse {
   tenant: TenantDto;
@@ -87,6 +102,13 @@ export const tenantsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+  },
+
+  /** Chủ doanh nghiệp nộp giấy đăng ký kinh doanh (PDF/JPEG/PNG, tối đa 5 MB) để xác thực pháp nhân. */
+  async submitVerification(license: File): Promise<TenantDto> {
+    const body = new FormData();
+    body.append("license", license, license.name);
+    return apiFetch<TenantDto>("/api/tenants/current/verification", { method: "POST", body });
   },
 
   async switchTenant(tenantId: string): Promise<AuthResponse> {
