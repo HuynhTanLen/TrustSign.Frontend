@@ -34,6 +34,9 @@ import {
 
 const TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/;
 
+// Khớp cờ Ekyc:Required của backend; chỉ đặt "false" để thử luồng khi phát triển (xem .env.example).
+const EKYC_REQUIRED = process.env.NEXT_PUBLIC_EKYC_REQUIRED !== "false";
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -113,7 +116,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (myEkyc?.status !== "Verified") {
+    if (EKYC_REQUIRED && myEkyc?.status !== "Verified") {
       setErrorMessage("Yêu cầu pháp lý: Bạn cần hoàn thành xác minh danh tính (eKYC) trước khi khởi tạo doanh nghiệp.");
       setEkycMode("camera");
       return;
@@ -223,7 +226,7 @@ export default function OnboardingPage() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : EKYC_REQUIRED ? (
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
                 <div className="flex items-start gap-3">
                   <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-600 text-white shrink-0 mt-0.5 shadow-xs">
@@ -247,7 +250,7 @@ export default function OnboardingPage() {
                   Xác minh eKYC ngay
                 </Button>
               </div>
-            )}
+            ) : null}
 
             {/* Flat Trial Banner Callout (No gradient, no cyan) */}
             <div className="p-4 rounded-xl bg-surface border border-line shadow-xs flex items-start gap-3">
