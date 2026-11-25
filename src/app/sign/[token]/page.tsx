@@ -11,8 +11,6 @@ import {
   FileText,
   Lock,
   PenTool,
-  Plus,
-  Trash2,
   Users,
 } from "lucide-react";
 import { signingApi, type CoordinatedRecipient, type SigningSession, type SigningState } from "@/lib/api/signing";
@@ -28,93 +26,40 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 
 const OTP_LENGTH = 6;
-const MAX_RECIPIENTS = 5;
-
-const emptyRecipient = (role: CoordinatedRecipient["role"]): CoordinatedRecipient => ({ fullName: "", email: "", role, title: "" });
-
-/** Người điều phối khai người duyệt/ký bên mình; họ được chèn ngay sau lượt này theo thứ tự trong danh sách. */
+/** Người điều phối khai đúng một người bên mình: người này vừa duyệt vừa ký, được chèn ngay sau lượt này. */
 function CoordinateForm({ session, busy, onSubmit }: {
   session: SigningSession;
   busy: boolean;
   onSubmit: (recipients: CoordinatedRecipient[]) => void;
 }) {
-  const [rows, setRows] = React.useState<CoordinatedRecipient[]>(() => [emptyRecipient("Approver"), emptyRecipient("Signer")]);
-  // Hàng của người điều phối vẫn giữ trong hợp đồng, nên chỗ còn lại là 5 trừ số người hiện có.
-  const maxRows = MAX_RECIPIENTS - session.totalSigners;
-  const update = (i: number, patch: Partial<CoordinatedRecipient>) =>
-    setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const [person, setPerson] = React.useState<CoordinatedRecipient>({ fullName: "", email: "", role: "Signer", title: "" });
+  const update = (patch: Partial<CoordinatedRecipient>) => setPerson((prev) => ({ ...prev, ...patch }));
 
-  const signerCount = rows.filter((r) => r.role === "Signer").length;
-  const emails = rows.map((r) => r.email.trim().toLowerCase());
   const problem =
-    signerCount !== 1
-      ? "Cần đúng 1 người ký bên bạn: người này dùng ô ký bên gửi đã đặt sẵn."
-      : rows.some((r) => !r.fullName.trim() || r.fullName.trim().length > 100 || !isValidEmail(r.email))
-        ? "Nhập đủ họ tên và email hợp lệ cho từng người."
-        : new Set(emails).size !== emails.length
-          ? "Email giữa các người không được trùng nhau."
-          : rows.length > maxRows
-            ? `Hợp đồng còn chỗ cho tối đa ${maxRows} người.`
-            : null;
+    !person.fullName.trim() || person.fullName.trim().length > 100 || !isValidEmail(person.email)
+      ? "Nhập đủ họ tên và email hợp lệ."
+      : null;
 
   return (
-    <Card
-      title="Khai báo người duyệt và người ký bên bạn"
-      icon={Users}
-      actions={
-        <Button
-          variant="secondary"
-          disabled={rows.length >= maxRows}
-          onClick={() => setRows((prev) => [...prev, emptyRecipient("Approver")])}
-        >
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          Thêm người
-        </Button>
-      }
-    >
+    <Card title="Khai báo người ký bên bạn" icon={Users}>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-fg">
-          {session.senderCompany} chọn bạn làm <strong>người điều phối</strong>. Bạn không ký mà khai báo ai bên bạn sẽ duyệt và ai ký.
-          Hệ thống gửi email lần lượt theo thứ tự từ trên xuống ngay sau khi bạn xác nhận. Người duyệt nên đặt trước người ký.
+          {session.senderCompany} chọn bạn làm <strong>người điều phối</strong>. Bạn không ký mà khai báo một người bên bạn (nên là người
+          có thẩm quyền cao nhất) sẽ duyệt và ký hợp đồng này. Hệ thống gửi email cho người đó ngay sau khi bạn xác nhận.
         </p>
-        <ol className="flex flex-col gap-3">
-          {rows.map((r, i) => (
-            <li key={i} className="flex flex-col gap-3 p-3.5 rounded-md border border-line bg-page">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-fg">Lượt {session.order + i + 1}</span>
-                <Button
-                  variant="ghost"
-                  aria-label="Xóa người này"
-                  disabled={rows.length === 1}
-                  onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select
-                  label="Vai trò"
-                  value={r.role}
-                  onChange={(e) => update(i, { role: e.target.value as CoordinatedRecipient["role"] })}
-                  options={[
-                    { value: "Approver", label: "Người duyệt (duyệt qua OTP, không ký)" },
-                    { value: "Signer", label: "Người ký (dùng ô ký đã đặt sẵn)" },
-                    { value: "Cc", label: "Nhận bản sao Cc (nhận email khi hoàn tất)" },
-                  ]}
-                />
-                <Input label="Họ và tên" required value={r.fullName} maxLength={100} onChange={(e) => update(i, { fullName: e.target.value })} />
-                <Input label="Email" required type="email" value={r.email} onChange={(e) => update(i, { email: e.target.value })} />
-                <Input label="Chức danh" value={r.title ?? ""} maxLength={100} onChange={(e) => update(i, { title: e.target.value })} />
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="flex flex-col gap-3 p-3.5 rounded-md border border-line bg-page">
+          <span className="text-sm font-semibold text-fg">Lượt {session.order + 1} · Duyệt và ký</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input label="Họ và tên" required value={person.fullName} maxLength={100} onChange={(e) => update({ fullName: e.target.value })} />
+            <Input label="Email" required type="email" value={person.email} onChange={(e) => update({ email: e.target.value })} />
+            <Input label="Chức danh" value={person.title ?? ""} maxLength={100} onChange={(e) => update({ title: e.target.value })} />
+          </div>
+        </div>
         {problem && <p className="text-sm text-danger" role="alert">{problem}</p>}
         <div className="flex justify-end">
           <Button
@@ -123,7 +68,7 @@ function CoordinateForm({ session, busy, onSubmit }: {
             glow
             disabled={problem !== null}
             isLoading={busy}
-            onClick={() => onSubmit(rows.map((r) => ({ ...r, fullName: r.fullName.trim(), email: r.email.trim(), title: r.title?.trim() || undefined })))}
+            onClick={() => onSubmit([{ ...person, fullName: person.fullName.trim(), email: person.email.trim(), title: person.title?.trim() || undefined }])}
           >
             Xác nhận điều phối
           </Button>
