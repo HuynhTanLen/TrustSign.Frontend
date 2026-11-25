@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { contractsApi, type ContractSigner } from "@/lib/api/contracts";
 import { ROOT_CA_URL } from "@/lib/api/admin";
-import { API_URL, ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { USE_MOCK } from "@/lib/mock";
 import { useApi } from "@/lib/use-api";
 import { formatDateTime } from "@/lib/format";
@@ -156,7 +156,12 @@ export default function ContractDetailPage() {
       toast("Dữ liệu mẫu thử nghiệm không có file PDF vật lý.", "info");
       return;
     }
-    window.open(`${API_URL}/api/contracts/${encodeURIComponent(id)}/signed-document`, "_blank");
+    // Backend chỉ phát file qua URL có token ngắn hạn (documentUrl); trả bản đã ký nếu đã có người ký.
+    if (!contract?.documentUrl) {
+      toast("Chưa có file để tải.", "error");
+      return;
+    }
+    window.open(contract.documentUrl, "_blank");
   };
 
   if (error) {
