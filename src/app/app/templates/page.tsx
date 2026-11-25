@@ -53,51 +53,53 @@ const SECTION_META: {
   placeholder: string;
   QuickSuggestions: string[];
 }[] = [
-  {
-    id: "partyA",
-    roman: "I",
-    title: "Mục I · Thông tin Bên A (Doanh nghiệp của bạn)",
-    hint: "Các thông tin pháp nhân của Bên A sẽ tự động xếp ở đầu hợp đồng.",
-    placeholder: "VD: Số tài khoản ngân hàng Bên A, Chức vụ đại diện...",
-    QuickSuggestions: [
-      "Tên doanh nghiệp (Bên A)",
-      "Mã số thuế Bên A",
-      "Người đại diện pháp luật Bên A",
-      "Chức vụ đại diện Bên A",
-      "Địa chỉ trụ sở Bên A",
-      "Số tài khoản ngân hàng Bên A",
-    ],
-  },
-  {
-    id: "partyB",
-    roman: "II",
-    title: "Mục II · Thông tin Bên B (Đối tác / Khách hàng / Nhân sự)",
-    hint: "Các thông tin của Bên B sẽ tự động xếp ngay dưới Mục I.",
-    placeholder: "VD: Địa chỉ giao hàng, Số điện thoại Bên B, Số CCCD...",
-    QuickSuggestions: [
-      "Tên đối tác / Khách hàng (Bên B)",
-      "Mã số thuế / Số CCCD Bên B",
-      "Người đại diện Bên B",
-      "Địa chỉ liên hệ Bên B",
-      "Số điện thoại Bên B",
-    ],
-  },
-  {
-    id: "transaction",
-    roman: "III",
-    title: "Mục III · Nội dung, Tài sản & Giá trị giao dịch",
-    hint: "Thêm bất kỳ thông tin đặc thù nào của hợp đồng (hệ thống tự động căn lề và đánh dòng).",
-    placeholder: "VD: Biển số xe, Số khung, Màu sơn, Tiền đặt cọc đợt 1...",
-    QuickSuggestions: [
-      "Tổng giá trị hợp đồng (VNĐ)",
-      "Ngày bắt đầu hiệu lực",
-      "Thời hạn thực hiện hợp đồng",
-      "Phương thức & tiến độ thanh toán",
-      "Thời hạn bảo hành",
-      "Địa điểm bàn giao",
-    ],
-  },
-];
+    {
+      id: "partyA",
+      roman: "I",
+      title: "Mục I · Thông tin Bên A (Doanh nghiệp của bạn)",
+      hint: "Các thông tin pháp nhân của Bên A sẽ tự động xếp ở đầu hợp đồng.",
+      placeholder: "VD: Số tài khoản ngân hàng Bên A, Chức vụ đại diện...",
+      QuickSuggestions: [
+        "Tên doanh nghiệp (Bên A)",
+        "Mã số thuế Bên A",
+        "Người đại diện pháp luật Bên A",
+        "Chức vụ đại diện Bên A",
+        "Địa chỉ trụ sở Bên A",
+        "Số tài khoản Bên A",
+        "Ngân hàng Bên A",
+      ],
+    },
+    {
+      id: "partyB",
+      roman: "II",
+      title: "Mục II · Thông tin Bên B (Đối tác / Khách hàng / Nhân sự)",
+      hint: "Các thông tin của Bên B sẽ tự động xếp ngay dưới Mục I.",
+      placeholder: "VD: Địa chỉ giao hàng, Số điện thoại Bên B, Số CCCD...",
+      QuickSuggestions: [
+        "Tên đối tác / Khách hàng (Bên B)",
+        "Mã số thuế Bên B",
+        "Số CCCD Bên B",
+        "Người đại diện Bên B",
+        "Địa chỉ liên hệ Bên B",
+        "Số điện thoại Bên B",
+      ],
+    },
+    {
+      id: "transaction",
+      roman: "III",
+      title: "Mục III · Nội dung, Tài sản & Giá trị giao dịch",
+      hint: "Thêm bất kỳ thông tin đặc thù nào của hợp đồng (hệ thống tự động căn lề và đánh dòng).",
+      placeholder: "VD: Biển số xe, Số khung, Màu sơn, Tiền đặt cọc đợt 1...",
+      QuickSuggestions: [
+        "Tổng giá trị hợp đồng (VNĐ)",
+        "Ngày bắt đầu hiệu lực",
+        "Thời hạn thực hiện hợp đồng",
+        "Phương thức & tiến độ thanh toán",
+        "Thời hạn bảo hành",
+        "Địa điểm bàn giao",
+      ],
+    },
+  ];
 
 export default function TemplatesPage() {
   const router = useRouter();

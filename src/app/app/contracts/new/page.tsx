@@ -762,34 +762,39 @@ function InteractiveContractPaper({
       </div>
 
       {showSignatureBlock ? (
-        /* Khối đại diện ký nằm ngay dưới điều khoản cuối cùng (không bị đẩy cách xa) */
+        /* Khối đại diện ký nằm ngay dưới điều khoản cuối cùng (đồng bộ với bố cục PDF thực tế) */
         <div
           ref={signatureSectionRef}
-          className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center text-[11px] text-slate-700 pb-4"
+          className="mt-5 pt-4 border-t border-slate-200 text-center text-[11px] text-slate-700 pb-4"
         >
-          <div>
-            <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A (CHỦ DN)</p>
-            <p className="text-[10px] italic text-slate-500">(Nhận email xác nhận & ký số trước)</p>
-            <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
-              Vùng đặt ô chữ ký Bên A
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+            XÁC NHẬN CHỮ KÝ ĐIỆN TỬ CỦA CÁC BÊN THAM GIA
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN A</p>
+              <p className="text-[10px] italic text-slate-500">(Ký, ghi rõ họ tên)</p>
+              <div className="h-20 my-1.5 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+                Vùng đặt ô chữ ký Bên A
+              </div>
+              <p className="font-bold text-slate-900 truncate">
+                {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
+              </p>
             </div>
-            <p className="font-semibold text-slate-900 truncate">
-              {signers?.[0]?.fullName || values["dai_dien_ben_a"] || values["ten_ben_a"] || ""}
-            </p>
-          </div>
-          <div>
-            <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN B (ĐỐI TÁC)</p>
-            <p className="text-[10px] italic text-slate-500">(Nhận email ký sau khi Bên A đã duyệt)</p>
-            <div className="h-24 my-1 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
-              Vùng đặt ô chữ ký Bên B
+            <div>
+              <p className="font-bold uppercase text-slate-950">ĐẠI DIỆN BÊN B</p>
+              <p className="text-[10px] italic text-slate-500">(Ký, ghi rõ họ tên)</p>
+              <div className="h-20 my-1.5 rounded-sm border border-dashed border-slate-200/80 flex items-center justify-center text-[10px] text-slate-400">
+                Vùng đặt ô chữ ký Bên B
+              </div>
+              <p className="font-bold text-slate-900 truncate">
+                {signers?.[1]?.fullName ||
+                  values["dai_dien_ben_b"] ||
+                  values["ho_ten_nhan_vien"] ||
+                  values["ten_ben_b"] ||
+                  ""}
+              </p>
             </div>
-            <p className="font-semibold text-slate-900 truncate">
-              {signers?.[1]?.fullName ||
-                values["dai_dien_ben_b"] ||
-                values["ho_ten_nhan_vien"] ||
-                values["ten_ben_b"] ||
-                ""}
-            </p>
           </div>
         </div>
       ) : (
