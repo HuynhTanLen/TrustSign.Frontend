@@ -423,7 +423,7 @@ function SignContent() {
                             type="button"
                             onClick={() => setPadOpen(true)}
                             className={`w-full h-32 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 hover:scale-[1.01] ${
-                              signature ? "border-blue-500 bg-surface shadow-xs" : "border-blue-400 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-600 hover:shadow-md"
+                              signature ? "border-[#1B4332] bg-surface shadow-xs" : "border-blue-400 bg-[#EFF5E8]/50 hover:bg-[#EFF5E8] hover:border-blue-600 hover:shadow-md"
                             }`}
                           >
                             {signature ? (
@@ -431,8 +431,8 @@ function SignContent() {
                               <img src={signature} alt="Chữ ký của bạn" className="max-h-16" />
                             ) : (
                               <>
-                                <PenTool className="w-6 h-6 text-blue-600 animate-pulse" aria-hidden="true" />
-                                <span className="text-sm font-bold text-blue-700">Bấm để ký vào đây</span>
+                                <PenTool className="w-6 h-6 text-[#1B4332] animate-pulse" aria-hidden="true" />
+                                <span className="text-sm font-bold text-[#1B4332]">Bấm để ký vào đây</span>
                               </>
                             )}
                             <span className="text-xs text-muted font-medium">{f.signerName}</span>

@@ -58,9 +58,8 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setTab("all")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "all" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tab === "all" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+                }`}
             >
               <span>Tất cả</span>
               <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "all" ? "bg-white/20" : "bg-line"}`}>
@@ -70,9 +69,8 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setTab("ekyc")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "ekyc" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tab === "ekyc" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+                }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Đã xác minh eKYC</span>
@@ -83,9 +81,8 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setTab("no-ekyc")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "no-ekyc" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tab === "no-ekyc" ? "bg-primary text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+                }`}
             >
               <span>Chưa eKYC</span>
               <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${tab === "no-ekyc" ? "bg-white/20" : "bg-line"}`}>
@@ -95,9 +92,8 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={() => setTab("locked")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                tab === "locked" ? "bg-danger text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tab === "locked" ? "bg-danger text-white" : "bg-surface text-muted hover:text-fg hover:bg-page"
+                }`}
             >
               <Lock className="w-3.5 h-3.5" />
               <span>Bị khóa</span>
@@ -165,22 +161,25 @@ export default function AdminUsersPage() {
                   render: (u) =>
                     // Admin và tài khoản chưa xác minh email không khóa được (backend trả 403/409).
                     u.isAdmin || (!u.emailVerified && !u.isLocked) ? null : u.isLocked ? (
-                      <Button
-                        variant="secondary"
-                        leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}
+                      <button
+                        type="button"
+                        title="Mở khóa tài khoản"
+                        aria-label={`Mở khóa ${u.fullName}`}
                         onClick={() => setUnlocking(u)}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-sm bg-[#E2EED6] text-[#143326] border border-[#9EC084] hover:bg-[#D0E3BD] transition-colors cursor-pointer"
                       >
-                        Mở khóa
-                      </Button>
+                        <LockOpen className="w-4 h-4" aria-hidden="true" />
+                      </button>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        className="text-danger"
-                        leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+                      <button
+                        type="button"
+                        title="Khóa tài khoản"
+                        aria-label={`Khóa ${u.fullName}`}
                         onClick={() => setLocking(u)}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-sm bg-[#FDF2F2] text-[#7A1F1F] border border-[#DDA8A8] hover:bg-[#F9E1E1] transition-colors cursor-pointer"
                       >
-                        Khóa
-                      </Button>
+                        <Lock className="w-4 h-4" aria-hidden="true" />
+                      </button>
                     ),
                 },
               ]}

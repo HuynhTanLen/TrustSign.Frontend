@@ -86,11 +86,23 @@ export function LockActions({
   return (
     <>
       {isLocked ? (
-        <Button variant="secondary" leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />} onClick={() => setUnlocking(true)}>
-          Mở khóa
+        <Button
+          variant="secondary"
+          size="sm"
+          className="rounded-sm bg-[#EFF5E8] text-[#1B4332] border-[#C9DEB0] hover:bg-[#DCEBC7]"
+          leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}
+          onClick={() => setUnlocking(true)}
+        >
+          Mở khóa {noun}
         </Button>
       ) : (
-        <Button variant="ghost" className="text-danger" leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />} onClick={() => setLocking(true)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="rounded-sm bg-white text-rose-700 border-rose-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-800"
+          leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+          onClick={() => setLocking(true)}
+        >
           Khóa {noun}
         </Button>
       )}

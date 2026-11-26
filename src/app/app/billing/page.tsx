@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { Suspense } from "react";
@@ -279,7 +279,7 @@ function BillingContent() {
                     key={p.id}
                     className={`rounded-2xl border p-6 flex flex-col justify-between card-interactive ${
                       isCurrent
-                        ? "border-blue-500 bg-blue-50/40 shadow-card ring-2 ring-blue-500/20"
+                        ? "border-[#1B4332] bg-[#EFF5E8] shadow-card ring-2 ring-[#1B4332]/15"
                         : "border-line bg-surface hover:shadow-card-hover"
                     }`}
                   >
@@ -287,7 +287,7 @@ function BillingContent() {
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="text-lg font-extrabold text-fg">Gói {p.name}</h3>
                         {isCurrent ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-bold shadow-xs">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#1B4332] text-white text-[11px] font-bold shadow-xs">
                             Đang dùng
                           </span>
                         ) : p.isTrial ? (
@@ -303,8 +303,8 @@ function BillingContent() {
                       </div>
 
                       <ul className="mt-4 flex flex-col gap-2.5 text-xs sm:text-sm text-fg">
-                        <li className="flex items-center gap-2 font-bold text-blue-700">
-                          <Check className="w-4 h-4 text-blue-600 shrink-0" aria-hidden="true" />
+                        <li className="flex items-center gap-2 font-bold text-[#1B4332]">
+                          <Check className="w-4 h-4 text-[#1B4332] shrink-0" aria-hidden="true" />
                           <span>{p.monthlyQuota} hợp đồng gửi ký mỗi tháng</span>
                         </li>
                         <li className="flex items-center gap-2 text-muted">

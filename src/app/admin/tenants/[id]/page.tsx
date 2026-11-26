@@ -18,16 +18,27 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table } from "@/components/ui/table";
 
-const CONTRACT_ORDER: ContractStatus[] = ["Draft", "Pending", "Signing", "Completed", "Declined", "Cancelled", "Expired"];
+const CONTRACT_STATUS_META: { status: ContractStatus; label: string }[] = [
+  { status: "Draft", label: "Nháp" },
+  { status: "Pending", label: "Chờ ký" },
+  { status: "Signing", label: "Đang ký" },
+  { status: "Completed", label: "Hoàn tất" },
+  { status: "Declined", label: "Từ chối" },
+  { status: "Cancelled", label: "Đã hủy" },
+  { status: "Expired", label: "Hết hạn" },
+];
 
 export default function AdminTenantProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { data: t, error, isLoading, reload } = useApi(`admin-tenant:${id}`, () => adminApi.tenant(id));
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
-  if (isLoading || !t) return <Skeleton className="h-96" />;
+  if (isLoading || !t) return <Skeleton className="h-96 rounded-sm" />;
 
-  const totalContracts = CONTRACT_ORDER.reduce((sum, s) => sum + (t.contractCounts[s] ?? 0), 0);
+  const totalContracts = CONTRACT_STATUS_META.reduce(
+    (sum, item) => sum + (t.contractCounts[item.status] ?? 0),
+    0,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,82 +66,106 @@ export default function AdminTenantProfilePage() {
       />
 
       {t.isLocked && (
-        <p className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+        <p className="rounded-sm border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           Khóa lúc {formatDateTime(t.lockedAt)}. Lý do: {t.lockReason}
         </p>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Thông tin doanh nghiệp" icon={Building2}>
-          <InfoList
-            items={[
-              ["Mã số thuế", t.taxCode && <span className="font-mono">{t.taxCode}</span>],
-              ["Địa chỉ", t.address],
-              ["Người đại diện", t.representativeName && `${t.representativeName}${t.representativeTitle ? ` (${t.representativeTitle})` : ""}`],
-              ["Email liên hệ", t.contactEmail],
-              ["Điện thoại", t.phone],
-              ["Ngày tạo", formatDate(t.createdAt)],
-            ]}
-          />
-        </Card>
-
-        <Card title="Thuê bao" icon={CreditCard}>
-          {t.subscription ? (
-            <InfoList
-              items={[
-                ["Gói", <span key="plan" className="inline-flex items-center gap-2">{t.subscription.planName} <Badge subscriptionStatus={t.subscription.status} /></span>],
-                ["Bắt đầu", formatDate(t.subscription.startedAt)],
-                ["Hết hạn", formatDate(t.subscription.expiresAt)],
-                ["Hạn mức tháng này", `${t.subscription.quotaUsed} / ${t.subscription.quotaLimit} hợp đồng`],
+      {/* 2-COLUMN STRUCTURED PROFILE (8/12 MAIN DATA + 4/12 SIDEBAR INFO) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Main Column (8/12) */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          <Card title={`Thành viên (${t.members.length})`} icon={Users} bodyClassName="p-0">
+            <Table
+              bare
+              rows={t.members}
+              getRowKey={(m) => m.userId}
+              empty={<p className="p-4 text-sm text-[#2E3B33]">Chưa có thành viên.</p>}
+              columns={[
+                {
+                  key: "name",
+                  header: "Họ và tên",
+                  primary: true,
+                  render: (m) => (
+                    <Link
+                      href={`/admin/users/${m.userId}`}
+                      className="font-bold text-[#1B4332] hover:underline underline-offset-4"
+                    >
+                      {m.fullName}
+                    </Link>
+                  ),
+                },
+                { key: "email", header: "Email", render: (m) => m.email },
+                { key: "role", header: "Vai trò", render: (m) => TENANT_ROLE_LABELS[m.role] ?? m.role },
+                { key: "joined", header: "Tham gia", render: (m) => formatDate(m.joinedAt) },
+                { key: "lock", header: "Tài khoản", render: (m) => <LockBadge locked={m.isLocked} /> },
               ]}
             />
-          ) : (
-            <p className="text-sm text-muted">Doanh nghiệp chưa có thuê bao.</p>
-          )}
-        </Card>
-      </div>
+          </Card>
 
-      <AdminTenantVerification tenant={t} onChanged={reload} />
+          <Card title={`Thống kê hợp đồng (${totalContracts})`} icon={FileText}>
+            <p className="text-xs text-[#2E3B33] mb-4">
+              Chỉ hiển thị số lượng theo trạng thái; quản trị nền tảng không xem nội dung hợp đồng của doanh nghiệp.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {CONTRACT_STATUS_META.map((item) => (
+                <div
+                  key={item.status}
+                  className="border-t-2 border-[#E6E4DC] bg-[#F5F4EF]/60 px-3.5 py-2.5 rounded-sm flex items-center justify-between"
+                >
+                  <span className="text-xs font-semibold text-[#2E3B33]">{item.label}</span>
+                  <span className="font-mono text-base font-extrabold text-[#1A2922] tabular-nums">
+                    {t.contractCounts[item.status] ?? 0}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
 
-      <Card title={`Thành viên (${t.members.length})`} icon={Users} bodyClassName="p-0">
-        <Table
-          bare
-          rows={t.members}
-          getRowKey={(m) => m.userId}
-          empty={<p className="p-4 text-sm text-muted">Chưa có thành viên.</p>}
-          columns={[
-            {
-              key: "name",
-              header: "Họ và tên",
-              primary: true,
-              render: (m) => (
-                <Link href={`/admin/users/${m.userId}`} className="font-semibold text-primary hover:underline">
-                  {m.fullName}
-                </Link>
-              ),
-            },
-            { key: "email", header: "Email", render: (m) => m.email },
-            { key: "role", header: "Vai trò", render: (m) => TENANT_ROLE_LABELS[m.role] ?? m.role },
-            { key: "joined", header: "Tham gia", render: (m) => formatDate(m.joinedAt) },
-            { key: "lock", header: "Tài khoản", render: (m) => <LockBadge locked={m.isLocked} /> },
-          ]}
-        />
-      </Card>
+          <AdminHistoryCard items={t.history} />
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title={`Hợp đồng (${totalContracts})`} icon={FileText}>
-          <p className="text-xs text-muted mb-3">Chỉ hiện số lượng; quản trị nền tảng không xem nội dung hợp đồng của doanh nghiệp.</p>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {CONTRACT_ORDER.map((s) => (
-              <li key={s} className="flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
-                <Badge contractStatus={s} />
-                <span className="font-semibold tabular-nums">{t.contractCounts[s] ?? 0}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        {/* Right Context Rail (4/12) */}
+        <aside className="lg:col-span-4 flex flex-col gap-6">
+          <Card title="Thông tin doanh nghiệp" icon={Building2}>
+            <InfoList
+              items={[
+                ["Mã số thuế", t.taxCode && <span className="font-mono">{t.taxCode}</span>],
+                ["Địa chỉ", t.address],
+                [
+                  "Người đại diện",
+                  t.representativeName &&
+                    `${t.representativeName}${t.representativeTitle ? ` (${t.representativeTitle})` : ""}`,
+                ],
+                ["Email liên hệ", t.contactEmail],
+                ["Điện thoại", t.phone],
+                ["Ngày tạo", formatDate(t.createdAt)],
+              ]}
+            />
+          </Card>
 
-        <AdminHistoryCard items={t.history} />
+          <Card title="Thuê bao" icon={CreditCard}>
+            {t.subscription ? (
+              <InfoList
+                items={[
+                  [
+                    "Gói",
+                    <span key="plan" className="inline-flex items-center gap-2">
+                      {t.subscription.planName} <Badge subscriptionStatus={t.subscription.status} size="sm" />
+                    </span>,
+                  ],
+                  ["Bắt đầu", formatDate(t.subscription.startedAt)],
+                  ["Hết hạn", formatDate(t.subscription.expiresAt)],
+                  ["Hạn mức tháng", `${t.subscription.quotaUsed} / ${t.subscription.quotaLimit}`],
+                ]}
+              />
+            ) : (
+              <p className="text-sm text-[#2E3B33]">Doanh nghiệp chưa có thuê bao.</p>
+            )}
+          </Card>
+
+          <AdminTenantVerification tenant={t} onChanged={reload} />
+        </aside>
       </div>
     </div>
   );

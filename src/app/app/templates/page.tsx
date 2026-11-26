@@ -17,6 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { ContractThumbnail } from "@/components/contract-thumbnail";
 import { templatesApi, type TemplateSummary } from "@/lib/api/templates";
 import {
   buildFormattedContractFromBlueprint,
@@ -108,6 +109,7 @@ export default function TemplatesPage() {
 
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
+  const [activeTab, setActiveTab] = React.useState<"saved" | "library" | "builder">("saved");
   const [editingId, setEditingId] = React.useState<string | null>(null);
 
   // State của Trình thiết kế hợp đồng tự động (không cần {})
@@ -174,8 +176,8 @@ export default function TemplatesPage() {
     setPartyBTitle(bp.partyBTitle);
     setFields(bp.fields.map((f) => ({ ...f })));
     setClauses(bp.clauses.map((c) => ({ ...c })));
-    toast(`Đã nạp mẫu "${bp.name}" vào khung tùy chỉnh bên dưới.`, "info");
-    editorRef.current?.scrollIntoView({ behavior: "smooth" });
+    setActiveTab("builder");
+    toast(`Đã nạp mẫu "${bp.name}" vào trình thiết kế.`, "info");
   };
 
   /** Bấm "Dùng ngay" trên mẫu tham khảo: Lưu vào danh sách mẫu DN (nếu chưa có) và chuyển thẳng sang Soạn hợp đồng */
@@ -290,7 +292,7 @@ export default function TemplatesPage() {
       setPartyBTitle(parsed.partyBTitle);
       setFields(parsed.fields);
       setClauses(parsed.clauses);
-      editorRef.current?.scrollIntoView({ behavior: "smooth" });
+      setActiveTab("builder");
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Không tải được nội dung mẫu.", "error");
     } finally {
@@ -318,6 +320,7 @@ export default function TemplatesPage() {
         });
         mutate((list) => list.map((t) => (t.id === editingId ? updated : t)));
         setEditingId(null);
+        setActiveTab("saved");
         toast("Đã cập nhật và tự động dàn trang lại mẫu hợp đồng.", "success");
       } else {
         const created = await templatesApi.create({
@@ -325,6 +328,7 @@ export default function TemplatesPage() {
           content: formattedContent,
         });
         mutate((list) => [created, ...list]);
+        setActiveTab("saved");
         toast("Đã lưu mẫu hợp đồng vào thư viện của doanh nghiệp.", "success");
       }
     } catch (err) {
@@ -354,7 +358,7 @@ export default function TemplatesPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Thư viện & Thiết kế Mẫu hợp đồng"
-        description="Tham khảo 8 mẫu hợp đồng thông dụng nhất hoặc tự thêm mục thông tin — hệ thống tự động dàn trang chuẩn pháp lý A4 mà không cần dùng ký tự {}"
+        description={`Tham khảo ${REFERENCE_TEMPLATES.length} mẫu hợp đồng xây dựng hoặc tự thêm mục thông tin — hệ thống tự động dàn trang chuẩn pháp lý A4 mà không cần dùng ký tự {}`}
         actions={
           <Button
             variant="primary"
@@ -368,73 +372,102 @@ export default function TemplatesPage() {
         }
       />
 
-      {/* PHẦN 1: THƯ VIỆN 8 MẪU HỢP ĐỒNG THÔNG DỤNG ĐỂ THAM KHẢO & DÙNG NGAY */}
-      <Card
-        title="Kho mẫu hợp đồng thông dụng (Tham khảo & Dùng ngay)"
-        icon={BookOpenCheck}
-        actions={
-          <div className="w-56">
-            <Select
-              label=""
-              aria-label="Lọc theo nhóm hợp đồng"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="all">Tất cả lĩnh vực ({REFERENCE_TEMPLATES.length} mẫu)</option>
-              {categories
-                .filter((c) => c !== "all")
-                .map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-            </Select>
-          </div>
-        }
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {filteredReferences.map((bp) => (
-            <div
-              key={bp.id}
-              className="flex flex-col justify-between gap-3 p-4 rounded-lg border border-line bg-page hover:border-primary/60 transition-colors"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <Badge className="bg-selected text-primary">{bp.category}</Badge>
-                  <span className="text-[11px] font-semibold text-muted">
-                    {bp.fields.length} mục thông tin
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-fg leading-snug">{bp.name}</h3>
-                <p className="mt-1 text-xs text-muted line-clamp-2 leading-relaxed">{bp.summary}</p>
-              </div>
+      {/* THANH CHUYỂN CHẾ ĐỘ LÀM VIỆC */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-[#E6E4DC]">
+        {(
+          [
+            { id: "saved", label: `Mẫu của doanh nghiệp (${data?.length ?? 0})` },
+            { id: "library", label: `Kho mẫu xây dựng (${REFERENCE_TEMPLATES.length})` },
+            { id: "builder", label: editingId ? "Đang sửa mẫu" : "Trình thiết kế mẫu" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2.5 text-xs sm:text-sm border-b-2 transition-colors cursor-pointer ${
+              activeTab === tab.id
+                ? "border-[#1B4332] text-[#1A2922] font-bold"
+                : "border-transparent text-[#2E3B33] font-medium hover:text-[#1B4332]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-              <div className="pt-2 border-t border-line flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  className="flex-1 text-xs"
-                  isLoading={isQuickUsingId === bp.id}
-                  onClick={() => handleQuickUseReference(bp)}
-                >
-                  Dùng ngay
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="text-xs"
-                  onClick={() => loadBlueprintToBuilder(bp)}
-                >
-                  Tùy chỉnh
-                </Button>
-              </div>
+      {/* PHẦN 1: THƯ VIỆN MẪU HỢP ĐỒNG THÔNG DỤNG */}
+      {activeTab === "library" && (
+        <Card
+          title="Kho mẫu hợp đồng xây dựng (Tham khảo & Dùng ngay)"
+          icon={BookOpenCheck}
+          actions={
+            <div className="w-56">
+              <Select
+                label=""
+                aria-label="Lọc theo nhóm hợp đồng"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">Tất cả nhóm ({REFERENCE_TEMPLATES.length} mẫu)</option>
+                {categories
+                  .filter((c) => c !== "all")
+                  .map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+              </Select>
             </div>
-          ))}
-        </div>
-      </Card>
+          }
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredReferences.map((bp) => (
+              <div
+                key={bp.id}
+                className="flex flex-col justify-between gap-3 p-4 rounded-sm border border-[#E6E4DC] bg-[#F5F4EF]/50 hover:border-[#1B4332]/50 transition-colors"
+              >
+                <div>
+                  <div className="mb-3">
+                    <ContractThumbnail title={bp.name} compact />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <Badge className="bg-[#EFF5E8] text-[#1B4332]">{bp.category}</Badge>
+                    <span className="text-[11px] font-semibold text-[#2E3B33]">
+                      {bp.fields.length} mục thông tin
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-[#1A2922] leading-snug">{bp.name}</h3>
+                  <p className="mt-1 text-xs text-[#2E3B33] line-clamp-2 leading-relaxed">{bp.summary}</p>
+                </div>
+
+                <div className="pt-2 border-t border-[#E6E4DC] flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="flex-1 text-xs"
+                    isLoading={isQuickUsingId === bp.id}
+                    onClick={() => handleQuickUseReference(bp)}
+                  >
+                    Dùng ngay
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="text-xs"
+                    onClick={() => loadBlueprintToBuilder(bp)}
+                  >
+                    Tùy chỉnh
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* PHẦN 2: DANH SÁCH MẪU ĐÃ LƯU CỦA DOANH NGHIỆP */}
-      {error ? (
+      {activeTab === "saved" && (error ? (
         <ErrorState error={error} onRetry={reload} />
       ) : (
         <Card
@@ -471,7 +504,7 @@ export default function TemplatesPage() {
                       ? "Không có mẫu khớp từ khóa"
                       : "Chưa có mẫu riêng nào trong danh sách doanh nghiệp"
                   }
-                  description="Bấm 'Dùng ngay' hoặc 'Tùy chỉnh' ở 8 mẫu hợp đồng thông dụng phía trên để lưu mẫu cho doanh nghiệp."
+                  description={`Bấm 'Dùng ngay' hoặc 'Tùy chỉnh' ở ${REFERENCE_TEMPLATES.length} mẫu trong kho mẫu xây dựng để lưu mẫu cho doanh nghiệp.`}
                 />
               </div>
             }
@@ -533,9 +566,10 @@ export default function TemplatesPage() {
             ]}
           />
         </Card>
-      )}
+      ))}
 
-      {/* PHẦN 3: TRÌNH THIẾT KẾ MẪU HỢP ĐỒNG TỰ ĐỘNG DÀN TRANG (KHÔNG CẦN DÙNG {}) */}
+      {/* PHẦN 3: TRÌNH THIẾT KẾ MẪU HỢP ĐỒNG TỰ ĐỘNG DÀN TRANG */}
+      {activeTab === "builder" && (
       <div ref={editorRef} className="grid grid-cols-1 lg:grid-cols-12 gap-5 scroll-mt-20 items-start">
         <Card
           title={
@@ -789,7 +823,7 @@ export default function TemplatesPage() {
                     return (
                       <p
                         key={lineIdx}
-                        className="text-center font-bold text-[14px] uppercase text-[#1f5fa8] my-2"
+                        className="text-center font-bold text-[14px] uppercase text-[#1B4332] my-2"
                       >
                         {trimmed}
                       </p>
@@ -843,6 +877,7 @@ export default function TemplatesPage() {
           </Card>
         </div>
       </div>
+      )}
 
       <Dialog
         open={deleteTarget !== null}

@@ -1,15 +1,21 @@
+import { CheckCircle2, Lock } from "lucide-react";
+
 /** Nhãn trạng thái khóa tài khoản / doanh nghiệp. */
 export function LockBadge({ locked }: { locked: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold ring-1 ring-inset ${
+      className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-sm text-xs font-semibold border ${
         locked
-          ? "bg-badge-declined-bg text-badge-declined-fg ring-badge-declined-fg/20"
-          : "bg-badge-completed-bg text-badge-completed-fg ring-badge-completed-fg/20"
+          ? "bg-[#991B1B] text-white border-[#7F1D1D]"
+          : "bg-[#166534] text-white border-[#14532D]"
       }`}
     >
-      <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
-      {locked ? "Đã khóa" : "Hoạt động"}
+      {locked ? (
+        <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      ) : (
+        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      )}
+      <span>{locked ? "Đã khóa" : "Hoạt động"}</span>
     </span>
   );
 }

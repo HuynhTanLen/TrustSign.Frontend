@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import Link from "next/link";
@@ -28,6 +28,8 @@ import { templatesApi, type TemplateDetail } from "@/lib/api/templates";
 import { tenantsApi } from "@/lib/api/tenants";
 import {
   buildFormattedContractFromBlueprint,
+  CONTRACT_PRICE_TYPES,
+  LONG_TEXT_FIELDS,
   normalizeTemplateStructure,
   parseTemplateIntoBlueprint,
   REFERENCE_TEMPLATES,
@@ -177,7 +179,7 @@ function isMoneyField(key: string, label?: string): boolean {
   );
 }
 
-const QUANTITY_UNITS = ["chiếc", "cái", "bộ", "kg", "tấn", "lít", "m", "m²", "m³", "thùng", "hộp", "gói", "lô"];
+const QUANTITY_UNITS = ["chiếc", "cái", "bộ", "kg", "tấn", "lít", "m", "m²", "m³", "viên", "bao", "thùng", "hộp", "gói", "lô"];
 
 const PAYMENT_METHODS = ["Chuyển khoản ngân hàng", "Tiền mặt", "Tiền mặt hoặc chuyển khoản"];
 const PAYMENT_TERMS = [
@@ -211,6 +213,12 @@ const SPEC_KINDS: { id: string; label: string; match?: RegExp; attrs: string[] }
     label: "Máy móc, thiết bị",
     match: /máy|thiết bị/i,
     attrs: ["Hãng sản xuất", "Model", "Công suất / Thông số chính", "Xuất xứ", "Năm sản xuất", "Số serial", "Tình trạng"],
+  },
+  {
+    id: "material",
+    label: "Vật liệu xây dựng",
+    match: /xi măng|thép|cát|đá|gạch|ngói|bê tông|sơn|tôn|kính|gỗ|ống nhựa|vữa/i,
+    attrs: ["Chủng loại", "Mác / Cấp độ bền / Kích thước", "Tiêu chuẩn áp dụng", "Nhà sản xuất / Xuất xứ", "Chứng chỉ chất lượng (CO, CQ)"],
   },
   {
     id: "goods",
@@ -555,13 +563,13 @@ function Stepper({ step }: { step: Step }) {
               i < step
                 ? "bg-emerald-600 text-white shadow-xs"
                 : i === step
-                  ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-600/30 scale-105 ring-2 ring-blue-300/50"
+                  ? "bg-[#1B4332] text-white shadow-md shadow-[#1B4332]/20 scale-105 ring-2 ring-[#C9DEB0]"
                   : "bg-slate-100 text-muted border border-line"
             }`}
           >
             {i < step ? <Check className="w-4 h-4 stroke-[2.5]" aria-hidden="true" /> : i + 1}
           </span>
-          <span className={`text-xs sm:text-sm truncate transition-colors ${i === step ? "font-bold text-blue-700" : i < step ? "font-semibold text-fg" : "text-muted"}`}>
+          <span className={`text-xs sm:text-sm truncate transition-colors ${i === step ? "font-bold text-[#1B4332]" : i < step ? "font-semibold text-fg" : "text-muted"}`}>
             {label}
           </span>
           {i < STEPS.length - 1 && (
@@ -942,7 +950,7 @@ export default function NewContractPage() {
     };
   }, [resumeDraftId]);
 
-  const inputRefs = React.useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
+  const inputRefs = React.useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>({});
   const canvasRef = React.useRef<HTMLDivElement>(null);
   const placementScrollRef = React.useRef<HTMLDivElement>(null);
   const signatureSectionRef = React.useRef<HTMLDivElement>(null);
@@ -1477,9 +1485,12 @@ export default function NewContractPage() {
       }
       const normalizedValues: Record<string, string> = {};
       for (const [k, v] of Object.entries(values)) {
+        // Dấu xuống dòng đầu để nội dung nhiều dòng nằm dưới nhãn trong PDF, giống bản xem trước.
         normalizedValues[k] = isMoneyField(k, formatVariableLabel(k))
           ? formatMoneyValue(v)
-          : v;
+          : LONG_TEXT_FIELDS.has(k) && v.trim().includes("\n")
+            ? `\n${v.trim()}`
+            : v;
       }
       const res = await contractsApi.createFromTemplate(
         realTemplateId,
@@ -1747,6 +1758,55 @@ export default function NewContractPage() {
     );
     const smallInput =
       "w-full h-9 px-2.5 rounded-md border border-line-strong bg-surface text-xs text-fg placeholder:text-muted focus:outline-none focus:border-primary";
+
+    // Nội dung dài (phạm vi công việc, đợt thanh toán...) -> ô nhiều dòng, Enter để xuống dòng
+    if (LONG_TEXT_FIELDS.has(f.key)) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <textarea
+            ref={(el) => {
+              inputRefs.current[f.key] = el;
+            }}
+            aria-label={f.label}
+            required
+            rows={4}
+            value={val}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => setField(e.target.value)}
+            placeholder="Mỗi ý một dòng…"
+            className="w-full px-2.5 py-2 rounded-md border border-line-strong bg-surface text-sm leading-relaxed text-fg placeholder:text-muted focus:outline-none focus:border-primary"
+          />
+        </div>
+      );
+    }
+
+    if (f.key === "loai_gia_hop_dong") {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {fieldLabel}
+          <select
+            ref={(el) => {
+              inputRefs.current[f.key] = el;
+            }}
+            aria-label={f.label}
+            value={val}
+            onFocus={() => setFocusedVar(f.key)}
+            onChange={(e) => setField(e.target.value)}
+            className={smallInput}
+          >
+            <option value="" disabled>
+              Chọn loại giá
+            </option>
+            {CONTRACT_PRICE_TYPES.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
 
     // 4. Số lượng -> ô số + chọn đơn vị tính ("2 chiếc")
     if (f.key.startsWith("so_luong")) {
@@ -2214,7 +2274,7 @@ export default function NewContractPage() {
                   {
                     id: "template" as const,
                     icon: FilePenLine,
-                    title: "Từ mẫu hợp đồng thông dụng",
+                    title: "Từ mẫu hợp đồng xây dựng",
                     text: "Tự động điền sẵn ngày hôm nay & thông tin Bên A — tự động dàn trang A4 chuẩn.",
                   },
                   {
@@ -2270,7 +2330,7 @@ export default function NewContractPage() {
                       setCreatedDraftId(null);
                     }}
                   >
-                    <optgroup label="Kho 8 mẫu hợp đồng thông dụng (Có sẵn)">
+                    <optgroup label={`Kho ${REFERENCE_TEMPLATES.length} mẫu hợp đồng xây dựng (Có sẵn)`}>
                       {REFERENCE_TEMPLATES.map((r) => (
                         <option key={`ref:${r.id}`} value={`ref:${r.id}`}>
                           ★ {r.name} ({r.fields.length} mục)

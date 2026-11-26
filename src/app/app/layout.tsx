@@ -89,7 +89,6 @@ function AppLayoutShell({
     { href: "/app/contracts", label: "Hợp đồng", icon: FileText },
     { href: "/app/templates", label: "Mẫu hợp đồng", icon: FilePenLine },
     { href: "/app/billing", label: "Gói và thanh toán", icon: CreditCard },
-    { href: "/app/settings", label: "Cài đặt", icon: Settings },
   ];
 
   const secondaryNav: ShellNavItem[] = [
@@ -133,8 +132,8 @@ function AppLayoutShell({
         nav={nav}
         secondaryNav={secondaryNav}
         sidebarTop={
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-            <span className="p-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-sm bg-[#F5F4EF] border border-[#E6E4DC]">
+            <span className="p-1 rounded-sm bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0]">
               <Building2 className="w-3.5 h-3.5" aria-hidden="true" />
             </span>
             <div className="min-w-0">

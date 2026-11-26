@@ -93,6 +93,7 @@ export default function ContractDetailPage() {
   const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
   const [blockedNeedsVerification, setBlockedNeedsVerification] = React.useState(false);
   const [isReminding, setIsReminding] = React.useState(false);
+  const [rightTab, setRightTab] = React.useState<"signers" | "audit">("signers");
 
   const [dueAt, setDueAt] = React.useState(() => {
     const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -151,7 +152,7 @@ export default function ContractDetailPage() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (USE_MOCK) {
       toast("Dữ liệu mẫu thử nghiệm không có file PDF vật lý.", "info");
       return;
@@ -161,7 +162,18 @@ export default function ContractDetailPage() {
       toast("Chưa có file để tải.", "error");
       return;
     }
-    window.open(contract.documentUrl, "_blank");
+    try {
+      const res = await fetch(contract.documentUrl);
+      if (!res.ok) throw new Error(String(res.status));
+      const href = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `${contract.code}-da-ky.pdf`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch {
+      toast("Không tải được file. Hãy thử lại.", "error");
+    }
   };
 
   if (error) {
@@ -297,11 +309,11 @@ export default function ContractDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* CỘT TRÁI: KHUNG XEM TÀI LIỆU CHUYÊN NGHIỆP */}
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-5">
-          <section className="bg-surface border border-line rounded-xl shadow-card overflow-hidden flex flex-col">
+          <section className="bg-surface border border-[#E6E4DC] rounded-sm overflow-hidden flex flex-col">
             {/* Header khung tài liệu */}
-            <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-strip/90 border-b border-line">
+            <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-[#F5F4EF]/80 border-b border-[#E6E4DC]">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10 shrink-0">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-sm bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0] shrink-0">
                   <FileText className="w-4 h-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
@@ -452,216 +464,217 @@ export default function ContractDetailPage() {
           )}
         </div>
 
-        {/* CỘT PHẢI: TIẾN TRÌNH KÝ & NHẬT KÝ THAO TÁC */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-5">
-          {/* THẺ 1: TIẾN TRÌNH VÀ THỨ TỰ CÁC BÊN KÝ */}
-          <Card
-            title={
-              <span className="flex items-center gap-2">
-                <span>Tiến trình các bên ký & duyệt</span>
-                <span className="text-xs font-normal text-muted">
-                  ({signedCount}/{totalSigners})
-                </span>
-              </span>
-            }
-            icon={UserCheck}
-            actions={
-              isAllSigned && (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  <Check className="w-3 h-3" /> Hoàn tất
-                </span>
-              )
-            }
-            bodyClassName="p-0"
-          >
-            {/* Thanh tiến độ phần trăm */}
-            <div className="p-4 bg-strip/40 border-b border-line">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-semibold text-slate-700">Tỷ lệ ký kết</span>
-                <span className="font-bold tabular-nums text-fg">
-                  {totalSigners > 0 ? Math.round((signedCount / totalSigners) * 100) : 0}%
-                </span>
-              </div>
-              <Progress
-                value={signedCount}
-                max={Math.max(1, totalSigners)}
-                tone={isAllSigned ? "success" : "primary"}
-              />
+        {/* CỘT PHẢI: KHUNG TAB TIẾN TRÌNH KÝ & NHẬT KÝ THAO TÁC */}
+        <div className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-20">
+          <section className="bg-white border border-[#E6E4DC] rounded-sm overflow-hidden flex flex-col lg:max-h-[calc(100vh-8rem)]">
+            {/* Tab Header */}
+            <div className="grid grid-cols-2 border-b border-[#E6E4DC] bg-[#F5F4EF]/60 shrink-0">
+              <button
+                type="button"
+                onClick={() => setRightTab("signers")}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-3.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer",
+                  rightTab === "signers"
+                    ? "border-[#1B4332] bg-white text-[#1A2922]"
+                    : "border-transparent text-[#2E3B33] hover:text-[#1B4332]",
+                )}
+              >
+                <UserCheck className="w-4 h-4 text-[#1B4332]" aria-hidden="true" />
+                <span>Tiến trình ({signedCount}/{totalSigners})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTab("audit")}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-3.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer",
+                  rightTab === "audit"
+                    ? "border-[#1B4332] bg-white text-[#1A2922]"
+                    : "border-transparent text-[#2E3B33] hover:text-[#1B4332]",
+                )}
+              >
+                <History className="w-4 h-4 text-[#1B4332]" aria-hidden="true" />
+                <span>Nhật ký ({contract.events.length})</span>
+              </button>
             </div>
 
-            {/* Danh sách người ký thiết kế dạng Step Connector */}
-            <ol className="relative divide-y divide-line">
-              {contract.signers.map((s) => {
-                const config = SIGNER_STATUS_CONFIG[s.status];
-                const isApprover = s.role === "Approver";
-                const isCc = s.role === "Cc";
-                const isCoordinator = s.role === "Coordinator";
+            {rightTab === "signers" ? (
+              <div className="overflow-y-auto flex-1">
+                {/* Thanh tiến độ phần trăm */}
+                <div className="p-4 bg-[#F5F4EF]/40 border-b border-[#E6E4DC]">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="font-semibold text-[#2E3B33]">Tỷ lệ hoàn tất</span>
+                    <span className="font-bold tabular-nums text-[#1A2922]">
+                      {totalSigners > 0 ? Math.round((signedCount / totalSigners) * 100) : 0}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={signedCount}
+                    max={Math.max(1, totalSigners)}
+                    tone={isAllSigned ? "success" : "primary"}
+                  />
+                </div>
 
-                const roleBadge = isCoordinator ? (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/20">
-                    Người điều phối
-                  </span>
-                ) : isApprover ? (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/20">
-                    Người duyệt
-                  </span>
-                ) : isCc ? (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-line">
-                    Nhận bản sao (Cc)
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                    Người ký
-                  </span>
-                );
+                {/* Danh sách người ký */}
+                <ol className="relative divide-y divide-[#EFECE4]">
+                  {contract.signers.map((s) => {
+                    const config = SIGNER_STATUS_CONFIG[s.status];
+                    const isApprover = s.role === "Approver";
+                    const isCc = s.role === "Cc";
+                    const isCoordinator = s.role === "Coordinator";
 
-                const statusLabel =
-                  isCoordinator && s.status === "Signed"
-                    ? "Đã điều phối"
-                    : isCoordinator && s.status === "Current"
-                      ? "Đang chờ điều phối"
-                      : isApprover && s.status === "Signed"
-                    ? "Đã duyệt"
-                    : isApprover && s.status === "Current"
-                      ? "Đang chờ duyệt"
-                      : isCc
-                        ? "Đã nhận bản sao"
-                        : config.label;
+                    const roleBadge = isCoordinator ? (
+                      <span className="px-2 py-0.5 rounded-sm text-[11px] font-semibold bg-[#FAF5E8] text-[#785616] border border-[#E8D9B5]">
+                        Người điều phối
+                      </span>
+                    ) : isApprover ? (
+                      <span className="px-2 py-0.5 rounded-sm text-[11px] font-semibold bg-[#FAF5E8] text-[#785616] border border-[#E8D9B5]">
+                        Người duyệt
+                      </span>
+                    ) : isCc ? (
+                      <span className="px-2 py-0.5 rounded-sm text-[11px] font-semibold bg-[#F2F4F3] text-[#3D4A43] border border-[#D5DDD8]">
+                        Nhận bản sao (Cc)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-sm text-[11px] font-semibold bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0]">
+                        Người ký
+                      </span>
+                    );
 
-                return (
-                  <li
-                    key={s.order}
-                    className={cn(
-                      "p-4 sm:p-5 flex items-start gap-3.5 transition-colors",
-                      s.status === "Current" ? "bg-selected/30" : "bg-surface hover:bg-slate-50/50",
-                    )}
-                  >
-                    {/* Node số thứ tự hoặc biểu tượng trạng thái */}
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-transform",
-                        config.nodeBg,
-                      )}
-                    >
-                      {s.status === "Signed" ? (
-                        <Check className="w-4 h-4 stroke-[3]" />
-                      ) : (
-                        <span>{s.order}</span>
-                      )}
-                    </div>
+                    const statusLabel =
+                      isCoordinator && s.status === "Signed"
+                        ? "Đã điều phối"
+                        : isCoordinator && s.status === "Current"
+                          ? "Đang chờ điều phối"
+                          : isApprover && s.status === "Signed"
+                        ? "Đã duyệt"
+                        : isApprover && s.status === "Current"
+                          ? "Đang chờ duyệt"
+                          : isCc
+                            ? "Đã nhận bản sao"
+                            : config.label;
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <p className="text-sm font-bold text-fg truncate">{s.fullName}</p>
-                          {roleBadge}
-                        </div>
-                        <Badge tone={config.badgeTone} size="sm">
-                          {statusLabel}
-                        </Badge>
-                      </div>
-
-                      {(s.title || s.organization) && (
-                        <p className="text-xs text-fg mt-1 font-medium">
-                          {[s.title, s.organization].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-
-                      <p className="text-xs text-muted truncate mt-0.5">
-                        {s.email}
-                        {s.phone ? ` · ${s.phone}` : ""}
-                      </p>
-
-                      {/* Tọa độ ô ký dạng chip nhẹ nhàng (chỉ người ký mới có ô ký) */}
-                      {!isApprover &&
-                        !isCc &&
-                        !isCoordinator &&
-                        s.pageNumber !== undefined &&
-                        s.boxX !== undefined &&
-                        s.boxY !== undefined && (
-                          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-strip border border-line text-[11px] font-mono text-slate-600">
-                            <MapPin className="w-3 h-3 text-muted" />
-                            <span>
-                              Trang {s.pageNumber} · ({Math.round(s.boxX)}, {Math.round(s.boxY)}) pt
-                            </span>
-                          </div>
+                    return (
+                      <li
+                        key={s.order}
+                        className={cn(
+                          "p-4 flex items-start gap-3 transition-colors",
+                          s.status === "Current" ? "bg-[#EFF5E8]/50" : "bg-white hover:bg-[#F5F4EF]/40",
                         )}
-
-                      {s.signedAt && (
-                        <p className="mt-1.5 text-xs text-emerald-700 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>
-                            {isCoordinator ? "Điều phối" : isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
-                          </span>
-                        </p>
-                      )}
-
-                      {s.status === "Current" && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="mt-2"
-                          leftIcon={<Mail className="w-3.5 h-3.5" />}
-                          onClick={handleRemind}
-                          isLoading={isReminding}
+                      >
+                        <div
+                          className={cn(
+                            "w-7 h-7 rounded-sm flex items-center justify-center text-xs font-bold shrink-0",
+                            config.nodeBg,
+                          )}
                         >
-                          Gửi lại email mời
-                        </Button>
-                      )}
-
-                      {s.declineReason && (
-                        <div className="mt-2 p-2 rounded bg-red-50 border border-red-200 text-xs text-danger">
-                          <strong>Lý do từ chối:</strong> {s.declineReason}
+                          {s.status === "Signed" ? (
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          ) : (
+                            <span>{s.order}</span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </Card>
 
-          {/* THẺ 2: NHẬT KÝ THAO TÁC & AUDIT TRAIL SẮC NÉT */}
-          <Card
-            title="Nhật ký thao tác (Audit Trail)"
-            description="Toàn vẹn dữ liệu được chứng minh bằng chuỗi mã băm SHA-256"
-            icon={History}
-          >
-            <ol className="relative flex flex-col gap-5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-line-strong/60">
-              {contract.events.map((ev, i) => {
-                const isFirst = i === 0;
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="text-sm font-bold text-[#1A2922] truncate">{s.fullName}</p>
+                              {roleBadge}
+                            </div>
+                            <Badge tone={config.badgeTone} size="sm">
+                              {statusLabel}
+                            </Badge>
+                          </div>
 
-                return (
-                  <li
-                    key={ev.hash + i}
-                    className="relative pl-8 motion-safe:animate-fade-up"
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    {/* Chấm chỉ báo trạng thái trên dòng thời gian */}
-                    <span
-                      className={cn(
-                        "absolute left-1.5 top-1 w-3 h-3 rounded-full border-2 bg-surface",
-                        isFirst
-                          ? "border-primary ring-4 ring-primary/15 bg-primary"
-                          : "border-slate-400",
-                      )}
-                      aria-hidden="true"
-                    />
+                          {(s.title || s.organization) && (
+                            <p className="text-xs text-[#1A2922] mt-1 font-medium">
+                              {[s.title, s.organization].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
 
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted mb-0.5">
-                        <Clock className="w-3 h-3 shrink-0" />
-                        <span>{formatDateTime(ev.at)}</span>
-                      </div>
+                          <p className="text-xs text-[#2E3B33] truncate mt-0.5">
+                            {s.email}
+                            {s.phone ? ` · ${s.phone}` : ""}
+                          </p>
 
-                      <p className="text-sm font-bold text-fg">{ev.title}</p>
-                      <p className="text-xs text-muted leading-relaxed mt-0.5">{ev.detail}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </Card>
+                          {!isApprover &&
+                            !isCc &&
+                            !isCoordinator &&
+                            s.pageNumber !== undefined &&
+                            s.boxX !== undefined &&
+                            s.boxY !== undefined && (
+                              <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-[#F5F4EF] border border-[#E6E4DC] text-[11px] font-mono text-[#2E3B33]">
+                                <MapPin className="w-3 h-3 text-[#1B4332]" />
+                                <span>
+                                  Trang {s.pageNumber} · ({Math.round(s.boxX)}, {Math.round(s.boxY)}) pt
+                                </span>
+                              </div>
+                            )}
+
+                          {s.signedAt && (
+                            <p className="mt-1.5 text-xs text-[#1B4332] font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>
+                                {isCoordinator ? "Điều phối" : isApprover ? "Phê duyệt" : "Ký"} lúc {formatDateTime(s.signedAt)}
+                              </span>
+                            </p>
+                          )}
+
+                          {s.status === "Current" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="mt-2"
+                              leftIcon={<Mail className="w-3.5 h-3.5" />}
+                              onClick={handleRemind}
+                              isLoading={isReminding}
+                            >
+                              Gửi lại email mời
+                            </Button>
+                          )}
+
+                          {s.declineReason && (
+                            <div className="mt-2 p-2 rounded-sm bg-[#FDF2F2] border border-[#EBCACA] text-xs text-[#8C2D2D]">
+                              <strong>Lý do từ chối:</strong> {s.declineReason}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ) : (
+              <div className="p-5 overflow-y-auto flex-1">
+                <p className="text-xs text-[#2E3B33] mb-4 pb-3 border-b border-[#EFECE4]">
+                  Toàn vẹn dữ liệu được chứng minh bằng chuỗi mã băm SHA-256.
+                </p>
+                <ol className="relative flex flex-col gap-5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-[#E6E4DC]">
+                  {contract.events.map((ev, i) => {
+                    const isFirst = i === 0;
+                    return (
+                      <li key={ev.hash + i} className="relative pl-8">
+                        <span
+                          className={cn(
+                            "absolute left-1.5 top-1 w-3 h-3 rounded-sm border-2 bg-white",
+                            isFirst ? "border-[#1B4332] bg-[#1B4332]" : "border-[#2E3B33]",
+                          )}
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs text-[#2E3B33] mb-0.5">
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>{formatDateTime(ev.at)}</span>
+                          </div>
+                          <p className="text-sm font-bold text-[#1A2922]">{ev.title}</p>
+                          <p className="text-xs text-[#2E3B33] leading-relaxed mt-0.5">{ev.detail}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
+          </section>
         </div>
       </div>
 
@@ -690,7 +703,7 @@ export default function ContractDetailPage() {
           <p className="text-sm text-fg leading-relaxed">
             Hợp đồng <strong className="font-mono bg-strip px-1.5 py-0.5 rounded border border-line">{contract.code}</strong> sẽ được khóa nội dung và gửi email kèm mã OTP xác thực tới người ký đầu tiên theo thứ tự.
           </p>
-          <div className="p-3.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-primary leading-relaxed flex items-start gap-2">
+          <div className="p-3.5 rounded-lg bg-[#EFF5E8] border border-[#C9DEB0] text-xs text-primary leading-relaxed flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               Thao tác này sẽ trừ <strong>01 lượt</strong> hợp đồng trong gói thuê bao doanh nghiệp của bạn.

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import {
@@ -149,9 +149,9 @@ export default function VerifyPage() {
                     e.preventDefault();
                     setFile(e.dataTransfer.files[0] ?? null);
                   }}
-                  className="flex flex-col items-center justify-center gap-2 p-8 sm:p-10 rounded-2xl border-2 border-dashed border-blue-300/80 bg-blue-50/30 hover:bg-blue-50/70 transition-colors text-center cursor-pointer group"
+                  className="flex flex-col items-center justify-center gap-2 p-8 sm:p-10 rounded-2xl border-2 border-dashed border-[#C9DEB0] bg-[#F5F4EF]/60 hover:bg-[#EFF5E8] transition-colors text-center cursor-pointer group"
                 >
-                  <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-blue-600 border border-blue-200 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+                  <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-[#1B4332] border border-[#C9DEB0] shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
                     <Upload className="w-7 h-7" aria-hidden="true" />
                   </div>
                   <div>

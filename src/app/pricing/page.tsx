@@ -32,8 +32,8 @@ export default function PricingPage() {
 
       <main className="flex-1 w-full max-w-content mx-auto px-4 lg:px-6 py-12 lg:py-16">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-xs font-bold text-blue-700 mb-3 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF5E8] border border-[#C9DEB0] text-xs font-bold text-[#1B4332] mb-3 shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-[#1B4332] animate-pulse" />
             <span>Bảng giá dịch vụ ký hợp đồng điện tử Chữ Tín</span>
           </div>
           <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-fg">
@@ -65,13 +65,13 @@ export default function PricingPage() {
                   key={plan.id}
                   className={`relative rounded-2xl border flex flex-col bg-surface overflow-hidden motion-safe:animate-fade-up card-interactive ${
                     isFeatured
-                      ? "border-blue-500 shadow-xl shadow-blue-500/10 ring-4 ring-blue-500/15 md:-translate-y-2 z-10"
+                      ? "border-[#1B4332] shadow-xl shadow-[#1B4332]/10 ring-4 ring-[#1B4332]/15 md:-translate-y-2 z-10"
                       : "border-line shadow-card hover:shadow-card-hover"
                   }`}
                   style={{ animationDelay: `${i * 80}ms` }}
                 >
                   {isFeatured && (
-                    <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white text-[11px] font-bold uppercase tracking-wider py-2 px-4 text-center flex items-center justify-center gap-1.5 shadow-xs">
+                    <div className="bg-[#1B4332] text-white text-[11px] font-bold uppercase tracking-wider py-2 px-4 text-center flex items-center justify-center gap-1.5 shadow-xs">
                       <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
                       Lựa chọn phổ biến cho doanh nghiệp
                     </div>
@@ -81,7 +81,7 @@ export default function PricingPage() {
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="text-xl font-extrabold text-fg">Gói {plan.name}</h2>
                       {plan.isTrial && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0]">
                           Dùng thử miễn phí
                         </span>
                       )}
@@ -101,8 +101,8 @@ export default function PricingPage() {
                     </p>
 
                     <ul className="mt-3.5 flex-1 flex flex-col gap-3 text-sm text-fg">
-                      <li className="flex items-start gap-2.5 font-bold text-blue-700">
-                        <Check className="w-4 h-4 mt-0.5 text-blue-600 shrink-0" aria-hidden="true" />
+                      <li className="flex items-start gap-2.5 font-bold text-[#1B4332]">
+                        <Check className="w-4 h-4 mt-0.5 text-[#1B4332] shrink-0" aria-hidden="true" />
                         <span>{plan.monthlyQuota} lượt gửi ký hợp đồng / tháng</span>
                       </li>
                       {STANDARD_PERKS.map((feature) => (
@@ -128,7 +128,7 @@ export default function PricingPage() {
                   </div>
 
                   <div className="px-6 py-3 bg-strip/75 text-center text-xs text-muted flex items-center justify-center gap-1.5 font-medium">
-                    <QrCode className="w-3.5 h-3.5 text-blue-600" />
+                    <QrCode className="w-3.5 h-3.5 text-[#1B4332]" />
                     <span>Kích hoạt tự động qua VietQR SePay</span>
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export default function PricingPage() {
         {/* Feature Comparison Strip */}
         <div className="mt-16 p-8 rounded-2xl bg-surface border border-line shadow-card grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="group flex items-start gap-3.5">
-            <div className="p-3 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
+            <div className="p-3 rounded-xl bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0] shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -164,7 +164,7 @@ export default function PricingPage() {
           </div>
 
           <div className="group flex items-start gap-3.5">
-            <div className="p-3 rounded-xl bg-violet-50 text-violet-600 border border-violet-200/80 shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3">
+            <div className="p-3 rounded-sm bg-[#EFF5E8] text-[#1B4332] border border-[#C9DEB0] shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>

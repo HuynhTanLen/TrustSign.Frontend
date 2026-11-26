@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 /* Chữ Tín (TrustSign) — Refined Enterprise FinTech Design System */
-@theme {
-  --font-sans: "Inter", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
-  --font-serif: "Times New Roman", "Segoe UI", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+@theme inline {
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-lora), "Lora", Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Sophisticated Enterprise Palette (No Neon, Pure Refined Blue & Slate) */
-  --color-primary: #1d4ed8;
-  --color-primary-hover: #1e40af;
-  --color-primary-subtle: #f0f6ff;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-fg: #0f172a;
-  --color-muted: #64748b;
-  --color-line: #e2e8f0;
-  --color-line-strong: #cbd5e1;
-  --color-page: #f8fafc;
+  /* Unified Brand Palette (#1B4332 Forest Green, #1A2922 Ink & #F5F4EF Warm Stone) */
+  --color-primary: #1b4332;
+  --color-primary-hover: #143326;
+  --color-primary-subtle: #eff5e8;
+  --color-accent: #1b4332;
+  --color-accent-hover: #143326;
+  --color-fg: #1a2922;
+  --color-muted: #2e3b33;
+  --color-line: #e6e4dc;
+  --color-line-strong: #d2cfc4;
+  --color-page: #f5f4ef;
   --color-surface: #ffffff;
-  --color-selected: #eff6ff;
-  --color-primary-light: #eff6ff;
+  --color-selected: #eff5e8;
+  --color-primary-light: #eff5e8;
 
   /* Semantic Feedback (Standard Corporate) */
   --color-danger: #dc2626;
@@ -59,11 +59,11 @@
   --spacing-row: 48px;
   --container-content: 1240px;
 
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-2xl: 28px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
 
   /* Natural Shadows (No glowing neon rings) */
   --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
@@ -232,4 +232,10 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

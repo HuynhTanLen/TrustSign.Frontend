@@ -55,7 +55,7 @@ export function BarChart({
                 {d.display ?? safeVal}
               </span>
               <div
-                className="w-full max-w-11 rounded-t-lg bg-gradient-to-t from-[#122e54] to-blue-600 origin-bottom motion-safe:animate-[grow-y_600ms_var(--ease-out-soft)_both] transition-transform duration-200 group-hover:scale-x-105 group-hover:brightness-110 shadow-xs"
+                className="w-full max-w-11 rounded-t-sm bg-[#1B4332] origin-bottom motion-safe:animate-[grow-y_600ms_var(--ease-out-soft)_both] transition-transform duration-200 group-hover:scale-x-105 group-hover:brightness-110 shadow-xs"
                 style={{
                   height: `${Math.max(6, (safeVal / max) * 85)}%`,
                   animationDelay: `${i * 45}ms`,
@@ -99,10 +99,10 @@ export function Progress({
   const pct = Math.min(100, Math.max(0, Math.round((safeVal / safeMax) * 100)));
 
   const fill = {
-    primary: "bg-gradient-to-r from-blue-600 to-indigo-600",
-    success: "bg-gradient-to-r from-emerald-500 to-teal-600",
-    warning: "bg-gradient-to-r from-amber-500 to-orange-600",
-    danger: "bg-gradient-to-r from-rose-500 to-red-600",
+    primary: "bg-[#1B4332]",
+    success: "bg-emerald-700",
+    warning: "bg-amber-600",
+    danger: "bg-rose-600",
     muted: "bg-slate-400",
   }[tone];
 
@@ -114,12 +114,12 @@ export function Progress({
       aria-valuemax={safeMax}
       aria-label={label}
       className={cn(
-        "relative h-2.5 rounded-full bg-slate-100 border border-slate-200/80 overflow-hidden shadow-inner",
+        "relative h-2 rounded-sm bg-[#E6E4DC] overflow-hidden",
         className,
       )}
     >
       <div
-        className={cn("h-full rounded-full origin-left motion-safe:animate-grow-x relative overflow-hidden", fill)}
+        className={cn("h-full rounded-sm origin-left motion-safe:animate-grow-x relative overflow-hidden", fill)}
         style={{ width: `${pct}%` }}
       >
         {/* Shimmer sweep effect inside progress bar */}

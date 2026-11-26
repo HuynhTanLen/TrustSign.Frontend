@@ -191,22 +191,25 @@ export default function AdminTenantsPage() {
                 align: "right",
                 render: (t) =>
                   t.isLocked ? (
-                    <Button
-                      variant="secondary"
-                      leftIcon={<LockOpen className="w-4 h-4" aria-hidden="true" />}
+                    <button
+                      type="button"
+                      title="Mở khóa doanh nghiệp"
+                      aria-label={`Mở khóa ${t.name}`}
                       onClick={() => setUnlocking(t)}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-sm bg-[#E2EED6] text-[#143326] border border-[#9EC084] hover:bg-[#D0E3BD] transition-colors cursor-pointer"
                     >
-                      Mở khóa
-                    </Button>
+                      <LockOpen className="w-4 h-4" aria-hidden="true" />
+                    </button>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      className="text-danger"
-                      leftIcon={<Lock className="w-4 h-4" aria-hidden="true" />}
+                    <button
+                      type="button"
+                      title="Khóa doanh nghiệp"
+                      aria-label={`Khóa ${t.name}`}
                       onClick={() => setLocking(t)}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-sm bg-[#FDF2F2] text-[#7A1F1F] border border-[#DDA8A8] hover:bg-[#F9E1E1] transition-colors cursor-pointer"
                     >
-                      Khóa
-                    </Button>
+                      <Lock className="w-4 h-4" aria-hidden="true" />
+                    </button>
                   ),
               },
             ]}

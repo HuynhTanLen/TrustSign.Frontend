@@ -29,30 +29,30 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-9 px-3.5 text-xs gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-lg",
-  lg: "h-11 px-6 text-sm gap-2.5 rounded-xl font-bold",
+  sm: "h-9 px-3.5 text-xs gap-1.5 rounded-sm",
+  md: "h-10 px-4 text-sm gap-2 rounded-sm",
+  lg: "h-11 px-6 text-sm gap-2.5 rounded-md font-bold",
 };
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-blue-600 text-white border border-blue-700/20 shadow-xs hover:bg-blue-700 hover:shadow-md",
+    "bg-[#1B4332] text-white border border-[#143326]/30 shadow-xs hover:bg-[#143326] hover:shadow-md",
   accent:
-    "bg-[#1e40af] text-white border border-[#1e40af]/30 shadow-xs hover:bg-[#1e3a8a] hover:shadow-md",
+    "bg-[#1B4332] text-white border border-[#143326]/30 shadow-xs hover:bg-[#143326] hover:shadow-md",
   gradient:
-    "bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white border border-blue-800/30 shadow-xs hover:brightness-105 hover:shadow-md",
+    "bg-[#1B4332] text-white border border-[#143326]/30 shadow-xs hover:bg-[#143326] hover:shadow-md",
   secondary:
-    "bg-white border-slate-300 text-slate-800 shadow-xs hover:bg-slate-50 hover:border-slate-400 hover:text-blue-700",
+    "bg-white border-slate-300 text-[#1A2922] shadow-xs hover:bg-[#F5F4EF] hover:border-[#1B4332]/40 hover:text-[#1B4332]",
   danger:
-    "bg-red-600 text-white border border-red-700/20 shadow-xs hover:bg-red-700 hover:shadow-md",
+    "bg-[#8C2D2D] text-white border border-[#732323]/30 shadow-xs hover:bg-[#732323] hover:shadow-md",
   success:
-    "bg-emerald-600 text-white border border-emerald-700/20 shadow-xs hover:bg-emerald-700 hover:shadow-md",
+    "bg-[#1B4332] text-white border border-[#143326]/30 shadow-xs hover:bg-[#143326] hover:shadow-md",
   ghost:
-    "bg-transparent border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900 shadow-none",
+    "bg-transparent border-transparent text-[#1A2922] hover:bg-[#F5F4EF] hover:text-[#1B4332] shadow-none",
   link:
-    "!h-auto !p-0 bg-transparent border-transparent text-blue-600 underline underline-offset-4 hover:text-blue-800 shadow-none",
+    "!h-auto !p-0 bg-transparent border-transparent text-[#1B4332] underline underline-offset-4 hover:text-[#143326] shadow-none",
   inverse:
-    "bg-white border border-slate-200 text-slate-900 shadow-sm hover:bg-slate-50 hover:text-blue-700",
+    "bg-white border border-[#E6E4DC] text-[#1A2922] shadow-sm hover:bg-[#F5F4EF] hover:text-[#1B4332]",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

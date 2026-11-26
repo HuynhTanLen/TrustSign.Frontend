@@ -78,13 +78,14 @@ export function parseCccdQr(raw: string): CccdInfo | null {
   };
 }
 
-/** Thử cả ảnh, rồi phóng to góc trên bên phải (vị trí QR trên mặt trước CCCD) vì QR thường nhỏ trong ảnh chụp. */
+/** Thử cả ảnh, rồi phóng to các góc trên vì QR thường nhỏ trong ảnh chụp (CCCD gắn chip: mặt trước; Căn cước từ 7/2024: mặt sau). */
 export function decodeCccdQr(canvas: HTMLCanvasElement): CccdInfo | null {
   const { width: w, height: h } = canvas;
   const regions: [number, number, number, number][] = [
     [0, 0, w, h],
     [w / 2, 0, w / 2, h / 2],
     [w / 3, 0, (w * 2) / 3, (h * 2) / 3],
+    [0, 0, (w * 2) / 3, (h * 2) / 3],
   ];
   for (const [sx, sy, sw, sh] of regions) {
     const scale = Math.min(2, 1200 / Math.max(sw, sh));

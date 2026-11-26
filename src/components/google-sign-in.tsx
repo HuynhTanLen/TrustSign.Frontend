@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { authApi, type UserDto } from "@/lib/api/auth";
@@ -93,7 +93,7 @@ export function GoogleSignIn({ onSuccess }: { onSuccess: (user: UserDto) => void
             placeholder="Mật khẩu TrustSign"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+            className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:border-[#1B4332] focus:ring-4 focus:ring-[#1B4332]/15"
           />
           <div className="flex gap-2">
             <Button type="submit" size="sm" isLoading={busy}>Liên kết và đăng nhập</Button>

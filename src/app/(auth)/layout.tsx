@@ -1,28 +1,10 @@
 import Link from "next/link";
-import { CheckCircle2, QrCode, ShieldCheck, Users } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { Wordmark } from "@/components/wordmark";
 
-const highlights = [
-  {
-    icon: Users,
-    title: "Đa doanh nghiệp & Phân quyền",
-    desc: "Một tài khoản quản lý và tham gia nhiều không gian pháp nhân tách biệt an toàn.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Bảo mật & Pháp lý chuẩn mực",
-    desc: "Phiên đăng nhập xoay vòng refresh token cùng chuẩn ký số PAdES bất biến.",
-  },
-  {
-    icon: QrCode,
-    title: "Tự động kích hoạt gói",
-    desc: "Tự động nhận 14 ngày dùng thử miễn phí khi tạo doanh nghiệp đầu tiên.",
-  },
-];
-
 /**
- * AuthLayout — Phong cách Clean Bright Minimalist (Stripe & Notion Light).
- * Toàn bộ 2 bên đều là nền sáng ngà / xám nhạt cao cấp, loại bỏ hoàn toàn mảng nền đen tối ngột ngạt.
+ * AuthLayout — Giao diện chia đôi tối giản (Editorial Split-Screen).
+ * Cột trái nền đá ấm (#F5F4EF) nhấn mạnh thông điệp thương hiệu; cột phải nền trắng tinh gọn cho biểu mẫu.
  */
 export default function AuthLayout({
   children,
@@ -30,86 +12,121 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] bg-[#f8fafc] text-fg">
-      {/* Mobile Top Header (Clean Light) */}
-      <header className="lg:hidden h-16 bg-white px-4 flex items-center justify-between border-b border-slate-200 shadow-2xs">
-        <Wordmark tone="dark" />
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white text-[#1A2922]">
+      {/* Mobile Header */}
+      <header className="lg:hidden h-14 bg-[#F5F4EF] px-5 flex items-center justify-between border-b border-[#E6E4DC]">
+        <div className="flex items-center gap-2.5">
+          <Wordmark tone="dark" />
+          <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[#2E3B33]">
+            Workspace
+          </span>
+        </div>
         <Link
           href="/"
-          className="text-xs text-slate-600 hover:text-slate-900 font-bold transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-[#2E3B33] hover:text-[#1A2922] transition-colors"
         >
-          ← Về trang chủ
+          Trang chủ
+          <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       </header>
 
-      {/* Desktop Left Brand & Showcase Panel (Clean Bright Soft Gray/Blue Wash) */}
-      <aside className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-white via-slate-50 to-blue-50/20 p-10 xl:p-14 relative overflow-hidden border-r border-slate-200/80">
-        {/* Soft subtle radial ambient light */}
-        <div
-          aria-hidden="true"
-          className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100/50 rounded-full blur-3xl pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-100/40 rounded-full blur-3xl pointer-events-none"
-        />
-
-        <div className="relative z-10">
+      {/* Desktop Left Editorial Panel */}
+      <aside className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between bg-[#F5F4EF] border-r border-[#E6E4DC] p-10 xl:p-14 relative overflow-hidden select-none">
+        <div className="relative z-10 flex items-center gap-3">
           <Wordmark tone="dark" />
+          <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#2E3B33] pt-0.5">
+            Workspace
+          </span>
         </div>
 
-        <div className="relative z-10 max-w-md my-auto py-8 motion-safe:animate-fade-up">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-xs font-bold border border-blue-200/80 text-blue-700 mb-5 shadow-2xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-            <span>Nền tảng Ký kết Số Pháp lý Thế hệ mới</span>
-          </div>
+        <div className="relative z-10 my-auto py-8 max-w-md">
+          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-[#2E3B33] mb-4">
+            Không gian ký kết pháp lý
+          </p>
 
-          <h2 className="text-2xl xl:text-3xl font-black tracking-tight leading-snug text-slate-900">
-            Ký kết số an toàn, bảo vệ giao dịch pháp lý của bạn
+          <h2 className="text-4xl xl:text-[44px] font-extrabold tracking-tight leading-[1.08] text-[#1A2922]">
+            Mọi giao dịch
+            <br />
+            bắt đầu từ
+            <br />
+            <span className="font-serif italic font-normal text-[#1B4332]">
+              TrustSign.
+            </span>
           </h2>
 
-          <div className="mt-8 flex flex-col gap-3.5">
-            {highlights.map((h) => {
-              const Icon = h.icon;
-              return (
-                <div
-                  key={h.title}
-                  className="group bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-blue-200 flex items-start gap-3.5"
-                >
-                  <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0 mt-0.5 transition-transform duration-200 group-hover:scale-105">
-                    <Icon className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">
-                      {h.title}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      {h.desc}
-                    </p>
-                  </div>
+          <p className="mt-4 text-sm text-[#2E3B33] leading-relaxed max-w-xs">
+            Quản lý hợp đồng, xác thực danh tính và ký số PAdES trên một không gian thống nhất.
+          </p>
+
+          <div className="relative mt-12 flex items-center">
+            <div
+              aria-hidden="true"
+              className="w-48 h-48 rounded-full border-[14px] border-[#ECEBE3] flex items-center justify-center ml-6"
+            />
+
+            <div className="absolute left-0 top-2 w-56 rounded-lg bg-[#DCEBC7] border border-[#C9DEB0] p-5 shadow-[0_18px_36px_-12px_rgba(27,67,50,0.16)] -rotate-3">
+              <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-[#4B6144]">
+                Chuẩn pháp lý 2023
+              </p>
+              <p className="mt-2 text-lg font-bold leading-snug text-[#1A2922]">
+                Ký một lần,
+                <br />
+                an tâm trọn đời.
+              </p>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex flex-col gap-1.5 w-24">
+                  <span className="h-1.5 w-full rounded-sm bg-[#B9CFA0]" />
+                  <span className="h-1.5 w-3/4 rounded-sm bg-[#B9CFA0]" />
                 </div>
-              );
-            })}
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[#1B4332] text-white shadow-xs">
+                  <Check className="w-3.5 h-3.5" strokeWidth={3} aria-hidden="true" />
+                </span>
+              </div>
+            </div>
+
+            <div className="absolute left-36 top-28 bg-white border border-slate-200/90 rounded-md px-3.5 py-2 shadow-md flex items-center gap-1.5 text-xs font-semibold text-[#1A2922]">
+              <ArrowUpRight className="w-3.5 h-3.5 text-[#1B4332]" aria-hidden="true" />
+              <span>An toàn &amp; Bất biến</span>
+            </div>
+
+            <span
+              aria-hidden="true"
+              className="ml-auto mr-6 text-4xl font-light text-[#7E8D6F] leading-none"
+            >
+              ✻
+            </span>
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-xs text-slate-500 pt-6 border-t border-slate-200">
-          <span>© 2026 Chữ Tín (TrustSign)</span>
-          <Link
-            href="/"
-            className="text-slate-600 hover:text-slate-900 font-semibold underline underline-offset-2 transition-colors"
-          >
-            Về trang chủ
-          </Link>
+        <div className="relative z-10 flex items-center justify-between text-xs text-[#2E3B33]">
+          <span>Giải pháp hợp đồng điện tử chuẩn pháp lý.</span>
+          <span aria-hidden="true" className="text-base text-[#7E8D6F]">
+            ✻
+          </span>
         </div>
       </aside>
 
-      {/* Right Login / Register Form Canvas */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-10 relative bg-[#f8fafc]">
-        <div className="w-full max-w-[460px] motion-safe:animate-fade-up">
-          {children}
+      {/* Right Form Canvas */}
+      <div className="flex-1 flex flex-col min-h-screen bg-white">
+        <div className="hidden lg:flex items-center justify-between px-10 pt-7">
+          <span className="inline-flex items-center px-3 py-1 rounded-md border border-[#E6E4DC] bg-[#F5F4EF] text-[10px] font-semibold tracking-[0.14em] uppercase text-[#2E3B33]">
+            TrustSign · E-Contract
+          </span>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#2E3B33] hover:text-[#1B4332] transition-colors"
+          >
+            Trang chủ
+            <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+          </Link>
         </div>
-      </main>
+
+        <main className="flex-1 flex items-center justify-center px-6 py-10 sm:px-10">
+          <div className="w-full max-w-[400px] motion-safe:animate-fade-up">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ export type BadgeTone =
   | "draft"
   | "pending"
   | "signing"
+  | "trial"
   | "completed"
   | "declined"
   | "cancelled"
@@ -33,13 +34,14 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const tones: Record<BadgeTone, string> = {
-  draft: "bg-slate-100/90 text-slate-700 ring-slate-300/60 shadow-xs",
-  pending: "bg-amber-50 text-amber-800 ring-amber-300/80 shadow-xs",
-  signing: "bg-blue-50 text-blue-700 ring-blue-300/80 shadow-xs",
-  completed: "bg-emerald-50 text-emerald-800 ring-emerald-300/80 shadow-xs",
-  declined: "bg-rose-50 text-rose-800 ring-rose-300/80 shadow-xs",
-  cancelled: "bg-gray-100 text-gray-700 ring-gray-300/60 shadow-xs",
-  expired: "bg-orange-50 text-orange-800 ring-orange-300/80 shadow-xs",
+  draft: "bg-[#475569] text-white ring-[#334155] shadow-xs",
+  pending: "bg-[#B45309] text-white ring-[#92400E] shadow-xs",
+  signing: "bg-[#0F766E] text-white ring-[#115E59] shadow-xs",
+  trial: "bg-[#1D4ED8] text-white ring-[#1E40AF] shadow-xs",
+  completed: "bg-[#1B4332] text-white ring-[#143326] shadow-xs",
+  declined: "bg-[#991B1B] text-white ring-[#7F1D1D] shadow-xs",
+  cancelled: "bg-[#334155] text-white ring-[#1E293B] shadow-xs",
+  expired: "bg-[#C2410C] text-white ring-[#9A3412] shadow-xs",
 };
 
 const sizes = {
@@ -58,7 +60,7 @@ const contractBadges: Record<ContractStatus, { tone: BadgeTone; label: string }>
 };
 
 const subscriptionBadges: Record<SubscriptionStatus, { tone: BadgeTone; label: string }> = {
-  Trial: { tone: "signing", label: "Dùng thử" },
+  Trial: { tone: "trial", label: "Dùng thử" },
   Active: { tone: "completed", label: "Hiệu lực" },
   Expired: { tone: "declined", label: "Hết hạn" },
 };
@@ -81,21 +83,13 @@ export function Badge({
     : { tone: tone ?? ("draft" as const), label: "" };
 
   const activeTone = tone ?? resolved.tone;
-  const showDot = dot ?? Boolean(contractStatus || subscriptionStatus);
-
-  // Tự động bật pulse cho các trạng thái đang diễn ra
-  const shouldPulse =
-    pulse ??
-    (contractStatus === "Signing" ||
-      contractStatus === "Pending" ||
-      subscriptionStatus === "Active" ||
-      activeTone === "signing" ||
-      activeTone === "pending");
+  const showDot = dot ?? false;
+  const shouldPulse = pulse ?? false;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full font-semibold ring-1 ring-inset whitespace-nowrap select-none",
+        "inline-flex items-center rounded-sm font-semibold ring-1 ring-inset whitespace-nowrap select-none",
         "transition-colors duration-150",
         sizes[size],
         tones[activeTone],

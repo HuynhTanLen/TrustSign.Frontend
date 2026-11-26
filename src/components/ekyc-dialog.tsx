@@ -252,7 +252,7 @@ function PrepareStep({
             Mẹo nhanh
           </h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
-            <li>Dùng CCCD gắn chip còn hiệu lực, mã QR ở mặt trước không bị che hay loá.</li>
+            <li>Dùng CCCD gắn chip (QR ở mặt trước) hoặc thẻ Căn cước mới (QR ở mặt sau), mã QR không bị che hay loá.</li>
             <li>Chụp nơi đủ sáng, tránh phản quang; đặt thẻ trên nền phẳng, tối màu.</li>
             <li>Webcam máy tính khó đọc QR: có thể chụp bằng điện thoại rồi tải ảnh lên.</li>
           </ul>
@@ -271,7 +271,7 @@ function PrepareStep({
         </h3>
         {[
           ["Chụp khuôn mặt", "Nhìn thẳng camera, không đeo kính râm hay khẩu trang, chỉ một người trong khung hình."],
-          ["Chụp hai mặt CCCD", "Mặt trước để đọc mã QR và ảnh chân dung, mặt sau để lưu hồ sơ."],
+          ["Chụp hai mặt CCCD", "Mặt trước để lấy ảnh chân dung; mã QR đọc từ mặt có in mã trên thẻ của bạn."],
           ["Đối chiếu & gửi", "Hệ thống so khuôn mặt với ảnh trên thẻ, bạn kiểm tra thông tin rồi gửi."],
         ].map(([title, text], i) => (
           <div key={title} className="flex gap-3 rounded-md border border-line p-4">
@@ -325,8 +325,12 @@ export function EkycDialog({
   const [selfieFace, setSelfieFace] = React.useState<Float32Array | null>(null);
   const [front, setFront] = React.useState<Shot | null>(null);
   const [cardFace, setCardFace] = React.useState<Float32Array | null>(null);
-  const [cccd, setCccd] = React.useState<CccdInfo | null>(null);
+  const [frontQr, setFrontQr] = React.useState<CccdInfo | null>(null);
   const [back, setBack] = React.useState<Shot | null>(null);
+  const [backQr, setBackQr] = React.useState<CccdInfo | null>(null);
+  const [backOk, setBackOk] = React.useState(false);
+  // CCCD gắn chip in QR ở mặt trước, thẻ Căn cước từ 7/2024 in ở mặt sau.
+  const cccd = frontQr ?? backQr;
   const [distance, setDistance] = React.useState<number | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -348,8 +352,10 @@ export function EkycDialog({
     setSelfieFace(null);
     setFront(null);
     setCardFace(null);
-    setCccd(null);
+    setFrontQr(null);
     setBack(null);
+    setBackQr(null);
+    setBackOk(false);
     setDistance(null);
     setError(null);
     setResult(null);
@@ -392,11 +398,9 @@ export function EkycDialog({
   const onFront = async (canvas: HTMLCanvasElement) => {
     setFront(await toShot(canvas));
     await analyse(async () => {
-      const info = decodeCccdQr(canvas);
-      if (!info) return "Không đọc được mã QR ở góc trên bên phải thẻ. Chụp gần hơn, rõ nét, không loá.";
       const faces = await detectFaces(canvas);
       if (!faces.descriptor) return "Không thấy ảnh chân dung trên thẻ. Chụp lại toàn bộ mặt trước CCCD.";
-      setCccd(info);
+      setFrontQr(decodeCccdQr(canvas));
       setCardFace(faces.descriptor);
       return null;
     });
@@ -404,8 +408,21 @@ export function EkycDialog({
 
   const onBack = async (canvas: HTMLCanvasElement) => {
     setBack(await toShot(canvas));
-    // Mặt sau không có QR; nếu đọc được QR thì người dùng đã chụp nhầm mặt trước.
-    setError(decodeCccdQr(canvas) ? "Đây là mặt trước. Hãy lật thẻ và chụp mặt sau." : null);
+    await analyse(async () => {
+      const info = decodeCccdQr(canvas);
+      const wrongSide = "Đây là mặt trước. Hãy lật thẻ và chụp mặt sau.";
+      if (frontQr) {
+        if (info) return wrongSide;
+      } else {
+        if (!info)
+          return "Không đọc được mã QR. Thẻ Căn cước mới: chụp mặt sau gần hơn, rõ nét, không loá. Nếu QR nằm ở mặt trước, bấm Quay lại rồi chụp lại mặt trước.";
+        // Có chân dung nghĩa là người dùng chụp lại mặt trước.
+        if ((await detectFaces(canvas)).count > 0) return wrongSide;
+        setBackQr(info);
+      }
+      setBackOk(true);
+      return null;
+    });
   };
 
   const retake = (which: 1 | 2 | 3) => {
@@ -413,11 +430,17 @@ export function EkycDialog({
     if (which === 1) {
       setSelfie(null);
       setSelfieFace(null);
-    } else if (which === 2) {
-      setFront(null);
-      setCccd(null);
-      setCardFace(null);
-    } else setBack(null);
+    } else {
+      // Mặt sau được kiểm theo mặt trước, nên chụp lại mặt trước thì bỏ luôn mặt sau.
+      if (which === 2) {
+        setFront(null);
+        setFrontQr(null);
+        setCardFace(null);
+      }
+      setBack(null);
+      setBackQr(null);
+      setBackOk(false);
+    }
   };
 
   const goToReview = async () => {
@@ -442,7 +465,7 @@ export function EkycDialog({
 
   const matched = distance !== null && distance <= MAX_FACE_DISTANCE;
   const canNext =
-    !busy && !error && ((step === 0 && consent) || (step === 1 && !!selfieFace) || (step === 2 && !!cccd) || (step === 3 && !!back));
+    !busy && !error && ((step === 0 && consent) || (step === 1 && !!selfieFace) || (step === 2 && !!cardFace) || (step === 3 && backOk && !!cccd));
 
   const footer = result ? (
     <Button variant="primary" onClick={close}>Đóng</Button>
@@ -489,7 +512,7 @@ export function EkycDialog({
         {step === 2 && (
           <CaptureStep
             title="Ảnh CCCD mặt trước"
-            hint="Đặt cả thẻ vào khung, mã QR ở góc trên bên phải phải rõ nét."
+            hint="Đặt cả thẻ vào khung, thấy rõ ảnh chân dung (và mã QR nếu thẻ in mã ở mặt này)."
             shot={front}
             busy={busy}
             error={error}
@@ -498,12 +521,17 @@ export function EkycDialog({
             <CameraCapture facing="environment" shape="card" allowUpload onCapture={onFront} />
           </CaptureStep>
         )}
-        {step === 2 && cccd && !error && <CccdSummary info={cccd} />}
+        {step === 2 && cardFace && !cccd && (
+          <p className="rounded-md bg-primary-subtle p-3 text-sm text-fg" role="status">
+            Chưa thấy mã QR ở mặt trước. Thẻ Căn cước mới in QR ở mặt sau: bấm Tiếp tục. Nếu thẻ của bạn có QR ở mặt này,
+            hãy chụp lại cho rõ.
+          </p>
+        )}
 
         {step === 3 && (
           <CaptureStep
             title="Ảnh CCCD mặt sau"
-            hint="Lật thẻ và chụp mặt sau, thấy rõ vân tay và ngày cấp."
+            hint="Lật thẻ và chụp trọn mặt sau. Nếu mặt này có mã QR, mã phải rõ nét."
             shot={back}
             busy={busy}
             error={error}
@@ -512,6 +540,8 @@ export function EkycDialog({
             <CameraCapture facing="environment" shape="card" allowUpload onCapture={onBack} />
           </CaptureStep>
         )}
+
+        {(step === 2 || step === 3) && cccd && !error && <CccdSummary info={cccd} />}
 
         {step === 4 && cccd && (
           <div className="flex flex-col gap-4">

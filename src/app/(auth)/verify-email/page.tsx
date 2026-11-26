@@ -6,11 +6,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, CircleAlert, Mail, MailCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const verificationRequests = new Map<string, Promise<{ success: boolean; message: string }>>();
 
@@ -33,6 +31,35 @@ function getLoginHrefClient(): string {
   return "/login";
 }
 
+/** Minh họa chúc mừng hoàn tất xác thực (phong cách tối giản giống mẫu 2). */
+function VerifiedCelebrationIllustration() {
+  return (
+    <svg viewBox="0 0 96 96" className="w-20 h-20 mx-auto" fill="none" aria-hidden="true">
+      <circle cx="48" cy="48" r="36" fill="#FEF3C7" opacity="0.5" />
+      <path d="M35 28L41 50C42 54 38 58 34 59C30 60 26 57 25 53L21 31L35 28Z" fill="#FCD34D" stroke="#1E293B" strokeWidth="2.8" strokeLinejoin="round" />
+      <path d="M34 59L37 74M31 75L43 73" stroke="#1E293B" strokeWidth="2.8" strokeLinecap="round" />
+      <path d="M61 28L55 50C54 54 58 58 62 59C66 60 70 57 71 53L75 31L61 28Z" fill="#FCD34D" stroke="#1E293B" strokeWidth="2.8" strokeLinejoin="round" />
+      <path d="M62 59L59 74M53 73L65 75" stroke="#1E293B" strokeWidth="2.8" strokeLinecap="round" />
+      <line x1="48" y1="14" x2="48" y2="21" stroke="#1E293B" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="39" y1="17" x2="42" y2="23" stroke="#1E293B" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="57" y1="17" x2="54" y2="23" stroke="#1E293B" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Minh họa cần nhận lại liên kết xác minh (phong cách tối giản giống mẫu 2). */
+function ResendMailIllustration() {
+  return (
+    <svg viewBox="0 0 96 96" className="w-20 h-20 mx-auto" fill="none" aria-hidden="true">
+      <rect x="24" y="14" width="38" height="68" rx="7" fill="#F5F4EF" stroke="#1A2922" strokeWidth="3" />
+      <line x1="37" y1="21" x2="49" y2="21" stroke="#1A2922" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="43" cy="74" r="2.2" fill="#1A2922" />
+      <rect x="44" y="34" width="36" height="24" rx="4" fill="#1B4332" stroke="#1A2922" strokeWidth="2.8" />
+      <path d="M46 37L62 49L78 37" stroke="#DCEBC7" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -48,7 +75,6 @@ function VerifyEmailContent() {
     token: string;
     outcome: "success" | "expired";
     errorDetail?: string;
-    correlationId?: string | null;
   } | null>(null);
 
   const [resendEmail, setResendEmail] = React.useState("");
@@ -79,7 +105,6 @@ function VerifyEmailContent() {
           token,
           outcome: "expired",
           errorDetail: err instanceof ApiError ? err.message : undefined,
-          correlationId: err instanceof ApiError ? err.correlationId : null,
         });
       });
 
@@ -112,44 +137,46 @@ function VerifyEmailContent() {
 
   if (status === "loading") {
     return (
-      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-selected text-primary border border-primary/10">
-            <MailCheck className="w-4 h-4 text-primary" aria-hidden="true" />
-          </span>
-          <div>
-            <h1 className="text-base font-bold text-fg">Xác minh tài khoản</h1>
-            <p className="text-xs text-muted">Đang kiểm tra tính hợp lệ của liên kết…</p>
-          </div>
-        </header>
-        <div className="p-6 flex flex-col gap-4">
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-10 w-full mt-2" />
+      <div className="text-center py-6">
+        <p className="text-xs font-semibold tracking-[0.14em] uppercase text-[#2E3B33] mb-6">
+          Xác thực tài khoản
+        </p>
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-[#EFF5E8] text-[#1B4332]">
+          <Loader2 className="w-6 h-6 animate-spin" aria-hidden="true" />
         </div>
+        <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-slate-900">
+          Đang xác minh email…
+        </h1>
+        <p className="mt-2 text-sm text-[#2E3B33]">
+          Hệ thống đang kiểm tra tính hợp lệ của liên kết xác thực.
+        </p>
       </div>
     );
   }
 
   if (status === "success") {
     return (
-      <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-        <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-completed-bg text-success border border-success/15">
-            <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-          </span>
-          <div>
-            <h1 className="text-base font-bold text-fg">Xác minh thành công</h1>
-            <p className="text-xs text-muted">Tài khoản của bạn đã được kích hoạt</p>
-          </div>
-        </header>
-        <div className="p-6 flex flex-col gap-5">
-          <p className="text-sm text-muted leading-relaxed">
-            Địa chỉ email của bạn đã hoàn tất kích hoạt an toàn. Bạn có thể đăng nhập ngay để thiết lập không gian doanh nghiệp.
-          </p>
-          <Link href={loginHref} className="block">
-            <Button variant="primary" size="lg" className="w-full">
-              Đăng nhập ngay
-            </Button>
+      <div className="text-center py-2">
+        <p className="text-xs font-semibold tracking-[0.14em] uppercase text-[#2E3B33] mb-6">
+          Xác thực tài khoản
+        </p>
+
+        <VerifiedCelebrationIllustration />
+
+        <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-slate-900">
+          Xác minh email hoàn tất
+        </h1>
+
+        <p className="mt-2.5 text-sm text-[#2E3B33] leading-relaxed max-w-xs mx-auto">
+          Tài khoản của bạn đã được kích hoạt thành công. Bạn có thể đăng nhập ngay để bắt đầu sử dụng TrustSign.
+        </p>
+
+        <div className="mt-8 flex justify-center">
+          <Link
+            href={loginHref}
+            className="w-full max-w-[240px] h-11 rounded-lg bg-[#1B4332] hover:bg-[#143326] text-white text-sm font-semibold inline-flex items-center justify-center shadow-sm transition-colors"
+          >
+            Đăng nhập ngay
           </Link>
         </div>
       </div>
@@ -157,59 +184,52 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface shadow-card overflow-hidden">
-      <header className="px-6 py-4 bg-strip/75 border-b border-line flex items-center gap-2.5">
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-badge-declined-bg text-danger border border-danger/15">
-          <CircleAlert className="w-4 h-4" aria-hidden="true" />
-        </span>
-        <div>
-          <h1 className="text-base font-bold text-fg">
-            {status === "no-token" ? "Thiếu mã xác minh" : "Liên kết đã hết hạn"}
-          </h1>
-          <p className="text-xs text-muted">Vui lòng nhận liên kết xác thực mới</p>
-        </div>
-      </header>
+    <div className="text-center py-2">
+      <p className="text-xs font-semibold tracking-[0.14em] uppercase text-[#2E3B33] mb-6">
+        Xác thực tài khoản
+      </p>
 
-      <div className="p-6 flex flex-col gap-5">
-        <div className="text-sm text-muted">
-          <p>
-            {verifiedState?.errorDetail ??
-              "Liên kết xác minh không còn hiệu lực hoặc đã được sử dụng trước đó. Vui lòng nhập email để nhận liên kết mới."}
-          </p>
-        </div>
+      <ResendMailIllustration />
 
-        <form onSubmit={handleResend} className="flex flex-col gap-4">
-          <Input
-            type="email"
-            label="Email đã đăng ký"
-            required
-            placeholder="ten@doanhnghiep.vn"
-            value={resendEmail}
-            onChange={(e) => setResendEmail(e.target.value)}
-            leftIcon={<Mail className="w-4 h-4" aria-hidden="true" />}
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            className="w-full"
-            isLoading={isResending}
-            disabled={resendCooldown > 0 || isResending}
-          >
-            {resendCooldown > 0
-              ? `Gửi lại sau ${resendCooldown} giây`
-              : "Gửi lại email xác minh"}
-          </Button>
-        </form>
+      <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-slate-900">
+        {status === "no-token" ? "Thiếu mã xác minh" : "Liên kết đã hết hạn"}
+      </h1>
 
-        <div className="pt-4 border-t border-line text-center text-sm">
-          <Link
-            href={loginHref}
-            className="text-primary font-bold underline underline-offset-4 hover:text-primary-hover"
-          >
-            Quay lại trang đăng nhập
-          </Link>
-        </div>
+      <p className="mt-2 text-sm text-[#2E3B33] leading-relaxed max-w-xs mx-auto">
+        {verifiedState?.errorDetail ??
+          "Liên kết không còn hiệu lực hoặc đã được sử dụng. Nhập email đã đăng ký để nhận liên kết mới."}
+      </p>
+
+      <form onSubmit={handleResend} className="mt-6 flex flex-col items-center gap-4">
+        <input
+          type="email"
+          required
+          placeholder="Nhập email đã đăng ký"
+          value={resendEmail}
+          onChange={(e) => setResendEmail(e.target.value)}
+          className="w-full max-w-[300px] h-11 border-b-2 border-slate-200 focus:border-[#1B4332] bg-transparent px-2 text-center text-sm text-[#1A2922] placeholder:text-[#2E3B33] focus:outline-none transition-colors"
+        />
+
+        <button
+          type="submit"
+          disabled={resendCooldown > 0 || isResending}
+          className="w-full max-w-[240px] h-11 rounded-lg bg-[#1B4332] hover:bg-[#143326] disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+        >
+          {resendCooldown > 0
+            ? `Gửi lại sau ${resendCooldown} giây`
+            : isResending
+            ? "Đang gửi..."
+            : "Gửi lại email xác minh"}
+        </button>
+      </form>
+
+      <div className="mt-6">
+        <Link
+          href={loginHref}
+          className="text-xs font-semibold text-[#2E3B33] hover:text-slate-900 underline underline-offset-4 transition-colors"
+        >
+          Quay lại trang đăng nhập
+        </Link>
       </div>
     </div>
   );
@@ -219,10 +239,11 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 rounded-xl border border-line bg-surface shadow-card flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-4 py-6">
+          <Skeleton className="h-20 w-20 rounded-full" />
           <Skeleton className="h-6 w-1/2" />
           <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-11 w-56 rounded-full" />
         </div>
       }
     >

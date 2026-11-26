@@ -30,7 +30,7 @@ export function PageHeader({
         {back && (
           <Link
             href={back.href}
-            className="group inline-flex items-center gap-1 mb-2 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
+            className="group inline-flex items-center gap-1 mb-2 text-xs font-bold text-[#1B4332] hover:text-[#143326] transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-1" aria-hidden="true" />
             <span>{back.label}</span>

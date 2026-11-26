@@ -155,6 +155,7 @@ function AdminLayoutShell({
     <AppShell
       homeHref="/admin"
       wordmarkSuffix="Quản trị"
+      variant="sidebar"
       nav={nav}
       secondaryNav={[
         {
@@ -163,14 +164,6 @@ function AdminLayoutShell({
           icon: ArrowLeftRight,
         },
       ]}
-      topbarLeft={
-        <div className="flex items-center gap-2">
-          <span>Quyền hạn:</span>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 text-white font-semibold text-xs border border-white/20">
-            Quản trị nền tảng (Admin)
-          </span>
-        </div>
-      }
       topbarRight={
         <UserMenu name={user?.fullName} email={user?.email} avatarUrl={user?.avatarUrl}>
           {(close) => (
