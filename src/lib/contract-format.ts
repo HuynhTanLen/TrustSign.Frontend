@@ -123,6 +123,15 @@ export const VARIABLE_LABELS: Record<string, string> = {
   nha_thau_phu: "Nhà thầu phụ",
   muc_thuong: "Thưởng hoàn thành sớm",
   giai_quyet_tranh_chap: "Nơi giải quyết tranh chấp",
+  nhiem_vu_du_an: "Nhiệm vụ dự án và hồ sơ đầu vào",
+  so_ngay_phe_duyet: "Số ngày thẩm định, phê duyệt hồ sơ thiết kế",
+  danh_muc_thiet_bi: "Danh mục vật tư, thiết bị chính",
+  dao_tao_chuyen_giao: "Đào tạo, chuyển giao công nghệ",
+  chi_tieu_cong_nang: "Chỉ tiêu công suất, tính năng",
+  yeu_cau_san_pham: "Sản phẩm bàn giao và tiêu chí nghiệm thu",
+  co_cau_gia: "Cơ cấu giá theo từng phần việc",
+  bao_hanh_thiet_bi: "Thời gian bảo hành thiết bị",
+  gioi_han_trach_nhiem: "Giới hạn trách nhiệm bồi thường",
 };
 
 /** Chuyển nhãn tiếng Việt bất kỳ (VD: "Biển số xe") sang mã biến chuẩn "bien_so_xe" */
@@ -671,9 +680,9 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
   },
   {
     id: "xd-vat-lieu",
-    name: "Hợp đồng mua bán vật liệu xây dựng",
+    name: "Hợp đồng cung cấp vật tư, thiết bị lắp đặt vào công trình",
     category: "Cung cấp vật tư, thiết bị",
-    summary: "Theo BLDS 2015 (Điều 430 trở đi) và Luật Thương mại 2005: xi măng, thép, cát đá, gạch, bê tông giao tại công trường.",
+    summary: "Theo BLDS 2015 (Điều 430 trở đi) và Luật Thương mại 2005: xi măng, thép, bê tông, thiết bị lắp đặt giao tại công trường.",
     legalBasis: [BLDS, LTM, LGDDT, NHU_CAU],
     partyATitle: "BÊN BÁN (BÊN A)",
     partyBTitle: "BÊN MUA (BÊN B)",
@@ -682,7 +691,7 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       ...BANK_A,
       ...COMPANY_B,
       ...deal(
-        ["ten_hang_hoa_tai_san", "Tên vật liệu"],
+        ["ten_hang_hoa_tai_san", "Tên vật tư, thiết bị"],
         ["so_luong_hang_hoa", "Số lượng, đơn vị tính"],
         ["thong_so_ky_thuat", "Quy cách, chất lượng, tiêu chuẩn"],
         ["gia_tri_hop_dong", "Tổng giá bán"],
@@ -709,6 +718,7 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
       ]],
       ["TRÁCH NHIỆM VỀ KHUYẾT TẬT", [
         "Bên A chịu trách nhiệm về khuyết tật của vật liệu không thể phát hiện khi giao nhận, kể cả thiệt hại gây ra cho công trình do khuyết tật đó.",
+        "Thiết bị được bảo hành không ngắn hơn thời hạn của nhà sản xuất, tính từ khi nghiệm thu lắp đặt, vận hành (khoản 6 Điều 32 Nghị định 207/2026/NĐ-CP).",
       ]],
       PENALTY_COMMERCIAL,
       FORCE_MAJEURE,
@@ -834,6 +844,292 @@ export const REFERENCE_TEMPLATES: ContractBlueprint[] = [
   },
 ];
 
+// ---- Hợp đồng kết hợp (EP, EC, PC, EPC, chìa khóa trao tay) và hợp đồng xây dựng khác ----
+// Khung 24 điều theo Phụ lục VII (EPC) Quyết định 1040/QĐ-BXD; loại không có mẫu công bố được lược theo phần việc.
+
+interface CombinedKind {
+  id: string;
+  name: string;
+  summary: string;
+  /** Định nghĩa phần việc theo khoản 1 Điều 6 Nghị định 210/2026/NĐ-CP */
+  scope: string;
+  feasibility?: boolean;
+  design?: boolean;
+  supply?: boolean;
+  build?: boolean;
+}
+
+const COMBINED_KINDS: CombinedKind[] = [
+  {
+    id: "xd-ep",
+    name: "Hợp đồng thiết kế - cung cấp vật tư, thiết bị (EP)",
+    summary: "Một nhà thầu thiết kế và mua sắm, cung cấp vật tư, thiết bị lắp đặt vào công trình.",
+    scope: "thiết kế và cung cấp vật tư, thiết bị lắp đặt vào công trình",
+    design: true,
+    supply: true,
+  },
+  {
+    id: "xd-ec",
+    name: "Hợp đồng thiết kế - thi công xây dựng công trình (EC)",
+    summary: "Một nhà thầu vừa thiết kế triển khai vừa thi công công trình.",
+    scope: "thiết kế và thi công xây dựng công trình",
+    design: true,
+    build: true,
+  },
+  {
+    id: "xd-pc",
+    name: "Hợp đồng cung cấp vật tư, thiết bị - thi công xây dựng (PC)",
+    summary: "Nhà thầu mua sắm vật tư, thiết bị và thi công theo thiết kế do chủ đầu tư cung cấp.",
+    scope: "cung cấp vật tư, thiết bị và thi công xây dựng công trình",
+    supply: true,
+    build: true,
+  },
+  {
+    id: "xd-epc",
+    name: "Hợp đồng thiết kế - cung cấp vật tư, thiết bị - thi công (EPC)",
+    summary: "24 điều theo khung Phụ lục VII Quyết định 1040/QĐ-BXD: thiết kế, mua sắm, thi công, chạy thử, bàn giao.",
+    scope: "thiết kế, cung cấp vật tư, thiết bị, thi công, chạy thử, nghiệm thu và bàn giao công trình",
+    design: true,
+    supply: true,
+    build: true,
+  },
+  {
+    id: "xd-chia-khoa",
+    name: "Hợp đồng chìa khóa trao tay",
+    summary: "Nhà thầu làm trọn từ lập báo cáo nghiên cứu khả thi, thiết kế, mua sắm, thi công đến bàn giao.",
+    scope: "lập báo cáo nghiên cứu khả thi, thiết kế, cung cấp vật tư, thiết bị, thi công, chạy thử, nghiệm thu và bàn giao toàn bộ công trình",
+    feasibility: true,
+    design: true,
+    supply: true,
+    build: true,
+  },
+  {
+    id: "xd-khac",
+    name: "Hợp đồng xây dựng khác",
+    summary: "Công việc xây dựng không thuộc các loại trên (ví dụ bảo hiểm công trình, rà phá bom mìn).",
+    scope: "xây dựng khác, thực hiện công việc không thuộc các loại tư vấn, thi công, cung cấp vật tư, thiết bị và hợp đồng kết hợp",
+  },
+];
+
+function combinedTemplate(kind: CombinedKind): ContractBlueprint {
+  const { feasibility, design, supply, build } = kind;
+  const when = <T,>(on: boolean | undefined, ...items: T[]): T[] => (on ? items : []);
+  const works = Boolean(supply || build);
+
+  // Dùng lại điều khoản của mẫu thi công để mỗi quy định chỉ nằm ở một chỗ.
+  const construction = REFERENCE_TEMPLATES.find((t) => t.id === "xd-thi-cong")!;
+  const reuse = (title: string): string[] => {
+    const found = construction.clauses.find((c) => c.title.endsWith(title));
+    if (!found) throw new Error(`Mẫu thi công thiếu điều "${title}"`);
+    return found.body.split("\n");
+  };
+  const ending = reuse("CHẤM DỨT HỢP ĐỒNG");
+  const endingFor = (start: string) => ending.filter((line) => line.startsWith(start));
+  // Đổi các câu của mẫu thi công cho khớp phần việc của từng loại.
+  const swaps: [string, string][] = [
+    ...when<[string, string]>(
+      !build,
+      ["từ ngày khởi công", "từ ngày bắt đầu thực hiện"],
+      ["hồ sơ hoàn công, nhật ký thi công", "tài liệu bàn giao"],
+      ["ngừng thi công", "ngừng thực hiện"],
+      ["dừng thi công", "dừng thực hiện"],
+      ["bàn giao mặt bằng, mốc giới, hồ sơ thiết kế đúng hạn", "cung cấp tài liệu, dữ liệu và điều kiện thực hiện đúng hạn"],
+    ),
+    ...when<[string, string]>(Boolean(design && build), ["mốc giới, hồ sơ thiết kế đúng hạn", "mốc giới, thiết kế cơ sở và dữ liệu đầu vào đúng hạn"]),
+    ...when<[string, string]>(
+      !works,
+      ["công trình được nghiệm thu và chuyển sang bảo hành", "sản phẩm được nghiệm thu"],
+      ["rủi ro về công trình, vật tư", "rủi ro về sản phẩm, tài liệu"],
+    ),
+  ];
+  const fit = (lines: string[]) => lines.map((line) => swaps.reduce((s, [from, to]) => s.replace(from, to), line));
+  const delivered = [
+    ...when(design, "hồ sơ được duyệt"),
+    ...when(supply, "thiết bị đã giao"),
+    ...when(build, "hạng mục đã hoàn thành"),
+  ].join(", ");
+
+  const specs: [string, string[]][] = [
+    ["GIẢI THÍCH TỪ NGỮ", [
+      `Hợp đồng này là hợp đồng ${kind.scope} theo khoản 1 Điều 6 Nghị định 210/2026/NĐ-CP.`,
+      "Bên giao thầu là Bên A, Bên nhận thầu là Bên B; công trình, địa điểm và phạm vi công việc theo Mục III.",
+      PRIVATE_CAPITAL,
+    ]],
+    ["HỒ SƠ HỢP ĐỒNG VÀ THỨ TỰ ƯU TIÊN", reuse("HỒ SƠ HỢP ĐỒNG VÀ THỨ TỰ ƯU TIÊN")],
+    ["QUY ĐỊNH CHUNG", [
+      ...reuse("LUẬT VÀ NGÔN NGỮ"),
+      ...reuse("THÔNG BÁO"),
+      "Không bên nào chuyển nhượng hợp đồng khi chưa được bên kia chấp thuận bằng văn bản; các bên giữ bí mật thông tin dự án.",
+      "Nếu Bên B là liên danh, các thành viên chịu trách nhiệm riêng rẽ và liên đới, thành viên đứng đầu được nêu trong thỏa thuận liên danh.",
+    ]],
+    ["PHẠM VI CÔNG VIỆC", [
+      "Phạm vi công việc theo Mục III.",
+      ...when(feasibility, "Lập báo cáo nghiên cứu khả thi theo nhiệm vụ dự án nêu tại Mục III và tham gia bảo vệ dự án."),
+      ...when(design, "Thiết kế các bước sau thiết kế cơ sở hoặc thiết kế FEED được duyệt, gồm cả khảo sát phục vụ thiết kế nếu cần."),
+      ...when(supply, "Mua sắm vật tư, thiết bị; làm thủ tục nhập khẩu nếu có, bảo hiểm, lưu kho, vận chuyển đến địa điểm giao nhận; phối hợp với nhà cung cấp, bên giữ bản quyền công nghệ; đào tạo, chuyển giao công nghệ theo Mục III."),
+      ...when(build, "Thi công, lắp đặt, tổ chức công trường, công trình tạm, nhân lực, nhà thầu phụ và lập hồ sơ hoàn công."),
+      "Công việc không nêu rõ nhưng cần thiết để đạt mục đích hợp đồng được coi là đã tính trong giá hợp đồng.",
+    ]],
+    ["YÊU CẦU ĐỐI VỚI CÔNG VIỆC VÀ SẢN PHẨM", [
+      "Sản phẩm bàn giao đúng yêu cầu tại Mục III, quy chuẩn, tiêu chuẩn áp dụng và pháp luật.",
+      ...when(
+        design,
+        "Hồ sơ thiết kế bàn giao theo thành phần, số lượng, thời hạn tại Mục III; Bên A thẩm định, phê duyệt trong số ngày tại Mục III kể từ khi nhận hồ sơ hợp lệ.",
+        "Bên B chỉ triển khai phần việc khi thiết kế liên quan đã được duyệt; Bên B chịu chi phí sửa sai sót thiết kế của mình kể cả khi Bên A đã duyệt. Bên A chịu trách nhiệm về dữ liệu do mình cung cấp.",
+      ),
+      ...when(
+        supply,
+        "Trước khi mua sắm, Bên B trình yêu cầu kỹ thuật, công nghệ, xuất xứ nếu hai bên có thỏa thuận chấp thuận trước; nếu không, tuân theo thiết kế đã duyệt.",
+        "Vật tư, thiết bị đúng danh mục tại Mục III, có chứng chỉ xuất xứ, chất lượng; loại phải kiểm định thì kiểm định trước khi dùng. Hàng không đạt bị từ chối và chuyển đi bằng chi phí của Bên B.",
+        "Bên B giao đúng số lượng, địa điểm tại Mục III, báo trước thời điểm giao, cung cấp tài liệu kỹ thuật, hướng dẫn lắp đặt, vận hành, bảo trì.",
+      ),
+      ...when(
+        build,
+        "Thi công, lắp đặt đúng thiết kế được duyệt và chỉ dẫn của nhà sản xuất; vật liệu được nghiệm thu trước khi dùng; công việc che khuất phải báo Bên A trước.",
+        ...reuse("AN TOÀN LAO ĐỘNG, BẢO VỆ MÔI TRƯỜNG VÀ PHÒNG CHÁY CHỮA CHÁY"),
+      ),
+    ]],
+    ...when<[string, string[]]>(works, ["THỬ NGHIỆM VÀ CHẠY THỬ KHI HOÀN THÀNH", [
+      "Bên B thông báo ngày sẵn sàng thử nghiệm; việc thử gồm kiểm tra tĩnh, chạy thử đơn động, liên động không tải và có tải theo tính chất thiết bị, công trình.",
+      "Công suất, tính năng phải đạt chỉ tiêu tại Mục III; không đạt thì Bên B sửa chữa và thử lại bằng chi phí của mình.",
+      "Nếu Bên B chậm thử nghiệm, Bên A được tự tổ chức với rủi ro và chi phí của Bên B. Nếu sau khi thử lại sản phẩm vẫn không đạt, ảnh hưởng cơ bản đến mục đích sử dụng, Bên A được từ chối nhận và yêu cầu bồi thường.",
+    ]]),
+    ["NGHIỆM THU CỦA BÊN A", [
+      "Bên A nghiệm thu từng phần việc, hạng mục và toàn bộ bằng biên bản; không đồng ý nghiệm thu thì trả lời bằng văn bản nêu rõ lý do.",
+      `Phần Bên A đưa vào sử dụng trước khi nghiệm thu được coi là đã tiếp nhận từ ngày sử dụng, trừ trách nhiệm ${works ? "bảo hành và " : ""}sai sót của Bên B.`,
+      ...when(works, "Biên bản nghiệm thu hoàn thành ghi rõ thời điểm bắt đầu tính bảo hành, thời gian bảo hành."),
+      "Việc nghiệm thu không miễn trách nhiệm của Bên B đối với khiếm khuyết do mình.",
+    ]],
+    ["THỜI GIAN VÀ TIẾN ĐỘ", [
+      "Ngày bắt đầu và thời hạn hoàn thành theo Mục III. Bên B lập tiến độ tổng thể và chi tiết theo từng loại công việc trình Bên A chấp thuận.",
+      ...when(supply, "Tiến độ thể hiện mốc bàn giao thiết bị chủ yếu, chủng loại và số lượng từng đợt."),
+      "Bên B được gia hạn khi Bên A yêu cầu thay đổi, chậm trễ do Bên A hoặc cơ quan nhà nước, thay đổi chính sách, bất khả kháng.",
+      "Bên B chậm tiến độ do lỗi của mình phải lập tiến độ khắc phục và chịu phạt theo hợp đồng.",
+    ]],
+    ["BẢO LÃNH THỰC HIỆN HỢP ĐỒNG VÀ TẠM ỨNG", fit(reuse("BẢO ĐẢM THỰC HIỆN VÀ BẢO LÃNH TẠM ỨNG"))],
+    ["GIÁ HỢP ĐỒNG, TẠM ỨNG VÀ THANH TOÁN", [
+      "Loại giá và giá trị hợp đồng theo Mục III, gồm chi phí trực tiếp, gián tiếp, bản quyền, thuế, phí và lợi nhuận; hợp đồng trọn gói không điều chỉnh giá, trừ khi thay đổi phạm vi hoặc trường hợp hai bên thỏa thuận.",
+      "Tạm ứng theo tỷ lệ tại Mục III, chỉ dùng cho việc thực hiện hợp đồng (kể cả đặt cọc cho nhà sản xuất nếu có), thu hồi hết khi giá trị thanh toán đạt 80% giá hợp đồng.",
+      `Thanh toán theo các đợt tại Mục III, gắn với sản phẩm được nghiệm thu${delivered ? ` của từng phần việc (${delivered})` : ""}.`,
+      // Dòng cuối (giữ lại bảo hành) chỉ áp dụng khi có phần cung cấp hoặc thi công.
+      ...reuse("GIÁ HỢP ĐỒNG, TẠM ỨNG VÀ THANH TOÁN").slice(3, works ? undefined : -1),
+    ]],
+    ["QUYỀN VÀ TRÁCH NHIỆM CỦA BÊN A", fit(reuse("QUYỀN VÀ NGHĨA VỤ CỦA BÊN A"))],
+    ["TƯ VẤN CỦA BÊN A (NẾU CÓ)", reuse("TƯ VẤN QUẢN LÝ DỰ ÁN (NẾU CÓ)")],
+    ["QUYỀN VÀ TRÁCH NHIỆM CỦA BÊN B", [
+      "Bên B chịu trách nhiệm toàn bộ công việc trong phạm vi hợp đồng và sửa chữa sai sót.",
+      "Cử người đại diện được Bên A chấp thuận; bố trí nhân sự, thiết bị đủ năng lực; báo cáo tiến độ hằng tháng; xin các giấy phép thuộc trách nhiệm của mình và nộp thuế, phí.",
+      ...when(build, "Định vị đúng mốc giới; gặp địa chất không lường trước phải báo sớm để được xem xét gia hạn, bổ sung chi phí."),
+      ...when(works, `Lập tài liệu vận hành, bảo trì${build ? " và hồ sơ hoàn công" : ""}; bản đầy đủ là điều kiện nghiệm thu.`),
+      "Được yêu cầu thanh toán đúng hạn, được cung cấp điều kiện thực hiện và từ chối yêu cầu trái pháp luật.",
+    ]],
+    ["SỬA ĐỔI HỢP ĐỒNG", [
+      "Mỗi bên được đề xuất thay đổi; Bên B chỉ thực hiện khi Bên A chấp thuận và hai bên đã ký phụ lục (Điều 84 Luật Xây dựng 2025).",
+      "Bên B được từ chối đề xuất thay đổi và nêu lý do khi không có điều kiện thực hiện, làm giảm an toàn hoặc ảnh hưởng chỉ tiêu đã bảo đảm; trong khi chờ quyết định không được trì hoãn công việc.",
+    ]],
+    ["NHÀ THẦU PHỤ", [
+      ...reuse("NHÀ THẦU PHỤ"),
+      "Bên B không được giao lại toàn bộ công việc cho nhà thầu phụ.",
+    ]],
+    ["TẠM DỪNG VÀ CHẤM DỨT BỞI BÊN A", [
+      "Bên A được tạm dừng khi Bên B không đạt yêu cầu chất lượng, tiến độ, an toàn sau khi đã được yêu cầu khắc phục.",
+      ...fit(endingFor("Bên A được chấm dứt")),
+      "Bên B giao lại toàn bộ công việc cho nhà thầu phụ không được chấp thuận cũng là căn cứ chấm dứt.",
+      ...reuse("TẠM DỪNG HỢP ĐỒNG").slice(1),
+      ...endingFor("Bên chấm dứt"),
+      ...fit(endingFor("Khi chấm dứt")),
+    ]],
+    ["TẠM DỪNG VÀ CHẤM DỨT BỞI BÊN B", [
+      "Bên B được tạm dừng khi Bên A không thanh toán đúng hạn và được gia hạn, bù chi phí phát sinh hợp lý.",
+      ...endingFor("Bên B được chấm dứt"),
+      ...endingFor("Một bên được chấm dứt"),
+      ...endingFor("Bên chấm dứt"),
+      ...endingFor("Thỏa thuận giải quyết tranh chấp"),
+    ]],
+    [works ? "BẢO HIỂM VÀ BẢO HÀNH" : "BẢO HIỂM", [
+      "Các bên mua bảo hiểm bắt buộc theo pháp luật; trách nhiệm mua: Bên A bảo hiểm công trình, Bên B bảo hiểm người lao động, thiết bị của mình và trách nhiệm với bên thứ ba, trừ thỏa thuận khác phù hợp pháp luật.",
+      ...when(build, "Công trình bảo hành theo thời gian tại Mục III; vốn khác có thể tham khảo mức tối thiểu tại Điều 32 Nghị định 207/2026/NĐ-CP."),
+      ...when(supply, "Thiết bị bảo hành theo thời gian tại Mục III, không ngắn hơn thời hạn của nhà sản xuất."),
+      ...when(works, ...reuse("BẢO HIỂM VÀ BẢO HÀNH").slice(2)),
+    ]],
+    ["TRÁCH NHIỆM ĐỐI VỚI SAI SÓT", [
+      "Bên B hoàn thành phần việc còn dở và sửa mọi sai sót do thiết bị, vật liệu, thiết kế hoặc tay nghề không đúng hợp đồng bằng chi phí của mình.",
+      "Nếu Bên B không sửa đúng thời hạn Bên A ấn định, Bên A được tự làm hoặc thuê đơn vị khác và thu chi phí, khấu trừ giá hợp đồng, hoặc thu hồi tiền đã trả cho phần mất giá trị sử dụng.",
+    ]],
+    ["THƯỞNG, PHẠT, BỒI THƯỜNG VÀ GIỚI HẠN TRÁCH NHIỆM", [
+      ...reuse("THƯỞNG VÀ PHẠT VI PHẠM"),
+      "Bên B bảo đảm sản phẩm không xâm phạm quyền sở hữu trí tuệ của bên thứ ba, trừ phần xuất phát từ thiết kế, dữ liệu do Bên A cung cấp.",
+      "Trách nhiệm bồi thường được giới hạn theo Mục III; không áp dụng giới hạn khi có gian dối, cố ý vi phạm hoặc trường hợp pháp luật không cho phép giới hạn.",
+    ]],
+    ["RỦI RO, BẤT KHẢ KHÁNG VÀ HOÀN CẢNH THAY ĐỔI CƠ BẢN", fit(reuse("RỦI RO, BẤT KHẢ KHÁNG VÀ HOÀN CẢNH THAY ĐỔI CƠ BẢN"))],
+    ["KHIẾU NẠI VÀ GIẢI QUYẾT TRANH CHẤP", [
+      ...reuse("KHIẾU NẠI VÀ GIẢI QUYẾT TRANH CHẤP"),
+      "Hai bên được thỏa thuận lập ban xử lý tranh chấp trước khi đưa ra Tòa án hoặc trọng tài; chi phí chia đôi, trừ thỏa thuận khác.",
+    ]],
+    ["QUYẾT TOÁN VÀ THANH LÝ", fit(reuse("QUYẾT TOÁN VÀ THANH LÝ"))],
+    ["HIỆU LỰC HỢP ĐỒNG", [...reuse("HIỆU LỰC HỢP ĐỒNG"), ...reuse("ĐIỀU KHOẢN CHUNG")]],
+  ];
+
+  return {
+    id: kind.id,
+    name: kind.name,
+    category: kind.id === "xd-khac" ? "Hợp đồng xây dựng khác" : "Hợp đồng kết hợp, chìa khóa trao tay",
+    summary: `${kind.summary} Công trình vốn tư nhân.`,
+    legalBasis: [BLDS, LXD, ND_HDXD, ND_CHAT_LUONG, ND_HOAT_DONG, LTM, LGDDT, NHU_CAU],
+    partyATitle: "BÊN GIAO THẦU - CHỦ ĐẦU TƯ (BÊN A)",
+    partyBTitle: "BÊN NHẬN THẦU (BÊN B)",
+    fields: [
+      // Hai bên ghi cùng bộ thông tin như mẫu thi công.
+      ...construction.fields.filter((f) => f.section !== "transaction"),
+      ...deal(
+        ["ten_cong_trinh", "Tên gói thầu, công trình, dự án (nếu có)"],
+        ["dia_diem_xay_dung", "Địa điểm xây dựng"],
+        ["dia_diem_giao_ket", "Địa điểm giao kết hợp đồng"],
+        ...when<[string, string]>(feasibility, ["nhiem_vu_du_an", "Nhiệm vụ dự án và hồ sơ đầu vào"]),
+        ["pham_vi_cong_viec", "Phạm vi, khối lượng công việc"],
+        ...when<[string, string]>(
+          design,
+          ["ho_so_ban_giao", "Hồ sơ thiết kế bàn giao (thành phần, số bộ, hạn trình)"],
+          ["so_ngay_phe_duyet", "Số ngày Bên A thẩm định, phê duyệt hồ sơ thiết kế"],
+        ),
+        ...when<[string, string]>(
+          supply,
+          ["danh_muc_thiet_bi", "Danh mục vật tư, thiết bị chính (quy cách, xuất xứ, số lượng)"],
+          ["dia_diem_ban_giao", "Địa điểm giao nhận vật tư, thiết bị"],
+          ["dao_tao_chuyen_giao", "Đào tạo, chuyển giao công nghệ (ghi \"Không áp dụng\" nếu không có)"],
+        ),
+        ...when<[string, string]>(works, ["chi_tieu_cong_nang", "Chỉ tiêu công suất, tính năng phải đạt khi chạy thử"]),
+        ...when<[string, string]>(!works && !design, ["yeu_cau_san_pham", "Sản phẩm bàn giao và tiêu chí nghiệm thu"]),
+        ["loai_gia_hop_dong", "Loại giá hợp đồng"],
+        ["gia_tri_hop_dong", "Giá trị hợp đồng (VNĐ, đã gồm thuế, phí)"],
+        ...when<[string, string]>(design || works, ["co_cau_gia", "Cơ cấu giá theo từng phần việc"]),
+        ["bao_dam_thuc_hien", "Bảo đảm thực hiện hợp đồng, bảo lãnh tạm ứng (tỷ lệ, hình thức, hạn nộp; ghi \"Không áp dụng\" nếu không có)"],
+        ["ty_le_tam_ung", "Tỷ lệ tạm ứng (%)"],
+        ["cac_dot_thanh_toan", "Các đợt thanh toán (thời điểm, tỷ lệ)"],
+        ["so_ngay_thanh_toan", "Số ngày thanh toán sau khi nhận hồ sơ hợp lệ"],
+        ...when<[string, string]>(works, ["ty_le_giu_lai_bao_hanh", "Tỷ lệ giữ lại bảo hành (%)"]),
+        ["ngay_hieu_luc", "Ngày bắt đầu thực hiện"],
+        ["thoi_han_hop_dong", "Thời hạn hoàn thành"],
+        ...when<[string, string]>(build, ["bao_hanh_cong_trinh", "Thời gian bảo hành công trình (tính từ ngày Bên A nghiệm thu)"]),
+        ...when<[string, string]>(supply, ["bao_hanh_thiet_bi", "Thời gian bảo hành thiết bị"]),
+        ["nha_thau_phu", "Nhà thầu phụ và tỷ lệ công việc giao thầu phụ (ghi \"Không có\" nếu không dùng)"],
+        ["muc_thuong", "Thưởng hoàn thành sớm (ghi \"Không áp dụng\" nếu không có)"],
+        ["muc_phat_vi_pham", "Mức phạt chậm tiến độ và vi phạm (tỷ lệ %, tối đa 8%)"],
+        ["gioi_han_trach_nhiem", "Giới hạn trách nhiệm bồi thường (ghi \"Không giới hạn\" nếu không thỏa thuận)"],
+        ["giai_quyet_tranh_chap", "Nơi giải quyết tranh chấp (Tòa án hoặc trung tâm trọng tài cụ thể)"],
+      ),
+    ],
+    clauses: numbered(specs),
+  };
+}
+
+// Xếp trước nhóm phụ lục, nghiệm thu, thanh lý.
+REFERENCE_TEMPLATES.splice(
+  REFERENCE_TEMPLATES.findIndex((t) => t.id === "xd-phu-luc"),
+  0,
+  ...COMBINED_KINDS.map(combinedTemplate),
+);
+
 /** Trường nội dung dài: nhập bằng ô nhiều dòng, in thành từng dòng dưới nhãn. */
 export const LONG_TEXT_FIELDS: ReadonlySet<string> = new Set([
   "pham_vi_cong_viec",
@@ -843,6 +1139,11 @@ export const LONG_TEXT_FIELDS: ReadonlySet<string> = new Set([
   "noi_dung_dieu_chinh",
   "khoi_luong_nghiem_thu",
   "ket_qua_nghiem_thu",
+  "nhiem_vu_du_an",
+  "danh_muc_thiet_bi",
+  "co_cau_gia",
+  "chi_tieu_cong_nang",
+  "yeu_cau_san_pham",
 ]);
 
 /** Các hình thức giá theo khoản 2 Điều 82 Luật Xây dựng 2025. */

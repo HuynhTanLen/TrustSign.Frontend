@@ -26,7 +26,16 @@ const pick = (name) => {
 const form = await load(["isStartDateField", "isDurationOrEndDateField", "isMoneyField"].map(pick).join("\n"));
 
 const templates = lib.REFERENCE_TEMPLATES;
-assert.equal(templates.length, 9);
+assert.equal(templates.length, 15);
+// Mỗi loại theo khoản 1 Điều 82 Luật Xây dựng 2025 phải có ít nhất một mẫu.
+for (const id of ["xd-tu-van-thiet-ke", "xd-thi-cong", "xd-vat-lieu", "xd-ep", "xd-ec", "xd-pc", "xd-epc", "xd-chia-khoa", "xd-khac"]) {
+  assert.ok(templates.some((t) => t.id === id), `thiếu mẫu ${id}`);
+}
+// Loại không có phần thi công không được nhắc đến việc khởi công, thi công dở dang.
+for (const id of ["xd-ep", "xd-khac"]) {
+  const text = templates.find((t) => t.id === id).clauses.map((c) => c.body).join("\n");
+  assert.ok(!/khởi công|(dừng|ngừng) thi công|nhật ký thi công|mốc giới/.test(text), `${id}: còn câu chữ của mẫu thi công`);
+}
 assert.equal(new Set(templates.map((t) => t.id)).size, templates.length, "trùng id mẫu");
 
 for (const t of templates) {
